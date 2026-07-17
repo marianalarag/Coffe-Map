@@ -4,7 +4,7 @@ import { supabase } from '../supabase';
 
 const AuthContext = createContext(null);
 
-const PROFILE_COLUMNS = 'id,username,avatar_url,role';
+const PROFILE_COLUMNS = 'id,username,avatar_url,cover_url,text_color,role';
 const PROFILE_CACHE_PREFIX = 'coffee-map:profile:';
 const PROFILE_CACHE_TTL_MS = 15 * 60 * 1000;
 

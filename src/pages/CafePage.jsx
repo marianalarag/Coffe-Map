@@ -1,9 +1,23 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Star, MapPin, ExternalLink, Coffee, Heart, CheckCircle2, Clock, Edit3, Save } from 'lucide-react';
 import PageLoading from '../components/PageLoading';
 import { useAuth } from '../context/AuthContext';
 import { useCoffeeData } from '../context/CoffeeDataContext';
+
+const MAP_TARGET_STORAGE_KEY = 'coffee-map:focus-cafe';
+
+const getOpenStreetMapUrl = (cafe) => {
+  if (cafe?.source === 'osm' && cafe.sourceUrl) {
+    return cafe.sourceUrl;
+  }
+
+  if (Number.isFinite(cafe?.lat) && Number.isFinite(cafe?.lng)) {
+    return `https://www.openstreetmap.org/?mlat=${cafe.lat}&mlon=${cafe.lng}#map=18/${cafe.lat}/${cafe.lng}`;
+  }
+
+  return cafe?.sourceUrl || cafe?.link || '';
+};
 
 function CafePage({ cafeId }) {
   const { id: routeCafeId } = useParams();
@@ -22,6 +36,7 @@ function CafePage({ cafeId }) {
 
   const cafe = cafeById.get(id) || null;
   const interaction = interactionsByCafeId.get(id);
+  const openStreetMapUrl = useMemo(() => getOpenStreetMapUrl(cafe), [cafe]);
 
   const [isVisited, setIsVisited] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
@@ -89,6 +104,19 @@ function CafePage({ cafeId }) {
     saveInteraction({ rating: rating === 0 ? null : rating, review_text: reviewText });
   };
 
+  const showInAppMap = () => {
+    if (!cafe) return;
+
+    window.sessionStorage.setItem(MAP_TARGET_STORAGE_KEY, JSON.stringify({
+      id: cafe.id,
+      nombre: cafe.nombre,
+      lat: cafe.lat,
+      lng: cafe.lng,
+    }));
+
+    navigate('/');
+  };
+
   const personalStatusItems = [
     isVisited && { label: 'Ya fui', className: 'bg-[#4B6B40]/20 text-[#8BC34A] border-[#8BC34A]/40' },
     isFavorite && { label: 'Favorita', className: 'bg-red-500/15 text-red-300 border-red-400/30' },
@@ -111,7 +139,7 @@ function CafePage({ cafeId }) {
   }
 
   return (
-    <main className="min-h-screen w-full bg-[#1D1A15] flex flex-col relative pb-10">
+    <main className="h-full w-full bg-[#1D1A15] flex flex-col relative pb-10 overflow-y-auto">
       <button onClick={() => navigate(-1)} className="fixed top-6 left-6 z-50 w-10 h-10 rounded-full bg-black/70 backdrop-blur-md hover:bg-black/80 flex items-center justify-center transition-colors shadow-lg">
         <ArrowLeft className="text-[#E6DAC1]" size={24} />
       </button>
@@ -250,14 +278,36 @@ function CafePage({ cafeId }) {
           )}
         </div>
 
-        {(cafe.sourceUrl || cafe.link) && (
-          <a href={cafe.sourceUrl || cafe.link} target="_blank" rel="noopener noreferrer"
-             className="flex items-center gap-3 p-4 rounded-2xl bg-[#372821] hover:bg-[#493A33] transition-colors text-[#E6DAC1] border border-white/5">
-            <MapPin size={24} className="shrink-0 text-blue-400" />
-            <span className="font-bold">{cafe.source === 'osm' ? 'Ver en OpenStreetMap' : 'Ver fuente del lugar'}</span>
-            <ExternalLink size={18} className="ml-auto opacity-50" />
-          </a>
-        )}
+        <div className="bg-[#27201A] rounded-4xl p-4 shadow-xl w-full border border-white/5 mb-6">
+          <div className="flex items-center justify-between px-2 pb-3">
+            <h3 className="font-bold text-[#E6DAC1] text-lg">Ubicacion</h3>
+            {openStreetMapUrl && (
+              <a
+                href={openStreetMapUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-xs font-bold text-[#E6DAC1]/70 hover:text-[#E6DAC1]"
+              >
+                Ver en OpenStreetMap
+                <ExternalLink size={14} />
+              </a>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={showInAppMap}
+            className="w-full min-h-24 rounded-3xl bg-[#372821] hover:bg-[#493A33] border border-white/10 p-4 text-left transition-colors flex items-center gap-4"
+          >
+            <span className="w-12 h-12 rounded-full bg-[#E6DAC1]/12 flex items-center justify-center shrink-0">
+              <MapPin size={25} className="text-[#E6DAC1]" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[#E6DAC1] font-black text-base">Ver en el mapa de Coffee Map</p>
+              <p className="text-[#E6DAC1]/55 text-sm mt-1 truncate">{cafe.nombre}</p>
+            </div>
+          </button>
+        </div>
       </div>
     </main>
   );

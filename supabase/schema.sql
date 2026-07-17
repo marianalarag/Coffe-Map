@@ -7,9 +7,17 @@ create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   username text not null,
   avatar_url text,
+  cover_url text,
+  text_color text not null default '#E6DAC1',
   role text not null default 'usuario',
   updated_at timestamptz not null default now()
 );
+
+alter table public.profiles add column if not exists cover_url text;
+alter table public.profiles add column if not exists text_color text not null default '#E6DAC1';
+alter table public.profiles drop constraint if exists profiles_text_color_check;
+alter table public.profiles add constraint profiles_text_color_check
+check (text_color ~ '^#[0-9A-Fa-f]{6}$');
 
 create table if not exists public.cafes (
   id text primary key,

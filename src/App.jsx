@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Search, LocateFixed, AlertCircle, CheckCircle2, MapPin, Sparkles, Coffee } from 'lucide-react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -11,6 +11,7 @@ import { supabase } from './supabase'
 const MERIDA_CENTER = { lat: 20.9753, lng: -89.6178 };
 const MAP_TILE_URL = import.meta.env.VITE_MAP_TILE_URL || 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 const MAP_TILE_ATTRIBUTION = import.meta.env.VITE_MAP_TILE_ATTRIBUTION || '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+const MAP_TARGET_STORAGE_KEY = 'coffee-map:focus-cafe';
 
 const getToastIcon = (type) => {
   switch(type) {
@@ -58,6 +59,7 @@ const getCafeMarkerHtml = ({ cafe, markerColor }) => {
 
 function App() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { logout } = useAuth();
   const { cafes, cafesLoading, cafesError, interactions, addCafes } = useCoffeeData();
   const mapRef = useRef(null)
@@ -369,6 +371,29 @@ function App() {
       }
     };
   }, [map, userLocation]);
+
+  useEffect(() => {
+    if (!map || location.pathname !== '/') return;
+
+    let target = null;
+    try {
+      target = JSON.parse(window.sessionStorage.getItem(MAP_TARGET_STORAGE_KEY) || 'null');
+    } catch {
+      target = null;
+    }
+
+    if (!target) return;
+
+    const cafe = cafes.find((currentCafe) => currentCafe.id === target.id);
+    const lat = Number(cafe?.lat ?? target.lat);
+    const lng = Number(cafe?.lng ?? target.lng);
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+    window.sessionStorage.removeItem(MAP_TARGET_STORAGE_KEY);
+    map.setView([lat, lng], 18, { animate: true });
+    showToast(`Mostrando ${cafe?.nombre || target.nombre || 'cafeteria'} en el mapa.`, 'location');
+  }, [cafes, location.pathname, map, showToast]);
 
   return (
     <main className={`isolate h-full w-full relative overflow-hidden ${(playMapReveal || mapIntroPending) ? 'bg-[#E6DAC1]' : 'bg-gray-100'}`}>
