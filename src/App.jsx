@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search, LocateFixed, AlertCircle, CheckCircle2, MapPin, Sparkles, Coffee } from 'lucide-react'
-import CafeMarker from './components/CafeMarker'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
 import BottomNav from './components/BottomNav'
 import { useAuth } from './context/AuthContext'
 import { useCoffeeData } from './context/CoffeeDataContext'
 import { supabase } from './supabase'
-import { importGoogleMapsLibrary, loadGoogleMapsApi } from './utils/googleMapsLoader'
+
+const MERIDA_CENTER = { lat: 20.9753, lng: -89.6178 };
+const MAP_TILE_URL = import.meta.env.VITE_MAP_TILE_URL || 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+const MAP_TILE_ATTRIBUTION = import.meta.env.VITE_MAP_TILE_ATTRIBUTION || '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
 const getToastIcon = (type) => {
   switch(type) {
@@ -18,14 +22,49 @@ const getToastIcon = (type) => {
   }
 };
 
+const escapeHtml = (value) => String(value ?? '')
+  .replaceAll('&', '&amp;')
+  .replaceAll('<', '&lt;')
+  .replaceAll('>', '&gt;')
+  .replaceAll('"', '&quot;')
+  .replaceAll("'", '&#039;');
+
+const getSafeImageStyle = (imageUrl) => {
+  if (!imageUrl || !/^https?:\/\//i.test(imageUrl)) {
+    return '';
+  }
+
+  return `background-image: url('${String(imageUrl).replaceAll("'", '%27')}');`;
+};
+
+const getCafeMarkerHtml = ({ cafe, markerColor }) => {
+  const imageStyle = getSafeImageStyle(cafe.imageUrl);
+  const previewClassName = imageStyle
+    ? 'coffee-map-leaflet-preview coffee-map-leaflet-preview--image'
+    : 'coffee-map-leaflet-preview';
+
+  return `
+    <span class="coffee-map-leaflet-shell">
+      <span class="coffee-map-leaflet-pin" style="--marker-color: ${markerColor}">
+        <span class="coffee-map-leaflet-dot"></span>
+      </span>
+      <span class="${previewClassName}" style="--marker-color: ${markerColor}; ${imageStyle}">
+        <span class="coffee-map-leaflet-preview-overlay"></span>
+        <span class="coffee-map-leaflet-preview-name">${escapeHtml(cafe.nombre)}</span>
+      </span>
+    </span>
+  `;
+};
+
 function App() {
   const navigate = useNavigate();
   const { logout } = useAuth();
   const { cafes, cafesLoading, cafesError, interactions, addCafes } = useCoffeeData();
   const mapRef = useRef(null)
+  const markerLayerRef = useRef(null)
+  const userMarkerRef = useRef(null)
   const scanCacheRef = useRef(new Set())
   const [map, setMap] = useState(null)
-  const [markerLib, setMarkerLib] = useState(null)
   const [mapLoading, setMapLoading] = useState(true)
   const [scanning, setScanning] = useState(false)
   const [notifications, setNotifications] = useState([])
@@ -87,8 +126,7 @@ function App() {
           };
           
           setUserLocation(pos);
-          map.panTo(pos);
-          map.setZoom(15);
+          map.setView([pos.lat, pos.lng], 15, { animate: true });
           setLocating(false);
         },
         (error) => {
@@ -110,8 +148,8 @@ function App() {
 
     try {
       const currentCenter = map.getCenter();
-      const lat = currentCenter.lat();
-      const lng = currentCenter.lng();
+      const lat = currentCenter.lat;
+      const lng = currentCenter.lng;
       const scanKey = `${lat.toFixed(3)}:${lng.toFixed(3)}`;
 
       if (scanCacheRef.current.has(scanKey)) {
@@ -215,38 +253,35 @@ function App() {
 
   useEffect(() => {
     let isCancelled = false;
+    let leafletMap = null;
 
-    const initMap = async () => {
+    const initMap = () => {
       setMapLoading(true);
 
       try {
-        const [{ Map }, { AdvancedMarkerElement }] = await Promise.all([
-          importGoogleMapsLibrary('maps'),
-          importGoogleMapsLibrary('marker'),
-        ]);
-
         if (isCancelled || !mapRef.current) return;
 
-        const mapInstance = new Map(mapRef.current, {
-          center: { lat: 20.9753, lng: -89.6178 },
+        leafletMap = L.map(mapRef.current, {
+          center: [MERIDA_CENTER.lat, MERIDA_CENTER.lng],
           zoom: 14,
-          mapId: '383293d592cd3fce17f51410',
-          disableDefaultUI: true,
-          mapTypeControl: false,
-          fullscreenControl: false,
-          streetViewControl: false,
-          rotateControl: false,
-          cameraControl: false,
+          zoomControl: false,
+          attributionControl: true,
         });
 
+        L.tileLayer(MAP_TILE_URL, {
+          attribution: MAP_TILE_ATTRIBUTION,
+          maxZoom: 19,
+        }).addTo(leafletMap);
+
+        markerLayerRef.current = L.layerGroup().addTo(leafletMap);
+
         if (!isCancelled) {
-          setMap(mapInstance);
-          setMarkerLib({ AdvancedMarkerElement });
+          setMap(leafletMap);
         }
       } catch (error) {
         if (isCancelled) return;
         console.error(error);
-        showToast('No se pudo cargar el mapa.', 'error');
+        showToast('No se pudo cargar el mapa de Merida.', 'error');
       } finally {
         if (!isCancelled) {
           setMapLoading(false);
@@ -254,17 +289,18 @@ function App() {
       }
     };
 
-    loadGoogleMapsApi()
-      .then(initMap)
-      .catch((error) => {
-        if (isCancelled) return;
-        console.error(error);
-        setMapLoading(false);
-        showToast(error.message || 'No se pudo cargar Google Maps.', 'error');
-      });
+    initMap();
 
     return () => {
       isCancelled = true;
+      if (markerLayerRef.current) {
+        markerLayerRef.current.remove();
+        markerLayerRef.current = null;
+      }
+      if (leafletMap) {
+        leafletMap.remove();
+      }
+      setMap(null);
     };
   }, [showToast]);
 
@@ -281,8 +317,61 @@ function App() {
     return () => window.cancelAnimationFrame(frameId);
   }, [mapIntroPending, showInitialLoading]);
 
+  useEffect(() => {
+    if (!map || !markerLayerRef.current) return;
+
+    markerLayerRef.current.clearLayers();
+
+    cafes.forEach((cafe) => {
+      const isVisited = visitedCafeIds.has(cafe.id);
+      const markerColor = isVisited ? '#B39978' : '#4B2C20';
+      const marker = L.marker([cafe.lat, cafe.lng], {
+        title: cafe.nombre,
+        icon: L.divIcon({
+          className: 'coffee-map-leaflet-marker',
+          html: getCafeMarkerHtml({ cafe, markerColor }),
+          iconSize: [28, 36],
+          iconAnchor: [14, 34],
+        }),
+      });
+
+      marker.on('click', () => navigate(`/cafe/${cafe.id}`));
+      marker.addTo(markerLayerRef.current);
+    });
+  }, [cafes, map, navigate, visitedCafeIds]);
+
+  useEffect(() => {
+    if (!map || !userLocation) return;
+
+    if (userMarkerRef.current) {
+      userMarkerRef.current.remove();
+      userMarkerRef.current = null;
+    }
+
+    userMarkerRef.current = L.marker([userLocation.lat, userLocation.lng], {
+      title: 'Tu ubicacion',
+      icon: L.divIcon({
+        className: 'coffee-map-leaflet-marker',
+        html: `
+          <span class="coffee-map-leaflet-pin coffee-map-leaflet-pin--user">
+            <span class="coffee-map-leaflet-dot"></span>
+          </span>
+        `,
+        iconSize: [28, 36],
+        iconAnchor: [14, 34],
+      }),
+    }).addTo(map);
+
+    return () => {
+      if (userMarkerRef.current) {
+        userMarkerRef.current.remove();
+        userMarkerRef.current = null;
+      }
+    };
+  }, [map, userLocation]);
+
   return (
-    <main className={`h-full w-full relative overflow-hidden ${(playMapReveal || mapIntroPending) ? 'bg-[#E6DAC1]' : 'bg-gray-100'}`}>
+    <main className={`isolate h-full w-full relative overflow-hidden ${(playMapReveal || mapIntroPending) ? 'bg-[#E6DAC1]' : 'bg-gray-100'}`}>
       <style>{`
         @keyframes slideIn {
           0% { transform: translateX(120%); opacity: 0; }
@@ -298,9 +387,100 @@ function App() {
         .animate-cream-curtain-reveal {
           animation: creamCurtainReveal 780ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
         }
+        .leaflet-container {
+          background: #E6DAC1;
+          font-family: inherit;
+        }
+        .coffee-map-leaflet-marker {
+          background: transparent;
+          border: 0;
+          overflow: visible !important;
+        }
+        .coffee-map-leaflet-shell {
+          position: relative;
+          display: block;
+          width: 28px;
+          height: 36px;
+        }
+        .coffee-map-leaflet-pin {
+          --marker-color: #4B2C20;
+          position: absolute;
+          left: 3px;
+          bottom: 5px;
+          display: block;
+          width: 22px;
+          height: 22px;
+          border-radius: 12px 12px 12px 2px;
+          background: var(--marker-color);
+          border: 2px solid var(--marker-color);
+          box-shadow: 0 5px 12px rgba(0, 0, 0, 0.35);
+          transform: rotate(-45deg);
+          z-index: 2;
+          transition: transform 220ms ease, box-shadow 220ms ease;
+        }
+        .coffee-map-leaflet-pin--user {
+          --marker-color: #3B82F6;
+        }
+        .coffee-map-leaflet-dot {
+          position: absolute;
+          left: 50%;
+          top: 50%;
+          width: 6px;
+          height: 6px;
+          border-radius: 999px;
+          background: #fff;
+          transform: translate(-50%, -50%);
+        }
+        .coffee-map-leaflet-preview {
+          position: absolute;
+          left: 50%;
+          bottom: 38px;
+          width: 150px;
+          min-height: 74px;
+          border-radius: 12px;
+          border: 2px solid var(--marker-color);
+          background: var(--marker-color);
+          box-shadow: 0 12px 24px rgba(0, 0, 0, 0.34);
+          opacity: 0;
+          pointer-events: none;
+          overflow: hidden;
+          transform: translate(-50%, 8px) scale(0.82);
+          transform-origin: bottom center;
+          transition: opacity 220ms ease, transform 220ms ease;
+          z-index: 3;
+        }
+        .coffee-map-leaflet-preview--image {
+          background-size: cover;
+          background-position: center;
+        }
+        .coffee-map-leaflet-preview-overlay {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(to top, rgba(0, 0, 0, 0.74), rgba(0, 0, 0, 0.14));
+        }
+        .coffee-map-leaflet-preview-name {
+          position: absolute;
+          left: 10px;
+          right: 10px;
+          bottom: 8px;
+          color: white;
+          font-size: 12px;
+          font-weight: 800;
+          line-height: 1.15;
+          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+          text-transform: uppercase;
+        }
+        .coffee-map-leaflet-shell:hover .coffee-map-leaflet-pin {
+          transform: rotate(-45deg) scale(1.08);
+          box-shadow: 0 8px 18px rgba(0, 0, 0, 0.4);
+        }
+        .coffee-map-leaflet-shell:hover .coffee-map-leaflet-preview {
+          opacity: 1;
+          transform: translate(-50%, 0) scale(1);
+        }
       `}</style>
 
-      <div className="absolute top-6 right-6 z-50 flex flex-col gap-3 pointer-events-none">
+      <div className="absolute top-6 right-6 z-[1100] flex flex-col gap-3 pointer-events-none">
         {notifications.map((n) => (
           <div key={n.id} className="bg-black/85 backdrop-blur-md text-white px-5 py-3 rounded-2xl shadow-2xl border border-white/10 flex items-center gap-3 animate-slide-in pointer-events-auto min-w-70">
             {getToastIcon(n.type)}
@@ -312,7 +492,7 @@ function App() {
       {/* Barra de bÃºsqueda estilo input en la parte superior central */}
       <div 
         onClick={() => navigate('/search')}
-        className="absolute top-8 left-1/2 -translate-x-1/2 z-40 w-[85%] max-w-md h-10 rounded-full bg-[#372821]/95 flex items-center px-5 cursor-pointer hover:bg-white transition-all active:scale-[0.98]"
+        className="absolute top-8 left-1/2 -translate-x-1/2 z-[1000] w-[85%] max-w-md h-10 rounded-full bg-[#372821]/95 flex items-center px-5 cursor-pointer hover:bg-white transition-all active:scale-[0.98]"
       >
         <Search className="text-white mr-3" size={22} />
       </div>
@@ -321,7 +501,7 @@ function App() {
       <button 
         onClick={locateUser}
         disabled={locating || !map}
-        className="absolute bottom-28 right-6 z-30 w-10 h-10 rounded-full bg-white hover:bg-gray-50 shadow-[0_4px_12px_rgba(0,0,0,0.2)] border border-gray-200 transition-all active:scale-95 flex items-center justify-center disabled:opacity-60"
+        className="absolute bottom-28 right-6 z-[1000] w-10 h-10 rounded-full bg-white hover:bg-gray-50 shadow-[0_4px_12px_rgba(0,0,0,0.2)] border border-gray-200 transition-all active:scale-95 flex items-center justify-center disabled:opacity-60"
       >
         {locating ? (
           <div className="w-6 h-6 border-3 border-[#372821] border-t-transparent rounded-full animate-spin"></div>
@@ -367,7 +547,7 @@ function App() {
         </div>
       </div>
 
-      <div className="absolute inset-0">
+      <div className="absolute inset-0 z-0">
         <div id="map" ref={mapRef} className="h-full w-full" />
 
         {/*Este elemento es para pruebas y desarrollo, no forma parte de la UI final, pero tampoco debe ser eliminado o modificado */}
@@ -391,30 +571,6 @@ function App() {
         />
       )}
 
-      {map && markerLib && cafes.map((cafe) => (
-        <CafeMarker
-          key={cafe.id}
-          map={map}
-          markerLib={markerLib}
-          position={cafe.pos}
-          title={cafe.nombre}
-          imageUrl={cafe.imageUrl}
-          link={cafe.link}
-          markerColor={visitedCafeIds.has(cafe.id) ? '#B39978' : undefined}
-          onClick={() => navigate(`/cafe/${cafe.id}`)}
-        />
-      ))}
-
-      {map && markerLib && userLocation && (
-        <CafeMarker
-          key="user-location"
-          map={map}
-          markerLib={markerLib}
-          position={userLocation}
-          title="Tu ubicacion"
-          markerColor="#3B82F6"
-        />
-      )}
     </main>
   );
 }

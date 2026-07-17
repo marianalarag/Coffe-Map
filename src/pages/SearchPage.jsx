@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Search, Coffee, Star, X } from 'lucide-react';
+import { ArrowLeft, Search, Coffee, CheckCircle2, Clock, Heart, X } from 'lucide-react';
 import PageLoading from '../components/PageLoading';
 import { useCoffeeData } from '../context/CoffeeDataContext';
 
@@ -18,9 +18,41 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
   return radiusKm * c;
 };
 
+const getCafeStatus = (interaction) => {
+  if (interaction?.is_visited) {
+    return {
+      label: 'Ya fui',
+      icon: CheckCircle2,
+      className: 'bg-[#4B6B40]/20 text-[#8BC34A] border-[#8BC34A]/30',
+    };
+  }
+
+  if (interaction?.is_favorite) {
+    return {
+      label: 'Favorita',
+      icon: Heart,
+      className: 'bg-red-500/15 text-red-300 border-red-400/25',
+    };
+  }
+
+  if (interaction?.in_waitlist) {
+    return {
+      label: 'Ir luego',
+      icon: Clock,
+      className: 'bg-blue-500/15 text-blue-300 border-blue-400/25',
+    };
+  }
+
+  return {
+    label: 'Por visitar',
+    icon: Coffee,
+    className: 'bg-[#372821] text-[#E6DAC1]/55 border-white/5',
+  };
+};
+
 function SearchPage() {
   const navigate = useNavigate();
-  const { cafes, cafesLoading, cafesLoaded, loadCafes } = useCoffeeData();
+  const { cafes, cafesLoading, cafesLoaded, loadCafes, interactionsByCafeId } = useCoffeeData();
   const [searchQuery, setSearchQuery] = useState('');
   const [userLocation, setUserLocation] = useState(null);
   const [locationResolved, setLocationResolved] = useState(() => !navigator.geolocation);
@@ -132,37 +164,43 @@ function SearchPage() {
           <div className="text-center py-10 text-red-300">{loadError}</div>
         ) : displayedCafes.length > 0 ? (
           <div className="flex flex-col gap-6">
-            {displayedCafes.map((cafe) => (
-              <button
-                key={cafe.id}
-                type="button"
-                onClick={() => navigate(`/cafe/${cafe.id}`)}
-                className="min-h-25 bg-[#493A33] rounded-3xl shadow-sm flex gap-4 items-center text-left cursor-pointer hover:bg-[#5A463C] transition-colors active:scale-[0.98]"
-              >
-                {cafe.imageUrl ? (
-                  <img src={cafe.imageUrl} alt={cafe.nombre} className="min-w-25 max-w-25 h-25 rounded-3xl -ml-4 object-cover bg-[#372821]" />
-                ) : (
-                  <div className="min-w-25 max-w-25 h-25 rounded-3xl -ml-4 bg-[#372821] flex items-center justify-center">
-                    <Coffee className="text-[#E6DAC1]/50" size={28} />
-                  </div>
-                )}
-                <div className="flex-1 pr-4 min-w-0">
-                  <h3 className="font-lancelot text-xl text-[#E6DAC1] uppercase tracking-wide truncate">{cafe.nombre}</h3>
-                  <div className="flex items-center gap-1 mt-1">
-                    <Star className="text-yellow-500 fill-yellow-500" size={14} />
-                    <span className="text-sm font-medium text-[#E6DAC1]/60">{cafe.rating || 'N/A'}</span>
-                    <span className="text-xs text-[#E6DAC1]/35">({cafe.reviews || 0})</span>
-                    {typeof cafe.distance === 'number' && (
-                      <span className="text-xs text-[#E6DAC1]/45 ml-auto">
-                        {cafe.distance < 1
-                          ? `${Math.round(cafe.distance * 1000)}m`
-                          : `${cafe.distance.toFixed(1)}km`}
+            {displayedCafes.map((cafe) => {
+              const status = getCafeStatus(interactionsByCafeId.get(cafe.id));
+              const StatusIcon = status.icon;
+
+              return (
+                <button
+                  key={cafe.id}
+                  type="button"
+                  onClick={() => navigate(`/cafe/${cafe.id}`)}
+                  className="min-h-25 bg-[#493A33] rounded-3xl shadow-sm flex gap-4 items-center text-left cursor-pointer hover:bg-[#5A463C] transition-colors active:scale-[0.98]"
+                >
+                  {cafe.imageUrl ? (
+                    <img src={cafe.imageUrl} alt={cafe.nombre} className="min-w-25 max-w-25 h-25 rounded-3xl -ml-4 object-cover bg-[#372821]" />
+                  ) : (
+                    <div className="min-w-25 max-w-25 h-25 rounded-3xl -ml-4 bg-[#372821] flex items-center justify-center">
+                      <Coffee className="text-[#E6DAC1]/50" size={28} />
+                    </div>
+                  )}
+                  <div className="flex-1 pr-4 min-w-0">
+                    <h3 className="font-lancelot text-xl text-[#E6DAC1] uppercase tracking-wide truncate">{cafe.nombre}</h3>
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold ${status.className}`}>
+                        <StatusIcon size={14} className={status.label === 'Favorita' ? 'fill-current' : ''} />
+                        {status.label}
                       </span>
-                    )}
+                      {typeof cafe.distance === 'number' && (
+                        <span className="text-xs text-[#E6DAC1]/45 ml-auto">
+                          {cafe.distance < 1
+                            ? `${Math.round(cafe.distance * 1000)}m`
+                            : `${cafe.distance.toFixed(1)}km`}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </button>
-            ))}
+                </button>
+              );
+            })}
           </div>
         ) : (
           <div className="text-center py-10 text-[#E6DAC1]/45">

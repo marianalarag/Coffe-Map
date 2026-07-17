@@ -65,7 +65,13 @@ function LoginPage() {
           setError('Ingresa un nombre de usuario.');
           return;
         }
-        await register(email.trim(), password, username);
+        const { session } = await register(email.trim(), password, username);
+
+        if (!session) {
+          setResetMessage(
+            'Cuenta creada. Revisa tu correo, confirma la cuenta y después inicia sesión.',
+          );
+        }
       } else {
         const { data } = await login(email.trim(), password);
         const buttonRect = enterButtonRef.current?.getBoundingClientRect();
@@ -87,12 +93,17 @@ function LoginPage() {
           importGoogleMapsLibrary('maps'),
         ]);
       }
-    } catch {
-      setError(
-        isRegisterMode
+    } catch (authError) {
+      console.error('Error de autenticación:', authError);
+
+      const isUnauthorized = authError?.status === 401 || authError?.message?.toLowerCase().includes('api key');
+      const fallbackMessage = isUnauthorized
+        ? 'Supabase rechazó la API key. Revisa VITE_SUPABASE_URL y VITE_SUPABASE_PUBLISHABLE_KEY en Vercel y vuelve a desplegar.'
+        : isRegisterMode
           ? 'No se pudo crear la cuenta. Verifica el correo o usa una contraseña más segura.'
-          : 'No se pudo iniciar sesión. Revisa correo y contraseña.'
-      );
+          : 'No se pudo iniciar sesión. Revisa correo y contraseña.';
+
+      setError(authError?.message || fallbackMessage);
     } finally {
       setSubmitting(false);
     }
@@ -322,6 +333,9 @@ function LoginPage() {
                   </label>
 
                   {error && isRegisterMode && <p className="text-sm text-red-300">{error}</p>}
+                  {resetMessage && isRegisterMode && (
+                    <p className="text-sm text-green-300">{resetMessage}</p>
+                  )}
 
                   <button
                     type="submit"

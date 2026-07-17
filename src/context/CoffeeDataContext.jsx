@@ -7,7 +7,8 @@ const CoffeeDataContext = createContext(null);
 
 const CAFES_CACHE_KEY = 'coffee-map:cafes:v1';
 const CAFES_CACHE_TTL_MS = 15 * 60 * 1000;
-const CAFE_COLUMNS = 'id,nombre,lat,lng,rating,reviews,link,image_url';
+const VISIBLE_CAFE_SOURCES = ['manual', 'community', 'osm', 'overture'];
+const CAFE_COLUMNS = 'id,nombre,lat,lng,rating,reviews,link,image_url,source,source_id,source_url';
 const INTERACTION_COLUMNS = 'id,user_id,cafe_id,is_visited,is_favorite,in_waitlist,rating,review_text,updated_at';
 
 const normalizeCafe = (cafe) => ({
@@ -16,6 +17,9 @@ const normalizeCafe = (cafe) => ({
   lng: Number(cafe.lng),
   pos: { lat: Number(cafe.lat), lng: Number(cafe.lng) },
   imageUrl: cafe.image_url || cafe.imageUrl || null,
+  source: cafe.source || 'manual',
+  sourceId: cafe.source_id || cafe.sourceId || null,
+  sourceUrl: cafe.source_url || cafe.sourceUrl || null,
 });
 
 const readCachedCafes = () => {
@@ -88,6 +92,7 @@ export function CoffeeDataProvider({ children }) {
         const { data, error } = await supabase
           .from('cafes')
           .select(CAFE_COLUMNS)
+          .in('source', VISIBLE_CAFE_SOURCES)
           .order('nombre', { ascending: true });
 
         if (error) throw error;

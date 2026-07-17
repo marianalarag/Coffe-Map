@@ -89,6 +89,12 @@ function CafePage({ cafeId }) {
     saveInteraction({ rating: rating === 0 ? null : rating, review_text: reviewText });
   };
 
+  const personalStatusItems = [
+    isVisited && { label: 'Ya fui', className: 'bg-[#4B6B40]/20 text-[#8BC34A] border-[#8BC34A]/40' },
+    isFavorite && { label: 'Favorita', className: 'bg-red-500/15 text-red-300 border-red-400/30' },
+    inWaitlist && { label: 'Ir luego', className: 'bg-blue-500/15 text-blue-300 border-blue-400/30' },
+  ].filter(Boolean);
+
   if ((cafesLoading && !cafesLoaded) || (interactionsLoading && !interaction)) {
     return <PageLoading message="Cargando cafeteria..." />;
   }
@@ -127,14 +133,16 @@ function CafePage({ cafeId }) {
             {cafe.nombre}
           </h1>
 
-          <div className="flex items-center gap-4 mt-2 mb-4 w-fit">
+          <div className="flex flex-wrap items-center gap-2 mt-2 mb-4">
             <div className="flex items-center gap-1 bg-[#372821] px-3 py-1.5 rounded-full">
-              <Star className="text-yellow-500 fill-yellow-500" size={16} />
-              <span className="font-bold text-[#E6DAC1]">{cafe.rating || 'N/A'}</span>
+              <Star className={rating > 0 ? 'text-yellow-500 fill-yellow-500' : 'text-[#E6DAC1]/35'} size={16} />
+              <span className="font-bold text-[#E6DAC1]">{rating > 0 ? rating : 'Sin calificar'}</span>
             </div>
-            <span className="text-[#E6DAC1]/50 text-sm font-medium">
-              {cafe.reviews || 0} reseñas globales
-            </span>
+            {personalStatusItems.map((item) => (
+              <span key={item.label} className={`border px-3 py-1.5 rounded-full text-sm font-bold ${item.className}`}>
+                {item.label}
+              </span>
+            ))}
           </div>
 
           <div className="grid grid-cols-3 gap-3">
@@ -242,11 +250,11 @@ function CafePage({ cafeId }) {
           )}
         </div>
 
-        {cafe.link && (
-          <a href={cafe.link} target="_blank" rel="noopener noreferrer"
+        {(cafe.sourceUrl || cafe.link) && (
+          <a href={cafe.sourceUrl || cafe.link} target="_blank" rel="noopener noreferrer"
              className="flex items-center gap-3 p-4 rounded-2xl bg-[#372821] hover:bg-[#493A33] transition-colors text-[#E6DAC1] border border-white/5">
             <MapPin size={24} className="shrink-0 text-blue-400" />
-            <span className="font-bold">Ver en Google Maps</span>
+            <span className="font-bold">{cafe.source === 'osm' ? 'Ver en OpenStreetMap' : 'Ver fuente del lugar'}</span>
             <ExternalLink size={18} className="ml-auto opacity-50" />
           </a>
         )}

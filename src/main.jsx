@@ -9,6 +9,8 @@ import CachedProtectedRoutes from './components/CachedProtectedRoutes'
 import LoginPage from './pages/LoginPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 import { registerSW } from 'virtual:pwa-register'
+import ConfigErrorPage from './components/ConfigErrorPage'
+import { supabaseConfig } from './supabase'
 
 // Registrar el Service Worker para la PWA
 const updateSW = registerSW({
@@ -24,23 +26,30 @@ const updateSW = registerSW({
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <AuthProvider>
-      <CoffeeDataProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/reset-password" element={<ResetPasswordPage />} />
-            <Route
-              path="/*"
-              element={
-                <ProtectedRoute>
-                  <CachedProtectedRoutes />
-                </ProtectedRoute>
-              }
-            />
-          </Routes>
-        </BrowserRouter>
-      </CoffeeDataProvider>
-    </AuthProvider>
+    {supabaseConfig.hasSupabaseConfig ? (
+      <AuthProvider>
+        <CoffeeDataProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
+              <Route
+                path="/*"
+                element={
+                  <ProtectedRoute>
+                    <CachedProtectedRoutes />
+                  </ProtectedRoute>
+                }
+              />
+            </Routes>
+          </BrowserRouter>
+        </CoffeeDataProvider>
+      </AuthProvider>
+    ) : (
+      <ConfigErrorPage
+        hasSupabaseUrl={supabaseConfig.hasSupabaseUrl}
+        hasSupabaseKey={supabaseConfig.hasSupabaseKey}
+      />
+    )}
   </StrictMode>,
 )

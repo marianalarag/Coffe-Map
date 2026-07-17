@@ -78,7 +78,8 @@ function ProfilePage() {
 
       const file = event.target.files[0];
       const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}-${Math.random()}.${fileExt}`;
+      const fileId = window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`;
+      const fileName = `${user.id}/${fileId}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from('avatars')

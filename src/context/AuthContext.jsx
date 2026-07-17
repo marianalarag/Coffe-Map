@@ -101,7 +101,7 @@ export function AuthProvider({ children }) {
       return;
     }
 
-    await fetchProfile(currentUser.id);
+    await fetchProfile(currentUser.id, { force: true });
     setLoading(false);
   }, [fetchProfile]);
 
@@ -157,6 +157,7 @@ export function AuthProvider({ children }) {
           email,
           password,
           options: {
+            emailRedirectTo: window.location.origin,
             data: {
               username: trimmedUsername,
             },
@@ -174,7 +175,7 @@ export function AuthProvider({ children }) {
 
           const { error: profileError } = await supabase
             .from('profiles')
-            .insert([profile]);
+            .upsert(profile, { onConflict: 'id' });
 
           if (!profileError) {
             setUserProfile(profile);
