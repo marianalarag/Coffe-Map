@@ -165,26 +165,6 @@ export function AuthProvider({ children }) {
         });
         if (error) throw error;
 
-        if (data?.user) {
-          const profile = {
-            id: data.user.id,
-            username: trimmedUsername,
-            avatar_url: `https://api.dicebear.com/7.x/miniavs/svg?seed=${encodeURIComponent(trimmedUsername)}`,
-            role: 'usuario',
-          };
-
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .upsert(profile, { onConflict: 'id' });
-
-          if (!profileError) {
-            setUserProfile(profile);
-            writeCachedProfile(profile);
-          } else {
-            console.error('Error al crear perfil en DB:', profileError);
-          }
-        }
-
         return data;
       },
       logout: async () => {

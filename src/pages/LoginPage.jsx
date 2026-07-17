@@ -3,7 +3,6 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCoffeeData } from '../context/CoffeeDataContext';
 import PageLoading from '../components/PageLoading';
-import { importGoogleMapsLibrary } from '../utils/googleMapsLoader';
 
 function LoginPage() {
   const { user, loading, login, register, resetPassword } = useAuth();
@@ -73,7 +72,7 @@ function LoginPage() {
           );
         }
       } else {
-        const { data } = await login(email.trim(), password);
+        const data = await login(email.trim(), password);
         const buttonRect = enterButtonRef.current?.getBoundingClientRect();
         const originX = buttonRect ? buttonRect.left + buttonRect.width / 2 : window.innerWidth / 2;
         const originY = buttonRect ? buttonRect.top + buttonRect.height / 2 : window.innerHeight / 2;
@@ -90,7 +89,6 @@ function LoginPage() {
 
         Promise.allSettled([
           preloadInitialData(data.user.id),
-          importGoogleMapsLibrary('maps'),
         ]);
       }
     } catch (authError) {
