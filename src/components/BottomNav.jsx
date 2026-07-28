@@ -1,11 +1,13 @@
 import { createElement } from 'react';
-import { User, House, Bookmark } from 'lucide-react';
+import { UserRound, House, Map, Plus, Zap } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 const navItems = [
-  { label: 'Guardados', path: '/search', icon: Bookmark },
-  { label: 'Mapa', path: '/', icon: House },
-  { label: 'Perfil', path: '/profile', icon: User },
+  { label: 'Inicio', path: '/', icon: House },
+  { label: 'Mapa', path: '/map', icon: Map },
+  { label: 'Nueva publicación', path: '/new-post', icon: Plus },
+  { label: 'Actividad', path: '/activity', icon: Zap },
+  { label: 'Perfil', path: '/profile', icon: UserRound },
 ];
 
 function BottomNav() {
@@ -13,9 +15,9 @@ function BottomNav() {
   const location = useLocation();
 
   return (
-    <div className="absolute bottom-0 left-1/2 -translate-x-1/2 z-[1000] w-full max-w-sm h-16 bg-[#27201A] flex items-center justify-around px-2 border-2 border-[#27201A]">
-      {navItems.map(({ label, path, icon }) => {
-        const isActive = location.pathname === path;
+    <nav className="bottom-nav" aria-label="Navegación principal">
+      {navItems.map(({ label, path, icon, featured }) => {
+        const isActive = !featured && location.pathname === path;
 
         return (
           <button
@@ -23,16 +25,14 @@ function BottomNav() {
             type="button"
             aria-label={label}
             aria-current={isActive ? 'page' : undefined}
-            onClick={() => !isActive && navigate(path)}
-            className={`h-12 flex-1 mx-1 rounded-2xl transition-colors active:scale-95 flex items-center justify-center ${
-              isActive ? 'bg-[#3B3028]' : 'hover:bg-[#342A23]'
-            }`}
+            onClick={() => (featured || !isActive) && navigate(path)}
+            className={`bottom-nav-item ${isActive ? 'is-active' : ''} ${featured ? 'is-featured' : ''}`}
           >
-            {createElement(icon, { className: 'text-[#E6DAC1]', size: 25 })}
+            {createElement(icon, { size: featured ? 24 : 21, strokeWidth: featured ? 2.2 : 2 })}
           </button>
         );
       })}
-    </div>
+    </nav>
   );
 }
 

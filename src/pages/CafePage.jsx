@@ -114,7 +114,7 @@ function CafePage({ cafeId }) {
       lng: cafe.lng,
     }));
 
-    navigate('/');
+    navigate('/map');
   };
 
   const personalStatusItems = [
@@ -131,7 +131,7 @@ function CafePage({ cafeId }) {
     return (
       <main className="h-screen w-full bg-[#1D1A15] flex flex-col items-center justify-center p-4">
         <p className="text-xl text-[#E6DAC1]/60 mb-4">Cafeteria no encontrada</p>
-        <button onClick={() => navigate('/')} className="bg-[#372821] text-[#E6DAC1] px-6 py-3 rounded-full font-bold hover:bg-[#493A33] transition-colors">
+        <button onClick={() => navigate('/map')} className="bg-[#372821] text-[#E6DAC1] px-6 py-3 rounded-full font-bold hover:bg-[#493A33] transition-colors">
           Volver al mapa
         </button>
       </main>

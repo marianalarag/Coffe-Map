@@ -1,6 +1,9 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useLayoutEffect, useMemo, useRef } from 'react';
 import App from '../App.jsx';
+import HomePage from '../pages/HomePage.jsx';
+import NewPostPage from '../pages/NewPostPage.jsx';
+import ActivityPage from '../pages/ActivityPage.jsx';
 import SearchPage from '../pages/SearchPage.jsx';
 import CafePage from '../pages/CafePage.jsx';
 import ProfilePage from '../pages/ProfilePage.jsx';
@@ -12,11 +15,23 @@ const routeCacheByUser = new Map();
 
 const getRouteEntry = (pathname) => {
   if (pathname === '/') {
+    return { key: 'home', type: 'home' };
+  }
+
+  if (pathname === '/map') {
     return { key: 'map', type: 'map' };
   }
 
   if (pathname === '/search') {
     return { key: 'search', type: 'search' };
+  }
+
+  if (pathname === '/new-post') {
+    return { key: 'new-post', type: 'new-post' };
+  }
+
+  if (pathname === '/activity') {
+    return { key: 'activity', type: 'activity' };
   }
 
   if (pathname === '/profile') {
@@ -41,10 +56,16 @@ const getRouteEntry = (pathname) => {
 
 const renderRoute = (entry) => {
   switch (entry.type) {
+    case 'home':
+      return <HomePage />;
     case 'map':
       return <App />;
     case 'search':
       return <SearchPage />;
+    case 'new-post':
+      return <NewPostPage />;
+    case 'activity':
+      return <ActivityPage />;
     case 'profile':
       return <ProfilePage />;
     case 'admin':

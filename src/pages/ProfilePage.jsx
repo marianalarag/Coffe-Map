@@ -11,6 +11,7 @@ import {
   ListPlus,
   Loader2,
   LogOut,
+  MapPin,
   Plus,
   Settings,
   Share2,
@@ -18,7 +19,6 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCoffeeData } from '../context/CoffeeDataContext';
-import BottomNav from '../components/BottomNav';
 import PageLoading from '../components/PageLoading';
 import { supabase } from '../supabase';
 
@@ -48,6 +48,7 @@ function ProfilePage() {
   const { user, userProfile, logout, updateCachedProfile } = useAuth();
   const {
     cafeById,
+    cafes,
     cafesLoaded,
     cafesLoading,
     loadCafes,
@@ -113,6 +114,9 @@ function ProfilePage() {
   }, [cafeById, interactions]);
 
   const topVisitedPlaces = visitedPlaces.slice(0, 5);
+  const recentCafes = topVisitedPlaces.length > 0
+    ? topVisitedPlaces.map((visit) => visit.cafe).filter(Boolean).slice(0, 3)
+    : cafes.slice(0, 3);
 
   const persistProfileUpdates = async (updates) => {
     if (!user?.id) return;
@@ -199,11 +203,11 @@ function ProfilePage() {
     : undefined;
 
   return (
-    <main className="h-full w-full bg-[#1D1A15] relative overflow-hidden" style={textStyle}>
-      <section className="h-full overflow-y-auto pb-30">
-        <header className="relative min-h-[270px] px-5 pt-8">
+    <main className="profile-page" style={textStyle}>
+      <section className="profile-scroll">
+        <header className="profile-hero">
           <div
-            className="absolute inset-x-0 top-0 h-56 bg-[#372821] bg-cover bg-center"
+            className="profile-cover"
             style={coverStyle}
           >
             <div className="absolute inset-0 bg-linear-to-b from-black/35 via-[#1D1A15]/20 to-[#1D1A15]" />
@@ -213,23 +217,22 @@ function ProfilePage() {
           </div>
 
           <div className="relative z-10 flex items-center justify-between">
-            <button
-              onClick={() => navigate('/')}
-              className="w-10 h-10 rounded-full bg-black/25 backdrop-blur-md flex items-center justify-center hover:bg-black/40 transition-colors"
-            >
+            <button onClick={() => navigate('/')} className="profile-icon-button">
               <ArrowLeft size={22} />
             </button>
 
             <div className="relative">
               <button
                 onClick={() => setShowSettings((current) => !current)}
-                className="w-10 h-10 rounded-full bg-black/25 backdrop-blur-md flex items-center justify-center hover:bg-black/40 transition-colors"
+                className="profile-icon-button"
+                aria-label="Abrir configuración"
               >
                 <Settings size={21} />
               </button>
 
               {showSettings && (
-                <div className="absolute top-12 right-0 w-56 rounded-2xl bg-[#27201A]/95 p-3 shadow-2xl border border-white/10 backdrop-blur-xl z-30">
+                <div className="profile-settings-panel">
+                  <p className="profile-settings-title">Configuración</p>
                   <label className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white/5 cursor-pointer text-sm font-bold">
                     <Camera size={16} />
                     Cambiar portada
@@ -266,9 +269,9 @@ function ProfilePage() {
             </div>
           </div>
 
-          <div className="relative z-10 flex flex-col items-center pt-9">
+          <div className="profile-identity">
             <div className="relative">
-              <div className="w-24 h-24 rounded-full overflow-hidden bg-[#493A33] border border-white/15 shadow-2xl">
+              <div className="profile-avatar">
                 <img
                   src={profile.avatarUrl}
                   alt={profile.username}
@@ -282,47 +285,46 @@ function ProfilePage() {
               )}
             </div>
 
-            <h1 className="mt-3 text-base font-semibold leading-tight" style={textStyle}>
+            <h1 className="profile-name" style={textStyle}>
               {profile.username}
             </h1>
-            <p className="mt-1 text-[10px] opacity-75" style={textStyle}>
+            <p className="profile-handle" style={textStyle}>
               {profile.handle}
             </p>
           </div>
         </header>
 
-        <section className="px-5 -mt-1">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-base font-semibold" style={textStyle}>Where has been</h2>
-            <button className="text-[10px] font-semibold opacity-75" style={textStyle}>See all</button>
+        <section className="profile-recent-section">
+          <div className="profile-section-heading">
+            <h2 style={textStyle}>Lugares recientemente visitados</h2>
+            <button style={textStyle}>Ver más</button>
           </div>
 
-          <div className="rounded-2xl overflow-hidden bg-[#372821] border border-white/10 shadow-xl">
-            {topVisitedPlaces.length > 0 ? (
-              <div className="grid grid-cols-5 h-32">
-                {topVisitedPlaces.map((visit) => (
+          <div className="profile-recent-row">
+            {recentCafes.length > 0 ? (
+              recentCafes.map((cafe) => (
                   <button
-                    key={visit.id}
+                    key={cafe.id}
                     type="button"
-                    onClick={() => navigate(`/cafe/${visit.cafe_id}`)}
-                    className="relative overflow-hidden bg-[#493A33]"
+                    onClick={() => navigate(`/cafe/${cafe.id}`)}
+                    className="profile-cafe-card"
                   >
-                    {visit.cafe.imageUrl ? (
-                      <img src={visit.cafe.imageUrl} alt={visit.cafe.nombre} className="w-full h-full object-cover" />
+                    {cafe.imageUrl ? (
+                      <img src={cafe.imageUrl} alt={cafe.nombre} />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center">
+                      <div className="profile-cafe-placeholder">
                         <Coffee className="opacity-40" size={24} />
                       </div>
                     )}
-                    <div className="absolute inset-x-0 bottom-0 min-h-10 bg-linear-to-t from-black/65 to-transparent" />
-                    <span className="absolute left-2 right-2 bottom-2 text-[9px] font-bold text-white truncate">
-                      {visit.cafe.nombre}
-                    </span>
+                    <div className="profile-cafe-copy">
+                      <strong>{cafe.nombre}</strong>
+                      <span><Star size={9} fill="currentColor" /> {Number(cafe.rating || 4.5).toFixed(1)}</span>
+                      <span><MapPin size={9} /> Centro</span>
+                    </div>
                   </button>
-                ))}
-              </div>
+                ))
             ) : (
-              <div className="h-32 flex flex-col items-center justify-center text-center px-6">
+              <div className="profile-empty-recent">
                 <Coffee className="opacity-45 mb-2" size={28} />
                 <p className="text-sm opacity-70" style={textStyle}>Marca cafeterias como visitadas para llenar tu portada.</p>
               </div>
@@ -330,27 +332,27 @@ function ProfilePage() {
           </div>
         </section>
 
-        <section className="px-5 mt-7">
-          <div className="grid grid-cols-2 gap-5">
-            <button className="h-34 rounded-[28px] bg-[#3A281F] p-6 text-left flex flex-col justify-between shadow-xl">
+        <section className="profile-shortcuts-section">
+          <div className="profile-shortcuts">
+            <button className="profile-shortcut profile-shortcut-dark">
               <Heart className="fill-current" size={34} style={textStyle} />
               <span className="text-sm font-medium" style={textStyle}>Favoritos</span>
               <span className="sr-only">{profile.stats.favorites}</span>
             </button>
 
-            <button className="h-34 rounded-[28px] bg-[#493A33] p-6 text-left flex flex-col justify-between shadow-xl">
+            <button className="profile-shortcut profile-shortcut-mid">
               <BookOpen size={34} style={textStyle} />
               <span className="text-sm font-medium" style={textStyle}>Reviews</span>
               <span className="sr-only">{profile.stats.reviews}</span>
             </button>
 
-            <button className="h-34 rounded-[28px] bg-[#765446] p-6 text-left flex flex-col justify-between shadow-xl">
+            <button className="profile-shortcut profile-shortcut-light">
               <ListPlus size={34} style={textStyle} />
               <span className="text-sm font-medium" style={textStyle}>Lista</span>
               <span className="sr-only">{profile.stats.waitingList}</span>
             </button>
 
-            <button className="h-34 rounded-[28px] bg-[#765446] p-6 text-left flex flex-col justify-between shadow-xl">
+            <button className="profile-shortcut profile-shortcut-light">
               <Star className="fill-current" size={34} style={textStyle} />
               <span className="text-sm font-medium" style={textStyle}>Calificadas</span>
               <span className="sr-only">{profile.stats.rated}</span>
@@ -358,7 +360,7 @@ function ProfilePage() {
           </div>
         </section>
 
-        <section className="px-5 mt-7">
+        <section className="profile-settings-section">
           <div className="rounded-3xl bg-[#27201A] border border-white/5 p-4">
             <div className="flex items-center justify-between gap-3">
               <span className="text-sm font-semibold" style={textStyle}>Color de letra</span>
@@ -411,15 +413,15 @@ function ProfilePage() {
         )}
       </section>
 
-      <div className="absolute left-1/2 bottom-18 z-[35] -translate-x-1/2 w-[min(380px,calc(100%-24px))] grid grid-cols-3 gap-3">
+      <div className="profile-bottom-actions">
         <button
           onClick={() => navigate('/search')}
-          className="h-8 rounded-full bg-[#E6DAC1]/75 text-[#372821] text-[11px] font-semibold flex items-center justify-center gap-1.5"
+          className="profile-bottom-action"
         >
           <Plus size={13} />
           Agregar
         </button>
-        <label className="h-8 rounded-full bg-[#E6DAC1]/75 text-[#372821] text-[11px] font-semibold flex items-center justify-center gap-1.5 cursor-pointer">
+        <label className="profile-bottom-action">
           <Edit3 size={13} />
           Editar
           <input
@@ -432,14 +434,12 @@ function ProfilePage() {
         </label>
         <button
           onClick={shareProfile}
-          className="h-8 rounded-full bg-[#E6DAC1]/75 text-[#372821] text-[11px] font-semibold flex items-center justify-center gap-1.5"
+          className="profile-bottom-action"
         >
           <Share2 size={13} />
           Compartir
         </button>
       </div>
-
-      <BottomNav />
 
       <style>{`
         .hide-scrollbar::-webkit-scrollbar {

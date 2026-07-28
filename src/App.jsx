@@ -373,7 +373,7 @@ function App() {
   }, [map, userLocation]);
 
   useEffect(() => {
-    if (!map || location.pathname !== '/') return;
+    if (!map || location.pathname !== '/map') return;
 
     let target = null;
     try {
