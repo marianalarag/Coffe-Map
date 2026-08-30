@@ -7,19 +7,28 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "mobile:sync": "npm run build && cap sync",
+    "mobile:android": "npm run mobile:sync && cap open android",
+    "mobile:ios": "npm run mobile:sync && cap open ios"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.98.0",
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/core": "^8.5.0",
+    "@capacitor/ios": "^8.5.0",
+    "@maplibre/maplibre-gl-leaflet": "^0.1.4",
+    "@supabase/supabase-js": "2.112.4",
     "dotenv": "^17.3.1",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.575.0",
+    "maplibre-gl": "^6.6.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.13.1",
     "vite-plugin-pwa": "^1.2.0"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.0",
     "@eslint/js": "^9.39.1",
     "@tailwindcss/vite": "^4.1.18",
     "@types/react": "^19.2.7",

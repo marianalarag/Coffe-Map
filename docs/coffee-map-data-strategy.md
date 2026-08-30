@@ -1,8 +1,7 @@
 # Coffee Map data strategy
 
-Coffee Map should behave like the definitive cafe map for Merida, not like a
-thin copy of Google Maps. The map and basic location data can come from Google,
-but the product value should live in Coffee Map data: visited status, favorites,
+Coffee Map should behave like the definitive cafe map for Merida and use only
+open or community-owned sources. The product value lives in Coffee Map data: visited status, favorites,
 want-to-go, personal reviews, lists, tags, photos uploaded by users, and later
 community rankings.
 
@@ -15,58 +14,42 @@ Use Supabase as the source of truth for app screens:
 - Future tables: `cafe_photos`, `cafe_tags`, `lists`, `list_items`,
   `cafe_reports`.
 
-The public app should read Supabase first. Google Places should not run every
-time a user opens the map, searches, or opens a cafe detail page.
+The public app reads Supabase first. Open-data scans are controlled admin jobs,
+not requests made whenever a user opens the map or a cafe detail page.
 
 ## What to store for each cafe
 
 Keep the permanent row small and app-owned:
 
 - `id`: internal Coffee Map id.
-- `google_place_id`: stable external identity if the cafe was found with Google.
+- `source` and `source_id`: identity from OpenStreetMap or Overture.
 - `nombre`
 - `lat`
 - `lng`
 - `address`
-- `google_maps_url` or another external directions URL.
+- `source_url`: canonical OpenStreetMap or Overture URL.
 - `cover_image_url`: only if this is an app-owned/allowed image.
 - `last_verified_at`
 - `status`: `active`, `closed`, `needs_review`.
 
-Avoid making Google/Yelp ratings, review counts, review text, menus, or photo
-galleries the core visible content. Those fields make the app depend on paid
-external calls and on third-party content rules.
+Do not copy ratings, reviews, menus, or photos from proprietary services. Those
+fields make the app depend on paid calls and third-party content rules.
 
-## When to call Google Places
+## Open discovery sources
 
-Use Google Places only in controlled flows:
-
-- Admin import for a new area.
-- "Falta una cafeteria" review flow.
-- Occasional verification of place identity, coordinates, or closure.
-- Directions/link-out to Google Maps.
-
-Do not call Places from normal search results or cafe detail rendering. Those
-screens should render from Supabase.
+- OpenStreetMap/Overpass: periodic scans split into Merida quadrants.
+- Overture Maps Places: high-confidence open POIs queried by bounding box.
+- Wikimedia Commons: only images with supported open-license metadata.
+- Community uploads: preferred source for current storefront and drink photos.
 
 ## Why this matters
-
-Google documents that Places API content has caching/storage restrictions, while
-`place_id` is exempt from those caching restrictions:
-
-https://developers.google.com/maps/documentation/places/web-service/policies
-
-Google also bills Places by SKU/request and field selection, so asking for more
-fields or requesting details repeatedly can increase costs:
-
-https://developers.google.com/maps/documentation/places/web-service/usage-and-billing
 
 The practical rule for Coffee Map:
 
 1. Import/verify cafes in batches.
 2. Store the cafe identity and coordinates.
 3. Build the experience from Coffee Map user data.
-4. Refresh external data on a schedule, not per user interaction.
+4. Keep attribution and license metadata for every third-party image.
 
 ## Product direction
 

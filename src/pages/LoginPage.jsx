@@ -5,7 +5,7 @@ import { useCoffeeData } from '../context/CoffeeDataContext';
 import PageLoading from '../components/PageLoading';
 
 function LoginPage() {
-  const { user, loading, login, register, resetPassword } = useAuth();
+  const { user, loading, authError, login, register, resetPassword, restartSession } = useAuth();
   const { preloadInitialData } = useCoffeeData();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -18,11 +18,14 @@ function LoginPage() {
   const [loginTransition, setLoginTransition] = useState(null);
   const [transitionAnimationDone, setTransitionAnimationDone] = useState(false);
   const enterButtonRef = useRef(null);
+  const registerButtonRef = useRef(null);
 
   const isRegisterMode = authMode === 'register';
   const isLoginMode = authMode === 'login';
   const isForgotMode = authMode === 'forgot';
   const isLoginSectionOpen = isLoginMode || isForgotMode;
+  const visibleError = error || authError;
+  const canRestartSession = /conectar con el servidor|tardó demasiado|timeout|failed to fetch/i.test(visibleError);
 
   const handleModeSelect = (mode) => {
     setAuthMode((currentMode) => (currentMode === mode ? null : mode));
@@ -52,6 +55,28 @@ function LoginPage() {
     }
   };
 
+  const enterApp = (authenticatedUser, sourceButton) => {
+    if (!authenticatedUser?.id) return;
+
+    const buttonRect = sourceButton?.getBoundingClientRect();
+    const originX = buttonRect ? buttonRect.left + buttonRect.width / 2 : window.innerWidth / 2;
+    const originY = buttonRect ? buttonRect.top + buttonRect.height / 2 : window.innerHeight / 2;
+    const diameter = Math.hypot(window.innerWidth, window.innerHeight) * 2;
+
+    window.sessionStorage.setItem('coffee-map:map-entry-animation', 'slide-up');
+    setTransitionAnimationDone(false);
+    setLoginTransition({
+      diameter,
+      originX,
+      originY,
+      complete: false,
+    });
+
+    Promise.allSettled([
+      preloadInitialData(authenticatedUser.id),
+    ]);
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError('');
@@ -64,32 +89,19 @@ function LoginPage() {
           setError('Ingresa un nombre de usuario.');
           return;
         }
-        const { session } = await register(email.trim(), password, username);
+        const data = await register(email.trim(), password, username);
 
-        if (!session) {
+        if (!data.session) {
           setResetMessage(
-            'Cuenta creada. Revisa tu correo, confirma la cuenta y después inicia sesión.',
+            'Cuenta creada. Revisa tu correo: al confirmarla entrarás directamente.',
           );
+          return;
         }
+
+        enterApp(data.user ?? data.session.user, registerButtonRef.current);
       } else {
         const data = await login(email.trim(), password);
-        const buttonRect = enterButtonRef.current?.getBoundingClientRect();
-        const originX = buttonRect ? buttonRect.left + buttonRect.width / 2 : window.innerWidth / 2;
-        const originY = buttonRect ? buttonRect.top + buttonRect.height / 2 : window.innerHeight / 2;
-        const diameter = Math.hypot(window.innerWidth, window.innerHeight) * 2;
-
-        window.sessionStorage.setItem('coffee-map:map-entry-animation', 'slide-up');
-        setTransitionAnimationDone(false);
-        setLoginTransition({
-          diameter,
-          originX,
-          originY,
-          complete: false,
-        });
-
-        Promise.allSettled([
-          preloadInitialData(data.user.id),
-        ]);
+        enterApp(data.user, enterButtonRef.current);
       }
     } catch (authError) {
       console.error('Error de autenticación:', authError);
@@ -101,7 +113,11 @@ function LoginPage() {
           ? 'No se pudo crear la cuenta. Verifica el correo o usa una contraseña más segura.'
           : 'No se pudo iniciar sesión. Revisa correo y contraseña.';
 
-      setError(authError?.message || fallbackMessage);
+      const rawMessage = authError?.message || '';
+      const isConnectionError = /failed to fetch|fetch failed|network|conectar con el servidor|tardó demasiado|timeout/i.test(rawMessage);
+      setError(isConnectionError
+        ? 'No pudimos conectar con el servidor de Coffee Map. Intenta de nuevo en un momento.'
+        : rawMessage || fallbackMessage);
     } finally {
       setSubmitting(false);
     }
@@ -135,8 +151,8 @@ function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen w-full bg-[#372821] flex items-center justify-center overflow-y-auto p-4">
-      <section className="w-full max-w-md p-8">
+    <main className="min-h-screen w-full bg-[#271f1a] flex items-center justify-center overflow-y-auto px-4 py-8">
+      <section className="w-full max-w-[420px] px-2 sm:px-8">
         <style>{`
           .form-container {
             display: grid;
@@ -171,16 +187,26 @@ function LoginPage() {
           }
         `}</style>
 
-        <div className="flex justify-center mb-8">
-          <img src="/logo.png" alt="Coffee Map Logo" className="object-contain" />
+        <div className="relative mx-auto mb-10 h-[215px] w-full max-w-[390px]" aria-label="Coffee Map">
+          <img
+            src="/coffee map letters.png"
+            alt="Coffee Map"
+            className="absolute left-0 top-[58px] z-10 w-[50%] object-contain"
+          />
+          <img
+            src="/logo.png"
+            alt=""
+            aria-hidden="true"
+            className="absolute right-0 top-0 z-20 h-[215px] w-[53%] object-contain object-bottom"
+          />
         </div>
 
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-5">
           <div className="flex flex-col">
             <button
               type="button"
               onClick={() => handleModeSelect('login')}
-              className="w-full h-min font-semibold py-1 rounded-xl transition-all z-10 relative bg-[#E6DAC1] hover:bg-[#C8B49A] text-[#372821]"
+              className="w-full h-8 font-semibold rounded-xl transition-all z-10 relative bg-[#e8dcc2] hover:bg-[#d8c9a9] text-[#271f1a]"
             >
               Inicia sesión
             </button>
@@ -204,7 +230,7 @@ function LoginPage() {
                       />
                     </label>
 
-                    {error && <p className="text-sm text-red-300">{error}</p>}
+                    {visibleError && <p className="text-sm text-red-300">{visibleError}</p>}
                     {resetMessage && <p className="text-sm text-green-300">{resetMessage}</p>}
 
                     <button
@@ -254,8 +280,19 @@ function LoginPage() {
                       />
                     </label>
 
-                    {error && isLoginMode && !submitting && !loginTransition && (
-                      <p className="text-sm text-red-300">{error}</p>
+                    {visibleError && isLoginMode && !submitting && !loginTransition && (
+                      <div className="flex flex-col gap-2">
+                        <p className="text-sm text-red-300">{visibleError}</p>
+                        {canRestartSession && (
+                          <button
+                            type="button"
+                            onClick={restartSession}
+                            className="text-sm text-[#E6DAC1] text-left underline"
+                          >
+                            Reiniciar sesión guardada
+                          </button>
+                        )}
+                      </div>
                     )}
 
                     <button
@@ -286,9 +323,9 @@ function LoginPage() {
             <button
               type="button"
               onClick={() => handleModeSelect('register')}
-              className="w-full h-min font-semibold py-1 rounded-xl transition-all z-10 relative border-2 border-[#E6DAC1] text-[#E6DAC1] hover:bg-white/10"
+              className="w-full h-8 font-semibold rounded-xl transition-all z-10 relative border-2 border-[#e8dcc2] text-[#e8dcc2] hover:bg-white/10"
             >
-              Crear cuenta
+              Crea tu cuenta
             </button>
 
             <div className={`form-container ${isRegisterMode ? 'open' : ''}`}>
@@ -330,12 +367,13 @@ function LoginPage() {
                     />
                   </label>
 
-                  {error && isRegisterMode && <p className="text-sm text-red-300">{error}</p>}
+                  {visibleError && isRegisterMode && <p className="text-sm text-red-300">{visibleError}</p>}
                   {resetMessage && isRegisterMode && (
                     <p className="text-sm text-green-300">{resetMessage}</p>
                   )}
 
                   <button
+                    ref={registerButtonRef}
                     type="submit"
                     disabled={submitting}
                     className={`w-full h-min font-semibold py-1 rounded-xl transition-all mt-2 ${

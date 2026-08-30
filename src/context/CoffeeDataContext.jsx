@@ -2,14 +2,16 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../supabase';
 import { useAuth } from './AuthContext';
+import { deduplicateCafes } from '../utils/cafeDeduplication';
 
 const CoffeeDataContext = createContext(null);
 
-const CAFES_CACHE_KEY = 'coffee-map:cafes:v1';
+const CAFES_CACHE_KEY = 'coffee-map:cafes:v4';
 const CAFES_CACHE_TTL_MS = 15 * 60 * 1000;
 const VISIBLE_CAFE_SOURCES = ['manual', 'community', 'osm', 'overture'];
-const CAFE_COLUMNS = 'id,nombre,lat,lng,rating,reviews,link,image_url,source,source_id,source_url';
-const INTERACTION_COLUMNS = 'id,user_id,cafe_id,is_visited,is_favorite,in_waitlist,rating,review_text,updated_at';
+const CAFE_COLUMNS = 'id,nombre,lat,lng,rating,reviews,link,address,neighborhood,category,image_url,image_source_url,image_attribution,image_license,source,source_id,source_url';
+const INTERACTION_COLUMNS = 'id,user_id,cafe_id,is_visited,is_favorite,in_waitlist,rating,review_text,visited_on,updated_at';
+const INTERACTION_WITH_CAFE_COLUMNS = `${INTERACTION_COLUMNS},cafe:cafes(${CAFE_COLUMNS})`;
 
 const normalizeCafe = (cafe) => ({
   ...cafe,
@@ -17,9 +19,15 @@ const normalizeCafe = (cafe) => ({
   lng: Number(cafe.lng),
   pos: { lat: Number(cafe.lat), lng: Number(cafe.lng) },
   imageUrl: cafe.image_url || cafe.imageUrl || null,
+  imageSourceUrl: cafe.image_source_url || cafe.imageSourceUrl || null,
+  imageAttribution: cafe.image_attribution || cafe.imageAttribution || null,
+  imageLicense: cafe.image_license || cafe.imageLicense || null,
   source: cafe.source || 'manual',
   sourceId: cafe.source_id || cafe.sourceId || null,
   sourceUrl: cafe.source_url || cafe.sourceUrl || null,
+  address: cafe.address || null,
+  neighborhood: cafe.neighborhood || null,
+  category: cafe.category === 'panaderia' ? 'panaderia' : 'cafeteria',
 });
 
 const readCachedCafes = () => {
@@ -33,7 +41,7 @@ const readCachedCafes = () => {
       return null;
     }
 
-    return Array.isArray(parsed.data) ? parsed.data.map(normalizeCafe) : null;
+    return Array.isArray(parsed.data) ? deduplicateCafes(parsed.data.map(normalizeCafe)) : null;
   } catch {
     return null;
   }
@@ -97,7 +105,7 @@ export function CoffeeDataProvider({ children }) {
 
         if (error) throw error;
 
-        const normalizedCafes = (data || []).map(normalizeCafe);
+        const normalizedCafes = deduplicateCafes((data || []).map(normalizeCafe));
         cafesRef.current = normalizedCafes;
         cafesLoadedRef.current = true;
         setCafesState({
@@ -128,10 +136,10 @@ export function CoffeeDataProvider({ children }) {
     setCafesState((current) => {
       const incoming = newCafes.map(normalizeCafe);
       const knownIds = new Set(current.cafes.map((cafe) => cafe.id));
-      const merged = [
+      const merged = deduplicateCafes([
         ...current.cafes,
         ...incoming.filter((cafe) => !knownIds.has(cafe.id)),
-      ].sort((a, b) => a.nombre.localeCompare(b.nombre));
+      ]).sort((a, b) => a.nombre.localeCompare(b.nombre));
 
       cafesRef.current = merged;
       cafesLoadedRef.current = true;
@@ -153,12 +161,16 @@ export function CoffeeDataProvider({ children }) {
     try {
       const { data, error } = await supabase
         .from('user_cafes')
-        .select(INTERACTION_COLUMNS)
-        .eq('user_id', targetUserId);
+        .select(INTERACTION_WITH_CAFE_COLUMNS)
+        .eq('user_id', targetUserId)
+        .order('updated_at', { ascending: false });
 
       if (error) throw error;
 
-      const nextInteractions = data || [];
+      const nextInteractions = (data || []).map((interaction) => ({
+        ...interaction,
+        cafe: interaction.cafe ? normalizeCafe(interaction.cafe) : null,
+      }));
       setInteractions(nextInteractions);
       setInteractionsLoaded(true);
       interactionsUserIdRef.current = targetUserId;
@@ -179,44 +191,64 @@ export function CoffeeDataProvider({ children }) {
     if (!userId || !cafeId) return null;
 
     const currentInteraction = interactions.find((interaction) => interaction.cafe_id === cafeId);
-    const hasUpdate = (key) => Object.prototype.hasOwnProperty.call(updates, key);
+    const allowedFields = ['is_visited', 'is_favorite', 'in_waitlist', 'rating', 'review_text', 'visited_on'];
+    const patch = Object.fromEntries(
+      allowedFields
+        .filter((key) => Object.prototype.hasOwnProperty.call(updates, key) && updates[key] !== undefined)
+        .map((key) => [key, updates[key]]),
+    );
     const payload = {
       user_id: userId,
       cafe_id: cafeId,
-      is_visited: hasUpdate('is_visited') ? updates.is_visited : currentInteraction?.is_visited ?? false,
-      is_favorite: hasUpdate('is_favorite') ? updates.is_favorite : currentInteraction?.is_favorite ?? false,
-      in_waitlist: hasUpdate('in_waitlist') ? updates.in_waitlist : currentInteraction?.in_waitlist ?? false,
-      rating: hasUpdate('rating') ? updates.rating : currentInteraction?.rating ?? null,
-      review_text: hasUpdate('review_text') ? updates.review_text : currentInteraction?.review_text ?? '',
+      ...patch,
       updated_at: new Date().toISOString(),
     };
-
-    const query = currentInteraction
-      ? supabase
-          .from('user_cafes')
-          .update(payload)
-          .eq('id', currentInteraction.id)
-          .select(INTERACTION_COLUMNS)
-          .single()
-      : supabase
-          .from('user_cafes')
-          .insert([payload])
-          .select(INTERACTION_COLUMNS)
-          .single();
-
-    const { data, error } = await query;
-    if (error) throw error;
+    const optimisticInteraction = {
+      id: currentInteraction?.id || `optimistic:${cafeId}`,
+      is_visited: false,
+      is_favorite: false,
+      in_waitlist: false,
+      rating: null,
+      review_text: '',
+      visited_on: null,
+      ...currentInteraction,
+      ...payload,
+    };
 
     setInteractions((current) => {
-      const exists = current.some((interaction) => interaction.id === data.id);
+      const exists = current.some((interaction) => interaction.cafe_id === cafeId);
+      return exists
+        ? current.map((interaction) => (interaction.cafe_id === cafeId ? optimisticInteraction : interaction))
+        : [...current, optimisticInteraction];
+    });
+
+    const { data, error } = await supabase
+      .from('user_cafes')
+      .upsert([payload], { onConflict: 'user_id,cafe_id' })
+      .select(INTERACTION_WITH_CAFE_COLUMNS)
+      .single();
+    if (error) {
+      setInteractions((current) => currentInteraction
+        ? current.map((interaction) => (interaction.cafe_id === cafeId ? currentInteraction : interaction))
+        : current.filter((interaction) => interaction.cafe_id !== cafeId));
+      throw error;
+    }
+
+    const normalizedInteraction = {
+      ...data,
+      cafe: data.cafe ? normalizeCafe(data.cafe) : currentInteraction?.cafe || null,
+    };
+
+    setInteractions((current) => {
+      const exists = current.some((interaction) => interaction.cafe_id === cafeId);
       if (exists) {
-        return current.map((interaction) => (interaction.id === data.id ? data : interaction));
+        return current.map((interaction) => (interaction.cafe_id === cafeId ? normalizedInteraction : interaction));
       }
-      return [...current, data];
+      return [...current, normalizedInteraction];
     });
     setInteractionsLoaded(true);
 
-    return data;
+    return normalizedInteraction;
   }, [interactions, userId]);
 
   useEffect(() => {

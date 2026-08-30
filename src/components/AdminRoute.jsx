@@ -3,9 +3,9 @@ import { useAuth } from '../context/AuthContext';
 import PageLoading from './PageLoading';
 
 function AdminRoute({ children }) {
-  const { userProfile, loading } = useAuth();
+  const { userProfile, loading, profileLoading } = useAuth();
 
-  if (loading) {
+  if (loading || profileLoading) {
     return <PageLoading message="Verificando permisos..." />;
   }
 

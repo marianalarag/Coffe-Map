@@ -1,0 +1,16 @@
+{
+  "appId": "mx.coffeemap.merida",
+  "appName": "Coffee Map",
+  "webDir": "dist",
+  "backgroundColor": "#1D1A15",
+  "server": {
+    "androidScheme": "https"
+  },
+  "ios": {
+    "contentInset": "never",
+    "preferredContentMode": "mobile"
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}

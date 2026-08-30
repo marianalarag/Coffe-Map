@@ -28,9 +28,15 @@ create table if not exists public.cafes (
   reviews integer,
   link text,
   image_url text,
+  image_source_url text,
+  image_attribution text,
+  image_license text,
   source text,
   source_id text,
   source_url text,
+  address text,
+  category text not null default 'cafeteria',
+  submitted_by uuid references public.profiles(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -38,16 +44,22 @@ create table if not exists public.cafes (
 alter table public.cafes add column if not exists source text;
 alter table public.cafes add column if not exists source_id text;
 alter table public.cafes add column if not exists source_url text;
+alter table public.cafes add column if not exists address text;
+alter table public.cafes add column if not exists category text not null default 'cafeteria';
+alter table public.cafes add column if not exists submitted_by uuid references public.profiles(id) on delete set null;
+alter table public.cafes drop constraint if exists cafes_category_check;
+alter table public.cafes add constraint cafes_category_check
+check (category in ('cafeteria', 'panaderia'));
 
 update public.cafes
-set source = 'google_places'
+set source = 'manual'
 where source is null;
 
 alter table public.cafes alter column source set default 'manual';
 alter table public.cafes alter column source set not null;
 alter table public.cafes drop constraint if exists cafes_source_check;
 alter table public.cafes add constraint cafes_source_check
-check (source in ('manual', 'community', 'osm', 'overture', 'google_places'));
+check (source in ('manual', 'community', 'osm', 'overture'));
 
 create index if not exists cafes_source_idx on public.cafes(source);
 create unique index if not exists cafes_source_source_id_idx
@@ -63,6 +75,7 @@ create table if not exists public.user_cafes (
   in_waitlist boolean not null default false,
   rating smallint check (rating is null or rating between 1 and 5),
   review_text text not null default '',
+  visited_on date,
   updated_at timestamptz not null default now(),
   unique (user_id, cafe_id)
 );
@@ -75,20 +88,20 @@ drop policy if exists "profiles_select_own" on public.profiles;
 create policy "profiles_select_own"
 on public.profiles for select
 to authenticated
-using (auth.uid() = id);
+using ((select auth.uid()) = id);
 
 drop policy if exists "profiles_insert_own" on public.profiles;
 create policy "profiles_insert_own"
 on public.profiles for insert
 to authenticated
-with check (auth.uid() = id);
+with check ((select auth.uid()) = id and role = 'usuario');
 
 drop policy if exists "profiles_update_own" on public.profiles;
 create policy "profiles_update_own"
 on public.profiles for update
 to authenticated
-using (auth.uid() = id)
-with check (auth.uid() = id);
+using ((select auth.uid()) = id)
+with check ((select auth.uid()) = id and role = 'usuario');
 
 drop policy if exists "cafes_select_authenticated" on public.cafes;
 create policy "cafes_select_authenticated"
@@ -97,10 +110,6 @@ to authenticated
 using (true);
 
 drop policy if exists "cafes_insert_authenticated" on public.cafes;
-create policy "cafes_insert_authenticated"
-on public.cafes for insert
-to authenticated
-with check (true);
 
 drop policy if exists "user_cafes_select_own" on public.user_cafes;
 create policy "user_cafes_select_own"
@@ -127,89 +136,6 @@ on public.user_cafes for delete
 to authenticated
 using (auth.uid() = user_id);
 
-create table if not exists public.google_api_usage_monthly (
-  period text not null check (period ~ '^[0-9]{4}-[0-9]{2}$'),
-  usage_key text not null,
-  used_count integer not null default 0 check (used_count >= 0),
-  updated_at timestamptz not null default now(),
-  primary key (period, usage_key)
-);
-
-alter table public.google_api_usage_monthly enable row level security;
-
-drop policy if exists "google_api_usage_select_authenticated" on public.google_api_usage_monthly;
-create policy "google_api_usage_select_authenticated"
-on public.google_api_usage_monthly for select
-to authenticated
-using (true);
-
-create or replace function public.reserve_google_api_usage(
-  p_period text,
-  p_usage_key text,
-  p_amount integer,
-  p_limit integer
-)
-returns jsonb
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  current_count integer;
-  next_count integer;
-begin
-  if p_period !~ '^[0-9]{4}-[0-9]{2}$' then
-    raise exception 'Invalid usage period';
-  end if;
-
-  if p_amount <= 0 then
-    raise exception 'Usage amount must be positive';
-  end if;
-
-  if p_limit < 0 then
-    raise exception 'Usage limit cannot be negative';
-  end if;
-
-  insert into public.google_api_usage_monthly (period, usage_key, used_count)
-  values (p_period, p_usage_key, 0)
-  on conflict (period, usage_key) do nothing;
-
-  select used_count
-  into current_count
-  from public.google_api_usage_monthly
-  where period = p_period
-    and usage_key = p_usage_key
-  for update;
-
-  if current_count + p_amount > p_limit then
-    return jsonb_build_object(
-      'allowed', false,
-      'period', p_period,
-      'usage_key', p_usage_key,
-      'used_count', current_count,
-      'limit_count', p_limit
-    );
-  end if;
-
-  update public.google_api_usage_monthly
-  set used_count = used_count + p_amount,
-      updated_at = now()
-  where period = p_period
-    and usage_key = p_usage_key
-  returning used_count into next_count;
-
-  return jsonb_build_object(
-    'allowed', true,
-    'period', p_period,
-    'usage_key', p_usage_key,
-    'used_count', next_count,
-    'limit_count', p_limit
-  );
-end;
-$$;
-
-grant execute on function public.reserve_google_api_usage(text, text, integer, integer) to authenticated;
-
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -234,6 +160,8 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
 after insert on auth.users
 for each row execute function public.handle_new_user();
+
+revoke all on function public.handle_new_user() from public, anon, authenticated;
 
 insert into storage.buckets (id, name, public)
 values ('avatars', 'avatars', true)

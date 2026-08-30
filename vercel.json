@@ -1,4 +1,18 @@
 {
+  "images": {
+    "sizes": [256, 512, 1024, 1600],
+    "qualities": [90],
+    "formats": ["image/avif", "image/webp"],
+    "minimumCacheTTL": 2592000,
+    "remotePatterns": [
+      {
+        "protocol": "https",
+        "hostname": "zuojhckhlphpkcwcufae.supabase.co",
+        "port": "",
+        "pathname": "/storage/v1/object/public/avatars/**"
+      }
+    ]
+  },
   "rewrites": [
     { "source": "/(.*)", "destination": "/" }
   ]

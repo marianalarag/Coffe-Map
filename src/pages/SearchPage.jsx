@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Search, Coffee, CheckCircle2, Clock, Heart, X } from 'lucide-react';
+import { ArrowLeft, Search, Coffee, CheckCircle2, Clock, Heart, X, MapPinned, Navigation, Plus } from 'lucide-react';
 import PageLoading from '../components/PageLoading';
 import { useCoffeeData } from '../context/CoffeeDataContext';
+import { useAuth } from '../context/AuthContext';
+import { supabase } from '../supabase';
+import { areDuplicateCafes, normalizeCafeName } from '../utils/cafeDeduplication';
 
 const calculateDistance = (lat1, lon1, lat2, lon2) => {
   const radiusKm = 6371;
@@ -52,11 +55,16 @@ const getCafeStatus = (interaction) => {
 
 function SearchPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { cafes, cafesLoading, cafesLoaded, loadCafes, interactionsByCafeId } = useCoffeeData();
   const [searchQuery, setSearchQuery] = useState('');
   const [userLocation, setUserLocation] = useState(null);
   const [locationResolved, setLocationResolved] = useState(() => !navigator.geolocation);
   const [loadError, setLoadError] = useState('');
+  const [showAddCafe, setShowAddCafe] = useState(false);
+  const [addingCafe, setAddingCafe] = useState(false);
+  const [addCafeFeedback, setAddCafeFeedback] = useState('');
+  const [newCafe, setNewCafe] = useState({ nombre: '', address: '', link: '', lat: '', lng: '' });
 
   useEffect(() => {
     if (!cafesLoaded) {
@@ -108,13 +116,93 @@ function SearchPage() {
       .slice(0, 20);
   }, [cafesWithDistance, searchQuery]);
 
+  const openAddCafe = () => {
+    setAddCafeFeedback('');
+    setNewCafe((current) => ({
+      ...current,
+      nombre: current.nombre || searchQuery.trim(),
+      lat: current.lat || (userLocation ? userLocation.lat.toFixed(6) : ''),
+      lng: current.lng || (userLocation ? userLocation.lng.toFixed(6) : ''),
+    }));
+    setShowAddCafe(true);
+  };
+
+  const useCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setAddCafeFeedback('Este dispositivo no permite obtener tu ubicación.');
+      return;
+    }
+
+    setAddCafeFeedback('Obteniendo ubicación...');
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setNewCafe((current) => ({
+          ...current,
+          lat: position.coords.latitude.toFixed(6),
+          lng: position.coords.longitude.toFixed(6),
+        }));
+        setAddCafeFeedback('Ubicación agregada.');
+      },
+      () => setAddCafeFeedback('No pudimos obtener tu ubicación.'),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
+    );
+  };
+
+  const submitMissingCafe = async (event) => {
+    event.preventDefault();
+    if (!user) return;
+
+    const lat = Number(newCafe.lat);
+    const lng = Number(newCafe.lng);
+    const candidate = { nombre: newCafe.nombre.trim(), lat, lng };
+    if (!candidate.nombre || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+      setAddCafeFeedback('Escribe el nombre y agrega una ubicación válida.');
+      return;
+    }
+
+    const duplicate = cafes.find((cafe) => areDuplicateCafes(cafe, candidate));
+    if (duplicate) {
+      setAddCafeFeedback(`“${duplicate.nombre}” ya está en el mapa.`);
+      return;
+    }
+
+    setAddingCafe(true);
+    setAddCafeFeedback('');
+    try {
+      const suggestionId = crypto.randomUUID();
+      const sourceId = `${normalizeCafeName(candidate.nombre).replaceAll(' ', '-')}:${suggestionId}`;
+      const { error } = await supabase.from('cafes').insert({
+        id: `community:${suggestionId}`,
+        nombre: candidate.nombre,
+        lat,
+        lng,
+        address: newCafe.address.trim() || null,
+        link: newCafe.link.trim() || null,
+        source: 'community',
+        source_id: sourceId,
+        status: 'needs_review',
+        submitted_by: user.id,
+      });
+      if (error) throw error;
+
+      setAddCafeFeedback('¡Gracias! La cafetería se envió para revisión.');
+      setNewCafe({ nombre: '', address: '', link: '', lat: '', lng: '' });
+    } catch (error) {
+      setAddCafeFeedback(error.message?.includes('policy')
+        ? 'Falta aplicar la actualización de cafeterías comunitarias.'
+        : 'No pudimos enviar la cafetería. Intenta otra vez.');
+    } finally {
+      setAddingCafe(false);
+    }
+  };
+
   if (cafesLoading && !cafesLoaded) {
     return <PageLoading message="Buscando cafeterias..." />;
   }
 
   return (
     <main className="h-full w-full bg-[#1D1A15] flex flex-col">
-      <header className="p-4 pt-6 z-10 flex flex-col items-center gap-3">
+      <header className="search-page-header p-4 z-10 flex flex-col items-center gap-3">
         <div className="w-full flex items-center gap-4 mb-4">
           <button
             onClick={() => navigate('/')}
@@ -163,7 +251,7 @@ function SearchPage() {
         {loadError ? (
           <div className="text-center py-10 text-red-300">{loadError}</div>
         ) : displayedCafes.length > 0 ? (
-          <div className="flex flex-col gap-6">
+          <div className="search-results-grid">
             {displayedCafes.map((cafe) => {
               const status = getCafeStatus(interactionsByCafeId.get(cafe.id));
               const StatusIcon = status.icon;
@@ -173,7 +261,7 @@ function SearchPage() {
                   key={cafe.id}
                   type="button"
                   onClick={() => navigate(`/cafe/${cafe.id}`)}
-                  className="min-h-25 bg-[#493A33] rounded-3xl shadow-sm flex gap-4 items-center text-left cursor-pointer hover:bg-[#5A463C] transition-colors active:scale-[0.98]"
+                  className="search-result-card min-h-25 bg-[#493A33] rounded-3xl shadow-sm flex gap-4 items-center text-left cursor-pointer hover:bg-[#5A463C] transition-colors active:scale-[0.98]"
                 >
                   {cafe.imageUrl ? (
                     <img src={cafe.imageUrl} alt={cafe.nombre} className="min-w-25 max-w-25 h-25 rounded-3xl -ml-4 object-cover bg-[#372821]" />
@@ -207,7 +295,43 @@ function SearchPage() {
             No se encontraron cafeterias.
           </div>
         )}
+
+        <button type="button" className="add-missing-cafe-trigger" onClick={openAddCafe}>
+          <Plus size={17} />
+          <span><strong>¿No aparece?</strong><small>Agregar una cafetería faltante</small></span>
+        </button>
       </section>
+
+      {showAddCafe && (
+        <div className="missing-cafe-backdrop" onMouseDown={(event) => {
+          if (event.target === event.currentTarget && !addingCafe) setShowAddCafe(false);
+        }}>
+          <section className="missing-cafe-modal" role="dialog" aria-modal="true" aria-labelledby="missing-cafe-title">
+            <header>
+              <div><MapPinned size={20} /><span><small>AYÚDANOS A CRECER</small><h2 id="missing-cafe-title">Agregar cafetería</h2></span></div>
+              <button type="button" onClick={() => setShowAddCafe(false)} disabled={addingCafe} aria-label="Cerrar"><X size={18} /></button>
+            </header>
+
+            <form onSubmit={submitMissingCafe}>
+              <label>Nombre<input autoFocus value={newCafe.nombre} onChange={(event) => setNewCafe({ ...newCafe, nombre: event.target.value })} maxLength={100} required /></label>
+              <label>Dirección<input value={newCafe.address} onChange={(event) => setNewCafe({ ...newCafe, address: event.target.value })} placeholder="Calle, número y colonia" maxLength={220} /></label>
+              <label>Enlace de Maps<input type="url" value={newCafe.link} onChange={(event) => setNewCafe({ ...newCafe, link: event.target.value })} placeholder="https://maps.app.goo.gl/..." /></label>
+
+              <button className="missing-cafe-location" type="button" onClick={useCurrentLocation}>
+                <Navigation size={16} /> Usar mi ubicación actual
+              </button>
+              <div className="missing-cafe-coordinates">
+                <label>Latitud<input inputMode="decimal" value={newCafe.lat} onChange={(event) => setNewCafe({ ...newCafe, lat: event.target.value })} required /></label>
+                <label>Longitud<input inputMode="decimal" value={newCafe.lng} onChange={(event) => setNewCafe({ ...newCafe, lng: event.target.value })} required /></label>
+              </div>
+
+              <p className="missing-cafe-note">La revisaremos antes de publicarla para evitar lugares repetidos.</p>
+              {addCafeFeedback && <p className="missing-cafe-feedback" role="status">{addCafeFeedback}</p>}
+              <button className="missing-cafe-submit" type="submit" disabled={addingCafe}>{addingCafe ? 'Enviando...' : 'Enviar cafetería'}</button>
+            </form>
+          </section>
+        </div>
+      )}
     </main>
   );
 }

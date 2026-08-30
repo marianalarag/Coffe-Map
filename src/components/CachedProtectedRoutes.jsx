@@ -7,6 +7,8 @@ import ActivityPage from '../pages/ActivityPage.jsx';
 import SearchPage from '../pages/SearchPage.jsx';
 import CafePage from '../pages/CafePage.jsx';
 import ProfilePage from '../pages/ProfilePage.jsx';
+import CollectionPage from '../pages/CollectionPage.jsx';
+import SettingsPage from '../pages/SettingsPage.jsx';
 import AdminDashboardPage from '../pages/AdminDashboardPage.jsx';
 import AdminRoute from './AdminRoute.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -36,6 +38,15 @@ const getRouteEntry = (pathname) => {
 
   if (pathname === '/profile') {
     return { key: 'profile', type: 'profile' };
+  }
+
+  if (pathname === '/settings') {
+    return { key: 'settings', type: 'settings' };
+  }
+
+  const collectionMatch = pathname.match(/^\/(favorites|reviews|ratings|list)$/);
+  if (collectionMatch) {
+    return { key: `collection:${collectionMatch[1]}`, type: 'collection', collection: collectionMatch[1] };
   }
 
   if (pathname === '/admin') {
@@ -68,6 +79,10 @@ const renderRoute = (entry) => {
       return <ActivityPage />;
     case 'profile':
       return <ProfilePage />;
+    case 'settings':
+      return <SettingsPage />;
+    case 'collection':
+      return <CollectionPage collection={entry.collection} />;
     case 'admin':
       return (
         <AdminRoute>
@@ -109,7 +124,7 @@ function CachedProtectedRoutes() {
   const visibleEntries = routeCacheByUser.get(cacheKey) || [activeEntry];
 
   return (
-    <main className="h-full w-full relative overflow-hidden bg-[#1D1A15]">
+    <main className="app-viewport h-full w-full relative overflow-hidden bg-[#1D1A15]">
       {visibleEntries.map((entry) => {
         const isActive = entry.key === activeEntry.key;
 
@@ -125,8 +140,8 @@ function CachedProtectedRoutes() {
             }}
             inert={isActive ? undefined : true}
             tabIndex={isActive ? -1 : undefined}
-            className={`absolute inset-0 h-full w-full transition-opacity duration-150 ${
-              isActive ? 'z-10 opacity-100 pointer-events-auto' : 'z-0 opacity-0 pointer-events-none'
+            className={`app-viewport-section absolute inset-0 h-full w-full transition-opacity duration-150 ${
+              isActive ? 'z-10 opacity-100 pointer-events-auto screen-transition-enter' : 'z-0 opacity-0 pointer-events-none'
             }`}
           >
             {renderRoute(entry)}

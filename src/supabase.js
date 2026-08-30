@@ -17,6 +17,23 @@ export const supabaseConfig = {
   hasSupabaseKey: Boolean(supabasePublishableKey),
 };
 
+const projectRef = (() => {
+  try {
+    return new URL(supabaseUrl).hostname.split('.')[0];
+  } catch {
+    return '';
+  }
+})();
+
+export const clearLocalSupabaseSession = () => {
+  if (!projectRef) return;
+
+  const storageKey = `sb-${projectRef}-auth-token`;
+  window.localStorage.removeItem(storageKey);
+  window.localStorage.removeItem(`${storageKey}-code-verifier`);
+  window.localStorage.removeItem(`${storageKey}-user`);
+};
+
 export const supabase = createClient(
   supabaseUrl || 'https://missing-supabase-url.supabase.co',
   supabasePublishableKey || 'missing-supabase-key',

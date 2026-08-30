@@ -1,51 +1,73 @@
-# Coffee Map
+# Coffee Map Mérida
 
-Mapa de cafeterías en Mérida con escaneo en Google Maps Places y autenticación con Firebase (email/contraseña).
+App social tipo Letterboxd para descubrir, guardar, reseñar y compartir cafeterías de Mérida. La misma base React/Vite funciona como PWA, app Android y app iOS mediante Capacitor.
 
-## 1) Crear proyecto en Firebase
+## Funciones principales
 
-1. Entra a [Firebase Console](https://console.firebase.google.com/) y crea un proyecto.
-2. En el panel del proyecto: **Build > Authentication > Get started**.
-3. En **Sign-in method**, habilita **Email/Password**.
-4. Ve a **Project settings > General**.
-5. En **Your apps**, crea una app web (`</>`).
-6. Copia la configuración de Firebase (`apiKey`, `authDomain`, etc.).
+- Mapa limitado al área metropolitana de Mérida.
+- Favoritas, visitadas, lista por visitar, calificaciones y reseñas personales.
+- Publicaciones comunitarias con fotos y cafetería relacionada.
+- Galería moderada de fotos por cafetería.
+- Panel `/admin` con métricas, escáner abierto OSM/Overture, altas manuales, portadas, moderación de fotos/posts y roles.
+- Datos, autenticación y archivos en Supabase.
+- PWA desplegable en Vercel y proyectos nativos en `android/` e `ios/`.
 
-## 2) Crear usuario de acceso
-
-1. En **Authentication > Users**, haz clic en **Add user**.
-2. Define correo y contraseña para tu login.
-
-## 3) Configurar variables de entorno
-
-1. Copia `.env.example` a `.env`.
-2. Completa estos valores:
+## Configuración local
 
 ```env
-VITE_GOOGLE_MAPS_API_KEY=...
-
-VITE_FIREBASE_API_KEY=...
-VITE_FIREBASE_AUTH_DOMAIN=...
-VITE_FIREBASE_PROJECT_ID=...
-VITE_FIREBASE_STORAGE_BUCKET=...
-VITE_FIREBASE_MESSAGING_SENDER_ID=...
-VITE_FIREBASE_APP_ID=...
+VITE_SUPABASE_URL=https://TU_PROYECTO.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=TU_CLAVE_PUBLICA
 ```
 
-## 4) Ejecutar proyecto
+Nunca agregues contraseñas ni la `service_role` a variables `VITE_*`: todo lo que empiece con `VITE_` queda visible en el cliente.
 
 ```bash
 npm install
 npm run dev
 ```
 
-## Flujo de la app
+## Supabase
 
-- `/login`: formulario de inicio de sesión.
-- `/`: mapa protegido (solo si hay sesión activa).
-- Botón **Cerrar sesión** en la vista principal.
+1. Si el proyecto es nuevo, aplica primero `supabase/schema.sql`.
+2. Aplica `supabase/migrations/20260808_admin_social_photos.sql` desde SQL Editor.
+3. Confirma por correo la cuenta administradora solicitada.
+4. Inicia sesión y abre `/admin`.
 
-## Seguridad recomendada
+La migración crea `posts`, `cafe_photos`, `app_events`, el bucket `cafe-photos`, políticas RLS seguras y promueve el correo administrador sin almacenar su contraseña.
 
-- Restringe tu API key de Google Maps por dominio (HTTP referrers).
-- En Firebase Auth, agrega dominios permitidos en **Authentication > Settings > Authorized domains**.
+## Escáner de cafeterías
+
+El panel usa únicamente fuentes gratuitas y abiertas dentro de un bounding box fijo de Mérida. Evita duplicados por nombre y distancia y guarda la identidad de origen:
+
+1. Ejecuta el escáner OSM periódicamente.
+2. Importa Overture GeoJSON o usa el script `scripts/scan-open-cafes.mjs` para sincronizaciones administrativas.
+3. Agrega manualmente faltantes desde el panel.
+4. Usa reportes de la comunidad para detectar aperturas/cierres.
+5. Revisa fotos y estados antes de hacerlos públicos.
+
+Las imágenes automáticas solo se aceptan desde Wikimedia Commons cuando la API confirma una licencia compatible y se conserva la atribución. Coffee Map prioriza fotos propias de administradores y usuarios, moderadas desde Supabase. No se copian fotos de servicios propietarios ni de sitios comerciales.
+
+## Android e iOS
+
+```bash
+npm run mobile:sync
+npm run mobile:android
+npm run mobile:ios
+```
+
+- Android requiere Android Studio y un SDK configurado.
+- iOS requiere macOS y Xcode; el proyecto puede sincronizarse en Windows, pero no compilarse ni firmarse allí.
+- Después de cualquier cambio web ejecuta `npm run mobile:sync`.
+- Identificador nativo: `mx.coffeemap.merida`.
+
+## Vercel
+
+Configura las dos variables de Supabase en todos los entornos, ejecuta `npm run build` y vuelve a desplegar. `vercel.json` conserva el fallback necesario para las rutas de React.
+
+## Verificación
+
+```bash
+npm run lint
+npm run build
+npm run mobile:sync
+```

@@ -1,22 +1,16 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Star, MapPin, ExternalLink, Coffee, Heart, CheckCircle2, Clock, Edit3, Save } from 'lucide-react';
+import { ArrowLeft, Star, MapPin, Coffee, Heart, CheckCircle2, Clock, Edit3 } from 'lucide-react';
 import PageLoading from '../components/PageLoading';
 import { useAuth } from '../context/AuthContext';
 import { useCoffeeData } from '../context/CoffeeDataContext';
+import { supabase } from '../supabase';
 
 const MAP_TARGET_STORAGE_KEY = 'coffee-map:focus-cafe';
-
-const getOpenStreetMapUrl = (cafe) => {
-  if (cafe?.source === 'osm' && cafe.sourceUrl) {
-    return cafe.sourceUrl;
-  }
-
-  if (Number.isFinite(cafe?.lat) && Number.isFinite(cafe?.lng)) {
-    return `https://www.openstreetmap.org/?mlat=${cafe.lat}&mlon=${cafe.lng}#map=18/${cafe.lat}/${cafe.lng}`;
-  }
-
-  return cafe?.sourceUrl || cafe?.link || '';
+const getLocalDate = () => {
+  const today = new Date();
+  const offset = today.getTimezoneOffset() * 60000;
+  return new Date(today.getTime() - offset).toISOString().slice(0, 10);
 };
 
 function CafePage({ cafeId }) {
@@ -36,16 +30,15 @@ function CafePage({ cafeId }) {
 
   const cafe = cafeById.get(id) || null;
   const interaction = interactionsByCafeId.get(id);
-  const openStreetMapUrl = useMemo(() => getOpenStreetMapUrl(cafe), [cafe]);
 
   const [isVisited, setIsVisited] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
   const [inWaitlist, setInWaitlist] = useState(false);
   const [rating, setRating] = useState(0);
-  const [hoverRating, setHoverRating] = useState(0);
   const [reviewText, setReviewText] = useState('');
-  const [isEditingReview, setIsEditingReview] = useState(false);
   const [savingInteraction, setSavingInteraction] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [communityPhotos, setCommunityPhotos] = useState([]);
 
   useEffect(() => {
     if (!cafesLoaded) {
@@ -54,10 +47,23 @@ function CafePage({ cafeId }) {
   }, [cafesLoaded, loadCafes]);
 
   useEffect(() => {
+    if (!id) return;
+    supabase
+      .from('cafe_photos')
+      .select('id,public_url,is_cover,created_at')
+      .eq('cafe_id', id)
+      .eq('status', 'approved')
+      .order('is_cover', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(12)
+      .then(({ data }) => setCommunityPhotos(data || []));
+  }, [id]);
+
+  useEffect(() => {
     setIsVisited(interaction?.is_visited || false);
     setIsFavorite(interaction?.is_favorite || false);
     setInWaitlist(interaction?.in_waitlist || false);
-    setRating(interaction?.rating || 0);
+    setRating(Number(interaction?.rating) || 0);
     setReviewText(interaction?.review_text || '');
   }, [interaction, id]);
 
@@ -66,16 +72,21 @@ function CafePage({ cafeId }) {
 
     const hasUpdate = (key) => Object.prototype.hasOwnProperty.call(updates, key);
     setSavingInteraction(true);
+    setSaveError('');
     try {
-      await saveCafeInteraction(cafe.id, {
+      const savedInteraction = await saveCafeInteraction(cafe.id, {
         is_visited: hasUpdate('is_visited') ? updates.is_visited : isVisited,
         is_favorite: hasUpdate('is_favorite') ? updates.is_favorite : isFavorite,
         in_waitlist: hasUpdate('in_waitlist') ? updates.in_waitlist : inWaitlist,
         rating: hasUpdate('rating') ? updates.rating : (rating === 0 ? null : rating),
         review_text: hasUpdate('review_text') ? updates.review_text : reviewText,
+        ...(hasUpdate('visited_on') ? { visited_on: updates.visited_on } : {}),
       });
+      return savedInteraction;
     } catch (error) {
       console.error('Error al guardar interaccion', error);
+      setSaveError('No pudimos guardar tu reseña. Intenta otra vez.');
+      return false;
     } finally {
       setSavingInteraction(false);
     }
@@ -84,7 +95,7 @@ function CafePage({ cafeId }) {
   const toggleVisited = () => {
     const nextValue = !isVisited;
     setIsVisited(nextValue);
-    saveInteraction({ is_visited: nextValue });
+    saveInteraction({ is_visited: nextValue, ...(nextValue ? { visited_on: getLocalDate() } : {}) });
   };
 
   const toggleFavorite = () => {
@@ -99,9 +110,9 @@ function CafePage({ cafeId }) {
     saveInteraction({ in_waitlist: nextValue });
   };
 
-  const handleSaveReview = () => {
-    setIsEditingReview(false);
-    saveInteraction({ rating: rating === 0 ? null : rating, review_text: reviewText });
+  const openReviewComposer = () => {
+    if (!cafe) return;
+    navigate(`/new-post?cafe=${encodeURIComponent(cafe.id)}`);
   };
 
   const showInAppMap = () => {
@@ -140,13 +151,20 @@ function CafePage({ cafeId }) {
 
   return (
     <main className="h-full w-full bg-[#1D1A15] flex flex-col relative pb-10 overflow-y-auto">
-      <button onClick={() => navigate(-1)} className="fixed top-6 left-6 z-50 w-10 h-10 rounded-full bg-black/70 backdrop-blur-md hover:bg-black/80 flex items-center justify-center transition-colors shadow-lg">
+      <button onClick={() => navigate(-1)} className="cafe-back-button fixed left-6 z-50 w-10 h-10 rounded-full bg-black/70 backdrop-blur-md hover:bg-black/80 flex items-center justify-center transition-colors shadow-lg">
         <ArrowLeft className="text-[#E6DAC1]" size={24} />
       </button>
 
       <div className="h-[40vh] w-full relative shrink-0">
         {cafe.imageUrl ? (
-          <img src={cafe.imageUrl} alt={cafe.nombre} className="w-full h-full object-cover" />
+          <>
+            <img src={cafe.imageUrl} alt={cafe.nombre} className="w-full h-full object-cover" />
+            {cafe.imageSourceUrl && (
+              <a href={cafe.imageSourceUrl} target="_blank" rel="noreferrer" className="cafe-image-credit">
+                Foto: {cafe.imageAttribution || 'Wikimedia Commons'}{cafe.imageLicense ? ` · ${cafe.imageLicense}` : ''}
+              </a>
+            )}
+          </>
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-[#372821]/10">
             <Coffee className="text-[#372821]/30" size={80} />
@@ -199,99 +217,60 @@ function CafePage({ cafeId }) {
               <span className="text-xs font-bold">Ir luego</span>
             </button>
           </div>
+          {saveError && <p className="mt-3 text-center text-xs text-red-300" role="alert">{saveError}</p>}
         </div>
+
+        {communityPhotos.length > 0 && (
+          <section className="bg-[#27201A] rounded-4xl p-4 shadow-xl w-full border border-white/5 mb-6">
+            <div className="px-2 pb-3">
+              <h3 className="font-bold text-[#E6DAC1] text-lg">Fotos de la comunidad</h3>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {communityPhotos.map((photo) => (
+                <img key={photo.id} src={photo.public_url} alt={cafe.nombre} className="w-full aspect-square object-cover rounded-2xl" />
+              ))}
+            </div>
+          </section>
+        )}
 
         <div className="bg-[#27201A] rounded-4xl p-6 shadow-xl w-full border border-white/5 mb-6">
           <div className="flex justify-between items-center mb-4">
             <h3 className="font-bold text-[#E6DAC1] text-lg">Mi reseña</h3>
-            {!isEditingReview && (
-              <button onClick={() => setIsEditingReview(true)} className="text-[#E6DAC1]/50 hover:text-[#E6DAC1]">
-                <Edit3 size={18} />
-              </button>
-            )}
+            <button onClick={openReviewComposer} className="text-[#E6DAC1]/50 hover:text-[#E6DAC1]" aria-label="Editar reseña">
+              <Edit3 size={18} />
+            </button>
           </div>
 
-          {isEditingReview ? (
-            <div className="flex flex-col gap-4">
-              <div className="flex gap-2 justify-center py-2">
+          <div className="flex flex-col">
+            {rating > 0 ? (
+              <div className="flex gap-1 mb-3 justify-center">
                 {[1, 2, 3, 4, 5].map((star) => (
                   <Star
                     key={star}
-                    size={32}
-                    onClick={() => setRating(star)}
-                    onMouseEnter={() => setHoverRating(star)}
-                    onMouseLeave={() => setHoverRating(0)}
-                    className={`cursor-pointer transition-all ${star <= (hoverRating || rating) ? 'text-yellow-400 fill-yellow-400' : 'text-[#372821] fill-[#372821]'}`}
+                    size={20}
+                    className={star <= rating ? 'text-yellow-400 fill-yellow-400' : 'text-[#372821] fill-[#372821]'}
                   />
                 ))}
               </div>
+            ) : (
+              <p className="text-center text-[#E6DAC1]/30 text-sm mb-4">Aún no has calificado este lugar</p>
+            )}
 
-              <textarea
-                value={reviewText}
-                onChange={(event) => setReviewText(event.target.value)}
-                placeholder="Que tal estuvo el cafe? Y el internet?"
-                className="w-full bg-[#1D1A15] text-[#E6DAC1] p-4 rounded-2xl outline-none min-h-30 resize-none border border-white/5 focus:border-[#E6DAC1]/30"
-              />
-
-              <div className="flex gap-3 mt-2">
-                <button
-                  onClick={() => setIsEditingReview(false)}
-                  className="flex-1 py-3 text-[#E6DAC1]/50 font-bold hover:bg-[#372821] rounded-xl transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleSaveReview}
-                  disabled={savingInteraction}
-                  className="flex-1 bg-[#372821] hover:bg-[#493A33] text-[#E6DAC1] py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors border border-white/10 disabled:opacity-60"
-                >
-                  <Save size={18} /> {savingInteraction ? 'Guardando...' : 'Guardar'}
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col">
-              {rating > 0 ? (
-                <div className="flex gap-1 mb-3 justify-center">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <Star
-                      key={star}
-                      size={20}
-                      className={star <= rating ? 'text-yellow-400 fill-yellow-400' : 'text-[#372821] fill-[#372821]'}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <p className="text-center text-[#E6DAC1]/30 text-sm mb-4">Aun no has calificado este lugar</p>
-              )}
-
-              {reviewText ? (
-                <p className="text-[#E6DAC1] text-sm bg-[#1D1A15] p-4 rounded-2xl border border-white/5 italic text-center">
-                  "{reviewText}"
-                </p>
-              ) : (
-                <button onClick={() => setIsEditingReview(true)} className="w-full py-4 border-2 border-dashed border-[#372821] hover:border-[#372821]/80 rounded-2xl text-[#E6DAC1]/40 font-bold text-sm transition-colors">
-                  Escribir reseña...
-                </button>
-              )}
-            </div>
-          )}
+            {reviewText ? (
+              <p className="text-[#E6DAC1] text-sm bg-[#1D1A15] p-4 rounded-2xl border border-white/5 italic text-center">
+                “{reviewText}”
+              </p>
+            ) : (
+              <button onClick={openReviewComposer} className="w-full py-4 border-2 border-dashed border-[#372821] hover:border-[#372821]/80 rounded-2xl text-[#E6DAC1]/55 font-bold text-sm transition-colors">
+                Escribir reseña...
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="bg-[#27201A] rounded-4xl p-4 shadow-xl w-full border border-white/5 mb-6">
-          <div className="flex items-center justify-between px-2 pb-3">
+          <div className="flex items-center px-2 pb-3">
             <h3 className="font-bold text-[#E6DAC1] text-lg">Ubicacion</h3>
-            {openStreetMapUrl && (
-              <a
-                href={openStreetMapUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-xs font-bold text-[#E6DAC1]/70 hover:text-[#E6DAC1]"
-              >
-                Ver en OpenStreetMap
-                <ExternalLink size={14} />
-              </a>
-            )}
           </div>
 
           <button
@@ -304,11 +283,12 @@ function CafePage({ cafeId }) {
             </span>
             <div className="min-w-0">
               <p className="text-[#E6DAC1] font-black text-base">Ver en el mapa de Coffee Map</p>
-              <p className="text-[#E6DAC1]/55 text-sm mt-1 truncate">{cafe.nombre}</p>
+              <p className="text-[#E6DAC1]/55 text-sm mt-1 leading-relaxed">{cafe.address || 'Dirección detallada pendiente de verificar'}</p>
             </div>
           </button>
         </div>
       </div>
+
     </main>
   );
 }
