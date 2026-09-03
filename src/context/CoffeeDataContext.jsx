@@ -2,7 +2,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../supabase';
 import { useAuth } from './AuthContext';
-import { deduplicateCafes } from '../utils/cafeDeduplication';
+import { areDuplicateCafes, deduplicateCafes } from '../utils/cafeDeduplication';
 
 const CoffeeDataContext = createContext(null);
 
@@ -12,6 +12,7 @@ const VISIBLE_CAFE_SOURCES = ['manual', 'community', 'osm', 'overture'];
 const CAFE_COLUMNS = 'id,nombre,lat,lng,rating,reviews,link,address,neighborhood,category,image_url,image_source_url,image_attribution,image_license,source,source_id,source_url';
 const INTERACTION_COLUMNS = 'id,user_id,cafe_id,is_visited,is_favorite,in_waitlist,rating,review_text,visited_on,updated_at';
 const INTERACTION_WITH_CAFE_COLUMNS = `${INTERACTION_COLUMNS},cafe:cafes(${CAFE_COLUMNS})`;
+const ADMIN_SCAN_SYNC_KEY = 'coffee-map:admin-scan:2026-08-30-v1';
 
 const normalizeCafe = (cafe) => ({
   ...cafe,
@@ -59,9 +60,10 @@ const writeCachedCafes = (cafes) => {
 };
 
 export function CoffeeDataProvider({ children }) {
-  const { user } = useAuth();
+  const { user, userProfile } = useAuth();
   const userId = user?.id;
   const cafeRequestRef = useRef(null);
+  const adminDataSyncRef = useRef(false);
 
   const [cafesState, setCafesState] = useState(() => {
     const cachedCafes = readCachedCafes();
@@ -147,6 +149,60 @@ export function CoffeeDataProvider({ children }) {
       return { cafes: merged, cafesLoaded: true, cafesError: '' };
     });
   }, []);
+
+  useEffect(() => {
+    if (!userId || userProfile?.role !== 'administrador' || adminDataSyncRef.current) return;
+    if (window.localStorage.getItem(ADMIN_SCAN_SYNC_KEY) === 'complete') return;
+
+    adminDataSyncRef.current = true;
+    const syncAdminCafeData = async () => {
+      const { error: approvalError } = await supabase
+        .from('cafes')
+        .update({ status: 'active', last_verified_at: new Date().toISOString() })
+        .eq('status', 'needs_review')
+        .eq('submitted_by', userId);
+      if (approvalError) throw approvalError;
+
+      const scanModule = await import('../data/openCafeScan.json');
+      const scannedCafes = scanModule.default?.cafes || [];
+      const existing = [];
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await supabase
+          .from('cafes')
+          .select('id,nombre,lat,lng,source,source_id')
+          .range(from, from + 999);
+        if (error) throw error;
+        existing.push(...(data || []));
+        if (!data || data.length < 1000) break;
+      }
+
+      const accepted = [];
+      const comparison = [...existing];
+      scannedCafes.forEach((candidate) => {
+        const sameRecord = comparison.some((current) => current.id === candidate.id);
+        const duplicate = !sameRecord && comparison.some((current) => areDuplicateCafes(current, candidate));
+        if (duplicate) return;
+        accepted.push(candidate);
+        if (!sameRecord) comparison.push(candidate);
+      });
+
+      for (let index = 0; index < accepted.length; index += 100) {
+        const { error } = await supabase
+          .from('cafes')
+          .upsert(accepted.slice(index, index + 100), { onConflict: 'id' });
+        if (error) throw error;
+      }
+
+      window.localStorage.setItem(ADMIN_SCAN_SYNC_KEY, 'complete');
+      window.sessionStorage.removeItem(CAFES_CACHE_KEY);
+      await loadCafes({ force: true });
+    };
+
+    syncAdminCafeData().catch((error) => {
+      adminDataSyncRef.current = false;
+      console.error('No se pudo sincronizar el escaneo administrativo:', error);
+    });
+  }, [loadCafes, userId, userProfile?.role]);
 
   const refreshUserInteractions = useCallback(async (targetUserId = userId) => {
     if (!targetUserId) {

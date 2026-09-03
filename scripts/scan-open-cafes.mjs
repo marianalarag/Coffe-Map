@@ -1,15 +1,9 @@
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
 import 'dotenv/config';
-
-const execFileAsync = promisify(execFile);
 const MERIDA = { south: 20.86, west: -89.75, north: 21.08, east: -89.52 };
 const ENDPOINTS = [
   'https://overpass-api.de/api/interpreter',
   'https://overpass.kumi.systems/api/interpreter',
   'https://overpass.private.coffee/api/interpreter',
-  'https://ethiopia.overpass.openplaceguide.org/api/interpreter',
-  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
 ];
 
 const boxes = (rows = 4, cols = 4) => {
@@ -56,18 +50,21 @@ const fetchBox = async (box, offset) => {
   for (let attempt = 0; attempt < ENDPOINTS.length; attempt += 1) {
     const endpoint = ENDPOINTS[(offset + attempt) % ENDPOINTS.length];
     try {
-      const { stdout } = await execFileAsync('curl.exe', [
-        '-sS', '--fail-with-body', '--max-time', '45', '-A', 'CoffeeMapMerida/1.0',
-        '-H', 'Accept: application/json', '-X', 'POST', endpoint,
-        '--data-urlencode', `data=${queryFor(box)}`,
-      ], { maxBuffer: 10 * 1024 * 1024 });
-      const payload = JSON.parse(stdout);
+      const payload = await fetchJson(endpoint, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+          'User-Agent': 'CoffeeMapMerida/1.0',
+        },
+        body: new URLSearchParams({ data: queryFor(box) }),
+      }, 60000);
       if (!Array.isArray(payload.elements) || payload.elements.length === 0) {
         throw new Error('respuesta vacía');
       }
       return payload;
     } catch (error) {
-      const detail = String(error.stderr || error.message || 'error desconocido')
+      const detail = String(error.message || 'error desconocido')
         .split(/\r?\n/)
         .filter(Boolean)
         .at(-1);
@@ -188,7 +185,7 @@ const enrichExistingOsm = async () => {
 };
 
 const scan = async () => {
-  const grid = boxes(4, 4);
+  const grid = process.argv.includes('--whole') ? boxes(1, 1) : boxes(4, 4);
   const elements = [];
   const failed = [];
   const concurrency = 4;

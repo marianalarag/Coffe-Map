@@ -55,7 +55,7 @@ const getCafeStatus = (interaction) => {
 
 function SearchPage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, userProfile } = useAuth();
   const { cafes, cafesLoading, cafesLoaded, loadCafes, interactionsByCafeId } = useCoffeeData();
   const [searchQuery, setSearchQuery] = useState('');
   const [userLocation, setUserLocation] = useState(null);
@@ -171,6 +171,7 @@ function SearchPage() {
     try {
       const suggestionId = crypto.randomUUID();
       const sourceId = `${normalizeCafeName(candidate.nombre).replaceAll(' ', '-')}:${suggestionId}`;
+      const isAdminSubmission = userProfile?.role === 'administrador';
       const { error } = await supabase.from('cafes').insert({
         id: `community:${suggestionId}`,
         nombre: candidate.nombre,
@@ -180,12 +181,14 @@ function SearchPage() {
         link: newCafe.link.trim() || null,
         source: 'community',
         source_id: sourceId,
-        status: 'needs_review',
+        status: isAdminSubmission ? 'active' : 'needs_review',
         submitted_by: user.id,
       });
       if (error) throw error;
 
-      setAddCafeFeedback('¡Gracias! La cafetería se envió para revisión.');
+      setAddCafeFeedback(isAdminSubmission
+        ? '¡Listo! La cafetería ya está activa en el mapa.'
+        : '¡Gracias! La cafetería se envió para revisión.');
       setNewCafe({ nombre: '', address: '', link: '', lat: '', lng: '' });
     } catch (error) {
       setAddCafeFeedback(error.message?.includes('policy')
