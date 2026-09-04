@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Search, ScanSearch, LocateFixed, AlertCircle, CheckCircle2, MapPin, Sparkles, Coffee } from 'lucide-react'
-import L from 'leaflet'
-import 'leaflet/dist/leaflet.css'
+import 'maplibre-gl/dist/maplibre-gl.css'
 import BottomNav from './components/BottomNav'
 import { useAuth } from './context/AuthContext'
 import { useCoffeeData } from './context/CoffeeDataContext'
 
 const MERIDA_CENTER = { lat: 20.9753, lng: -89.6178 };
 const MERIDA_BOUNDS = [[20.86, -89.75], [21.08, -89.52]];
-const OVERTURE_BASEMAP_URL = '/map-data/overture-merida-basemap.json';
+const MAP_STYLE_URL = import.meta.env.VITE_MAP_STYLE_URL
+  || 'https://tiles.openfreemap.org/styles/liberty';
 const MAP_TARGET_STORAGE_KEY = 'coffee-map:focus-cafe';
 const MARKER_RENDER_PADDING = 0.18;
 const MAX_RENDERED_MARKERS = 140;
@@ -96,7 +96,7 @@ const getMarkerGroups = (map, cafes) => {
     const cells = new Map();
 
     visibleCafes.forEach((cafe) => {
-      const point = map.project([Number(cafe.lat), Number(cafe.lng)], zoom);
+      const point = map.project([Number(cafe.lng), Number(cafe.lat)], zoom);
       const cellKey = `${Math.floor(point.x / cellSize)}:${Math.floor(point.y / cellSize)}`;
       const cell = cells.get(cellKey);
 
@@ -220,13 +220,13 @@ function App() {
 
           if (!isInMerida) {
             setLocating(false);
-            map.flyTo([MERIDA_CENTER.lat, MERIDA_CENTER.lng], 13, { duration: 0.65 });
+            map.easeTo({ center: [MERIDA_CENTER.lng, MERIDA_CENTER.lat], zoom: 13, duration: 650 });
             showToast('Coffee Map está limitado a Mérida.', 'location');
             return;
           }
 
           setUserLocation(pos);
-          map.flyTo([pos.lat, pos.lng], 15, { duration: 0.65 });
+          map.easeTo({ center: [pos.lng, pos.lat], zoom: 15, duration: 650 });
           setLocating(false);
         },
         (error) => {
@@ -253,7 +253,7 @@ function App() {
       const visibleCafes = cafes.filter((cafe) => (
         Number.isFinite(Number(cafe.lat))
         && Number.isFinite(Number(cafe.lng))
-        && bounds.contains([Number(cafe.lat), Number(cafe.lng)])
+        && bounds.contains([Number(cafe.lng), Number(cafe.lat)])
       ));
 
       setScanResultCount(visibleCafes.length);
@@ -289,148 +289,40 @@ function App() {
       try {
         if (isCancelled || !mapRef.current) return;
 
-        mapLibraryRef.current = L;
+        const maplibre = await import('maplibre-gl');
+        if (isCancelled || !mapRef.current) return;
+        mapLibraryRef.current = maplibre;
 
-        mapInstance = L.map(mapRef.current, {
-          center: [MERIDA_CENTER.lat, MERIDA_CENTER.lng],
+        mapInstance = new maplibre.Map({
+          container: mapRef.current,
+          style: MAP_STYLE_URL,
+          center: [MERIDA_CENTER.lng, MERIDA_CENTER.lat],
           zoom: 14,
           minZoom: 11,
           maxZoom: 19,
-          maxBounds: MERIDA_BOUNDS,
-          maxBoundsViscosity: 1,
-          zoomControl: false,
+          maxBounds: [
+            [MERIDA_BOUNDS[0][1], MERIDA_BOUNDS[0][0]],
+            [MERIDA_BOUNDS[1][1], MERIDA_BOUNDS[1][0]],
+          ],
           attributionControl: false,
-          preferCanvas: true,
         });
 
-        mapInstance.createPane('landUse');
-        mapInstance.getPane('landUse').style.zIndex = '210';
-        mapInstance.createPane('water');
-        mapInstance.getPane('water').style.zIndex = '220';
-        mapInstance.createPane('roadCasings');
-        mapInstance.getPane('roadCasings').style.zIndex = '300';
-        mapInstance.createPane('roads');
-        mapInstance.getPane('roads').style.zIndex = '310';
-        mapInstance.createPane('mapLabels');
-        mapInstance.getPane('mapLabels').style.zIndex = '320';
-
-        L.control.attribution({ position: 'topright', prefix: false })
-          .addAttribution('<a href="https://overturemaps.org/" target="_blank">© Overture Maps</a> · <a href="https://www.openstreetmap.org/copyright" target="_blank">© OpenStreetMap</a>')
-          .addTo(mapInstance);
-
-        const response = await fetch(OVERTURE_BASEMAP_URL);
-        if (!response.ok) throw new Error(`No se pudo abrir el mapa local (${response.status})`);
-        const basemap = await response.json();
-        if (isCancelled) return;
-
-        const flipCoordinates = (coordinates) => {
-          if (!Array.isArray(coordinates)) return coordinates;
-          if (coordinates.length >= 2 && coordinates.every(Number.isFinite)) {
-            return [coordinates[1], coordinates[0]];
-          }
-          return coordinates.map(flipCoordinates);
-        };
-
-        const canvasRenderer = L.canvas({ padding: 0.35 });
-        const greenClasses = new Set(['park', 'grass', 'garden', 'playground', 'recreation_ground', 'cemetery']);
-        const educationClasses = new Set(['school', 'college', 'university', 'kindergarten']);
-        Object.entries(basemap.landUse || {}).forEach(([landClass, polygons]) => {
-          const fillColor = greenClasses.has(landClass)
-            ? '#dcefd4'
-            : educationClasses.has(landClass)
-              ? '#f4e8cf'
-              : landClass === 'hospital'
-                ? '#f6dedc'
-                : landClass === 'industrial'
-                  ? '#e8e3dd'
-                  : '#f2eee8';
-          L.polygon(flipCoordinates(polygons), {
-            pane: 'landUse', renderer: canvasRenderer, color: fillColor, fillColor,
-            fillOpacity: 0.92, weight: 1, interactive: false, smoothFactor: 1.25,
-          }).addTo(mapInstance);
+        mapInstance.addControl(new maplibre.AttributionControl({ compact: true }), 'top-right');
+        mapInstance.once('load', () => {
+          if (isCancelled) return;
+          setMap(mapInstance);
+          setMapLoading(false);
         });
-
-        if (basemap.water?.polygons?.length) {
-          L.polygon(flipCoordinates(basemap.water.polygons), {
-            pane: 'water', renderer: canvasRenderer, color: '#9dcced', fillColor: '#b8ddf4',
-            fillOpacity: 1, weight: 1, interactive: false,
-          }).addTo(mapInstance);
-        }
-        if (basemap.water?.lines?.length) {
-          L.polyline(flipCoordinates(basemap.water.lines), {
-            pane: 'water', renderer: canvasRenderer, color: '#9dcced', weight: 2, interactive: false,
-          }).addTo(mapInstance);
-        }
-
-        const roadStyles = {
-          trunk: { casing: '#e4b55a', color: '#f8d77c', width: 6.5 },
-          primary: { casing: '#dfc594', color: '#fff0c9', width: 5.5 },
-          secondary: { casing: '#d9d2c8', color: '#ffffff', width: 4.8 },
-          tertiary: { casing: '#ddd7cf', color: '#ffffff', width: 4.1 },
-          residential: { casing: '#e2ddd6', color: '#ffffff', width: 3.3 },
-          unclassified: { casing: '#e3ded7', color: '#ffffff', width: 3.1 },
-          living_street: { casing: '#e3ded7', color: '#ffffff', width: 3 },
-          pedestrian: { casing: '#eadfd5', color: '#fff7f0', width: 2.6 },
-        };
-
-        Object.entries(basemap.roads || {}).forEach(([roadClass, lines]) => {
-          if (!lines?.length) return;
-          const style = roadStyles[roadClass] || roadStyles.residential;
-          const latLngs = flipCoordinates(lines);
-          L.polyline(latLngs, {
-            pane: 'roadCasings', renderer: canvasRenderer, color: style.casing,
-            weight: style.width + 2.2, opacity: 0.94, lineCap: 'round', lineJoin: 'round',
-            interactive: false, smoothFactor: 1.1,
-          }).addTo(mapInstance);
-          L.polyline(latLngs, {
-            pane: 'roads', renderer: canvasRenderer, color: style.color,
-            weight: style.width, opacity: 1, lineCap: 'round', lineJoin: 'round',
-            interactive: false, smoothFactor: 1.1,
-          }).addTo(mapInstance);
+        mapInstance.once('error', (event) => {
+          if (isCancelled) return;
+          console.error(event.error);
+          showToast('No se pudo cargar el mapa de Mérida.', 'error');
+          setMapLoading(false);
         });
-
-        const labelLayer = L.layerGroup().addTo(mapInstance);
-        const renderMapLabels = () => {
-          labelLayer.clearLayers();
-          const zoom = mapInstance.getZoom();
-          const bounds = mapInstance.getBounds().pad(0.08);
-          const occupiedCells = new Set();
-          const candidates = [
-            ...(basemap.labels || []).map((label) => ({ ...label, kind: 'place' })),
-            ...(zoom >= 14 ? (basemap.roadLabels || []).map((label) => ({ ...label, kind: 'road' })) : []),
-          ].filter((label) => bounds.contains([label.coordinates[1], label.coordinates[0]]));
-
-          candidates
-            .sort((a, b) => Number(b.kind === 'place') - Number(a.kind === 'place'))
-            .slice(0, 260)
-            .forEach((label) => {
-              const point = mapInstance.latLngToContainerPoint([label.coordinates[1], label.coordinates[0]]);
-              const cellSize = label.kind === 'place' ? 100 : 78;
-              const cellKey = `${Math.floor(point.x / cellSize)}:${Math.floor(point.y / 36)}`;
-              if (occupiedCells.has(cellKey)) return;
-              occupiedCells.add(cellKey);
-              const icon = L.divIcon({
-                className: 'coffee-map-label-shell',
-                html: `<span class="coffee-map-label coffee-map-label--${label.kind}">${escapeHtml(label.name)}</span>`,
-                iconSize: [1, 1],
-                iconAnchor: [0, 0],
-              });
-              L.marker([label.coordinates[1], label.coordinates[0]], {
-                pane: 'mapLabels', icon, interactive: false, keyboard: false,
-              }).addTo(labelLayer);
-            });
-        };
-
-        mapInstance.on('moveend zoomend', renderMapLabels);
-        renderMapLabels();
-        setMap(mapInstance);
-        setMapLoading(false);
-        window.requestAnimationFrame(() => mapInstance.invalidateSize());
       } catch (error) {
         if (isCancelled) return;
         console.error(error);
         showToast('No se pudo cargar el mapa de Merida.', 'error');
-        setMapLoading(false);
       }
     };
 
@@ -466,8 +358,8 @@ function App() {
   }, [mapIntroPending, showInitialLoading]);
 
   const renderVisibleMarkers = useCallback(() => {
-    const leaflet = mapLibraryRef.current;
-    if (!map || !leaflet) return;
+    const Marker = mapLibraryRef.current?.Marker;
+    if (!map || !Marker) return;
 
     const markerGroups = getMarkerGroups(map, cafes);
     const nextKeys = new Set(markerGroups.map((group) => group.key));
@@ -490,42 +382,40 @@ function App() {
       if (existingEntry?.signature === signature) return;
       if (existingEntry) existingEntry.marker.remove();
 
-      const markerClassName = isCafe
+      const element = document.createElement('button');
+      element.type = 'button';
+      element.className = isCafe
         ? 'coffee-map-leaflet-marker'
         : 'coffee-map-leaflet-marker coffee-map-leaflet-cluster-icon';
-      const title = isCafe ? group.cafe.nombre : `${group.cafes.length} cafeterías cercanas`;
-      const markerContent = isCafe
+      element.title = isCafe ? group.cafe.nombre : `${group.cafes.length} cafeterías cercanas`;
+      element.setAttribute('aria-label', element.title);
+      element.innerHTML = isCafe
         ? getCafeMarkerHtml({ cafe: group.cafe, markerColor, showPreview: showMarkerPreviews })
         : getClusterMarkerHtml(group.cafes.length);
-      const iconSize = isCafe ? [28, 36] : [42, 42];
-      const icon = leaflet.divIcon({
-        className: 'coffee-map-leaflet-div-icon',
-        html: `<button type="button" class="${markerClassName}" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}">${markerContent}</button>`,
-        iconSize,
-        iconAnchor: [iconSize[0] / 2, iconSize[1]],
-      });
-      const marker = leaflet.marker([group.lat, group.lng], { icon, keyboard: false }).addTo(map);
+
+      const marker = new Marker({ element, anchor: 'bottom' })
+        .setLngLat([group.lng, group.lat])
+        .addTo(map);
 
       if (isCafe) {
-        marker.on('click', () => navigate(`/cafe/${group.cafe.id}`));
+        element.addEventListener('click', () => navigate(`/cafe/${group.cafe.id}`));
       } else {
-        marker.on('click', () => {
+        element.addEventListener('click', () => {
           const latitudes = group.cafes.map((cafe) => Number(cafe.lat)).filter(Number.isFinite);
           const longitudes = group.cafes.map((cafe) => Number(cafe.lng)).filter(Number.isFinite);
           if (!latitudes.length || !longitudes.length) return;
-          const southWest = [Math.min(...latitudes), Math.min(...longitudes)];
-          const northEast = [Math.max(...latitudes), Math.max(...longitudes)];
+          const southWest = [Math.min(...longitudes), Math.min(...latitudes)];
+          const northEast = [Math.max(...longitudes), Math.max(...latitudes)];
 
           if (southWest[0] === northEast[0] && southWest[1] === northEast[1]) {
-            map.flyTo([group.lat, group.lng], 18, { duration: 0.55 });
+            map.easeTo({ center: [group.lng, group.lat], zoom: 18, duration: 550 });
             return;
           }
 
-          map.flyToBounds([southWest, northEast], {
-            duration: 0.55,
+          map.fitBounds([southWest, northEast], {
+            duration: 550,
             maxZoom: 18,
-            paddingTopLeft: [72, 86],
-            paddingBottomRight: [72, 118],
+            padding: { top: 86, right: 72, bottom: 118, left: 72 },
           });
         });
       }
@@ -569,7 +459,7 @@ function App() {
       target?.classList.remove('coffee-map-leaflet-shell--scan-target', 'coffee-map-leaflet-cluster--scan-target');
       target?.style.removeProperty('--scan-delay');
 
-      if (!scanning || !map?.getBounds().contains(marker.getLatLng()) || !target) return;
+      if (!scanning || !map?.getBounds().contains(marker.getLngLat()) || !target) return;
 
       const targetClass = target.classList.contains('coffee-map-leaflet-cluster')
         ? 'coffee-map-leaflet-cluster--scan-target'
@@ -595,19 +485,19 @@ function App() {
       userMarkerRef.current = null;
     }
 
-    const leaflet = mapLibraryRef.current;
-    if (!leaflet) return;
-    const icon = leaflet.divIcon({
-      className: 'coffee-map-leaflet-div-icon',
-      html: '<span class="coffee-map-leaflet-marker"><span class="coffee-map-leaflet-pin coffee-map-leaflet-pin--user"><span class="coffee-map-leaflet-dot"></span></span></span>',
-      iconSize: [28, 36],
-      iconAnchor: [14, 36],
-    });
-    userMarkerRef.current = leaflet.marker([userLocation.lat, userLocation.lng], {
-      icon,
-      keyboard: false,
-      title: 'Tu ubicación',
-    }).addTo(map);
+    const Marker = mapLibraryRef.current?.Marker;
+    if (!Marker) return;
+    const element = document.createElement('span');
+    element.className = 'coffee-map-leaflet-marker';
+    element.title = 'Tu ubicación';
+    element.innerHTML = `
+      <span class="coffee-map-leaflet-pin coffee-map-leaflet-pin--user">
+        <span class="coffee-map-leaflet-dot"></span>
+      </span>
+    `;
+    userMarkerRef.current = new Marker({ element, anchor: 'bottom' })
+      .setLngLat([userLocation.lng, userLocation.lat])
+      .addTo(map);
 
     return () => {
       if (userMarkerRef.current) {
@@ -636,7 +526,7 @@ function App() {
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
 
     window.sessionStorage.removeItem(MAP_TARGET_STORAGE_KEY);
-    map.flyTo([lat, lng], 18, { duration: 0.65 });
+    map.easeTo({ center: [lng, lat], zoom: 18, duration: 650 });
     showToast(`Mostrando ${cafe?.nombre || target.nombre || 'cafeteria'} en el mapa.`, 'location');
   }, [cafes, location.pathname, map, showToast]);
 
@@ -657,34 +547,9 @@ function App() {
         .animate-cream-curtain-reveal {
           animation: creamCurtainReveal 780ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
         }
-        .leaflet-container {
-          background: #f7f5f2;
+        .maplibregl-map {
+          background: #E6DAC1;
           font-family: inherit;
-        }
-        .coffee-map-leaflet-div-icon,
-        .coffee-map-label-shell {
-          background: transparent;
-          border: 0;
-        }
-        .coffee-map-label {
-          position: absolute;
-          display: block;
-          width: max-content;
-          max-width: 128px;
-          color: #625f5a;
-          font-size: 10px;
-          font-weight: 600;
-          line-height: 1.1;
-          letter-spacing: .01em;
-          text-align: center;
-          white-space: nowrap;
-          text-shadow: -1px -1px 0 rgba(255,255,255,.96), 1px -1px 0 rgba(255,255,255,.96), -1px 1px 0 rgba(255,255,255,.96), 1px 1px 0 rgba(255,255,255,.96);
-          transform: translate(-50%, -50%);
-        }
-        .coffee-map-label--place {
-          color: #4f514d;
-          font-size: 11px;
-          font-weight: 750;
         }
         .coffee-map-leaflet-marker {
           width: 28px;
@@ -800,7 +665,7 @@ function App() {
           opacity: 1;
           transform: translate(-50%, 0) scale(1);
         }
-        .leaflet-control-attribution {
+        .maplibregl-ctrl-attrib {
           max-width: 128px;
           margin: max(58px, calc(env(safe-area-inset-top, 0px) + 45px)) 8px 0 0 !important;
           padding: 3px 7px !important;
@@ -812,7 +677,8 @@ function App() {
           line-height: 1.25 !important;
           backdrop-filter: blur(8px);
         }
-        .leaflet-control-attribution a { color: inherit !important; }
+        .maplibregl-ctrl-attrib a { color: inherit !important; }
+        .maplibregl-ctrl-attrib-button { display: none !important; }
         .map-scan-overlay {
           position: absolute;
           inset: 0;

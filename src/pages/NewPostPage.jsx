@@ -16,7 +16,7 @@ function NewPostPage() {
   const fileInputRef = useRef(null);
   const hydratedComposerRef = useRef('');
   const { user, userProfile } = useAuth();
-  const { cafes, interactionsByCafeId, interactionsLoaded, saveCafeInteraction } = useCoffeeData();
+  const { cafes, interactionsByCafeId, interactionsLoaded, loadCafes, saveCafeInteraction } = useCoffeeData();
   const requestedCafeId = new URLSearchParams(location.search).get('cafe') || '';
   const [text, setText] = useState('');
   const [cafeId, setCafeId] = useState(requestedCafeId);
@@ -24,6 +24,7 @@ function NewPostPage() {
   const [isFavorite, setIsFavorite] = useState(false);
   const [photos, setPhotos] = useState([]);
   const [photoPreviews, setPhotoPreviews] = useState([]);
+  const [photoRightsConfirmed, setPhotoRightsConfirmed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState({ type: '', message: '' });
   const avatar = useMemo(() => getAvatar(user, userProfile), [user, userProfile]);
@@ -66,6 +67,7 @@ function NewPostPage() {
     photoPreviews.forEach((preview) => URL.revokeObjectURL(preview));
     setPhotos(files);
     setPhotoPreviews(files.map((file) => URL.createObjectURL(file)));
+    setPhotoRightsConfirmed(false);
     setFeedback({ type: '', message: '' });
   };
 
@@ -73,12 +75,17 @@ function NewPostPage() {
     photoPreviews.forEach((preview) => URL.revokeObjectURL(preview));
     setPhotos([]);
     setPhotoPreviews([]);
+    setPhotoRightsConfirmed(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const publishPost = async () => {
     const content = text.trim();
     if ((!content && photos.length === 0) || !user || submitting) return;
+    if (cafeId && photos.length > 0 && !photoRightsConfirmed) {
+      setFeedback({ type: 'error', message: 'Confirma que puedes publicar las fotos para agregarlas a la cafetería.' });
+      return;
+    }
 
     setSubmitting(true);
     setFeedback({ type: '', message: '' });
@@ -135,6 +142,42 @@ function NewPostPage() {
         const { error: updateError } = await supabase.from('posts').update({ image_url: uploadedImages[0].public_url }).eq('id', post.id);
         if (updateError) throw updateError;
 
+        if (cafeId && photoRightsConfirmed) {
+          const isAdmin = userProfile?.role === 'administrador';
+          const { data: cafePhotos, error: cafePhotoError } = await supabase
+            .from('cafe_photos')
+            .insert(uploadedImages.map((image) => ({
+              cafe_id: cafeId,
+              user_id: user.id,
+              post_id: post.id,
+              storage_path: image.storage_path,
+              public_url: image.public_url,
+              status: isAdmin ? 'approved' : 'pending',
+              is_cover: false,
+              rights_confirmed: true,
+              rights_basis: 'own',
+              rights_note: 'Foto propia confirmada al publicar la reseña.',
+            })))
+            .select('id,public_url');
+          if (cafePhotoError) throw cafePhotoError;
+
+          if (isAdmin && !selectedCafe?.imageUrl && cafePhotos?.[0]) {
+            const { error: coverError } = await supabase.from('cafes').update({
+              image_url: cafePhotos[0].public_url,
+              image_source_url: null,
+              image_attribution: `Foto de ${username} en Coffee Map`,
+              image_license: null,
+            }).eq('id', cafeId);
+            if (coverError) throw coverError;
+
+            const { error: markCoverError } = await supabase
+              .from('cafe_photos')
+              .update({ is_cover: true, moderated_at: new Date().toISOString(), moderated_by: user.id })
+              .eq('id', cafePhotos[0].id);
+            if (markCoverError) throw markCoverError;
+            await loadCafes({ force: true });
+          }
+        }
       }
 
       setText('');
@@ -163,6 +206,7 @@ function NewPostPage() {
           <textarea value={text} onChange={(event) => setText(event.target.value)} placeholder="¿Qué cafetería visitaste hoy?" maxLength={1000} autoFocus />
           {photoPreviews.length > 0 && <div className="new-post-photo-preview new-post-photo-gallery">{photoPreviews.map((preview, index) => <img src={preview} alt={`Vista previa ${index + 1}`} key={preview} />)}<button type="button" onClick={clearPhotos} aria-label="Quitar fotos"><X size={16} /></button></div>}
           <label className="new-post-cafe-picker"><MapPin size={16} /><select value={cafeId} onChange={(event) => setCafeId(event.target.value)}><option value="">Relacionar una cafetería (opcional)</option>{cafeOptions.map((cafe) => <option value={cafe.id} key={cafe.id}>{cafe.nombre}</option>)}</select></label>
+          {photoPreviews.length > 0 && selectedCafe && <label className="new-post-photo-rights"><input type="checkbox" checked={photoRightsConfirmed} onChange={(event) => setPhotoRightsConfirmed(event.target.checked)} /><span>Confirmo que estas fotos son mías o que tengo permiso para publicarlas. Se agregarán a la galería de la cafetería y podrán usarse como portada.</span></label>}
           {selectedCafe && (
             <div className="new-post-review-options">
               <label className="new-post-rating"><Star size={17} /><span>Calificación</span><HalfStarRating value={rating} onChange={setRating} size={23} /></label>

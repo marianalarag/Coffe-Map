@@ -60,26 +60,16 @@ export function ActivityFeed({ userIdFilter = null, compact = false }) {
     setLoading(true);
     setError('');
     try {
-      let visibleUserIds = userIdFilter ? [userIdFilter] : [user.id];
-      if (!userIdFilter) {
-        const { data: friendships, error: friendshipError } = await supabase
-          .from('friendships')
-          .select('requester_id,addressee_id')
-          .eq('status', 'accepted');
-        if (friendshipError) throw friendshipError;
-        visibleUserIds = [...new Set([
-          user.id,
-          ...(friendships || []).map((friendship) => friendship.requester_id === user.id ? friendship.addressee_id : friendship.requester_id),
-        ])];
-      }
-
-      const { data: postRows, error: postError } = await supabase
+      let postsQuery = supabase
         .from('posts')
         .select('id,user_id,cafe_id,content,image_url,kind,rating,visited_on,created_at,updated_at')
         .eq('status', 'published')
-        .in('user_id', visibleUserIds)
         .order('created_at', { ascending: false })
         .limit(60);
+
+      if (userIdFilter) postsQuery = postsQuery.eq('user_id', userIdFilter);
+
+      const { data: postRows, error: postError } = await postsQuery;
       if (postError) throw postError;
 
       const userIds = [...new Set((postRows || []).map((post) => post.user_id))];
@@ -107,17 +97,17 @@ export function ActivityFeed({ userIdFilter = null, compact = false }) {
     } finally {
       setLoading(false);
     }
-  }, [user.id, userIdFilter]);
+  }, [userIdFilter]);
 
   useEffect(() => { loadPosts(); }, [loadPosts]);
 
   return (
     <>
-      {!compact && <header className="activity-header"><span>Actividad</span><button type="button" onClick={loadPosts} className="activity-refresh">Actualizar</button></header>}
+      {!compact && <header className="activity-header"><span>Comunidad Mérida</span><button type="button" onClick={loadPosts} className="activity-refresh">Actualizar</button></header>}
       <div className={`activity-feed ${compact ? 'is-compact' : ''}`}>
         {loading && <div className="activity-empty"><Coffee size={28} /><p>Cargando actividad…</p></div>}
         {!loading && error && <div className="activity-empty"><p>{error}</p></div>}
-        {!loading && !error && posts.length === 0 && <div className="activity-empty"><ImageIcon size={30} /><p>Aún no hay actividad. Registra una visita o escribe una reseña.</p></div>}
+        {!loading && !error && posts.length === 0 && <div className="activity-empty"><ImageIcon size={30} /><p>Aún no hay publicaciones en la comunidad.</p></div>}
         {posts.map((post) => {
           const name = post.profile?.username || (post.user_id === user.id ? 'Tú' : 'Coffee lover');
           const avatar = post.profile?.avatar_url || fallbackAvatar(name);
