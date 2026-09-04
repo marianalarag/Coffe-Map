@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Search, ScanSearch, LocateFixed, AlertCircle, CheckCircle2, MapPin, Sparkles, Coffee } from 'lucide-react'
 import 'maplibre-gl/dist/maplibre-gl.css'
-import mapLibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 import BottomNav from './components/BottomNav'
 import { useAuth } from './context/AuthContext'
 import { useCoffeeData } from './context/CoffeeDataContext'
@@ -291,9 +290,9 @@ function App() {
       try {
         if (isCancelled || !mapRef.current) return;
 
-        const maplibre = await import('maplibre-gl');
+        const maplibreModule = await import('maplibre-gl');
+        const maplibre = maplibreModule.default || maplibreModule;
         if (isCancelled || !mapRef.current) return;
-        maplibre.setWorkerUrl(mapLibreWorkerUrl);
         mapLibraryRef.current = maplibre;
 
         mapInstance = new maplibre.Map({
