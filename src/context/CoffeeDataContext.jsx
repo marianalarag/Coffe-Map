@@ -14,6 +14,18 @@ const INTERACTION_COLUMNS = 'id,user_id,cafe_id,is_visited,is_favorite,in_waitli
 const INTERACTION_WITH_CAFE_COLUMNS = `${INTERACTION_COLUMNS},cafe:cafes(${CAFE_COLUMNS})`;
 const ADMIN_SCAN_SYNC_KEY = 'coffee-map:admin-scan:2026-08-30-v1';
 
+const toReviewPost = (interaction) => ({
+  user_id: interaction.user_id,
+  cafe_id: interaction.cafe_id,
+  content: String(interaction.review_text || '').trim().slice(0, 1000),
+  kind: 'review',
+  rating: interaction.rating || null,
+  visited_on: interaction.visited_on || null,
+  interaction_id: interaction.id,
+  status: 'published',
+  updated_at: interaction.updated_at || new Date().toISOString(),
+});
+
 const normalizeCafe = (cafe) => ({
   ...cafe,
   lat: Number(cafe.lat),
@@ -227,6 +239,19 @@ export function CoffeeDataProvider({ children }) {
         ...interaction,
         cafe: interaction.cafe ? normalizeCafe(interaction.cafe) : null,
       }));
+
+      if (targetUserId === userId) {
+        const reviewPosts = (data || [])
+          .filter((interaction) => String(interaction.review_text || '').trim())
+          .map(toReviewPost);
+        if (reviewPosts.length > 0) {
+          const { error: reviewSyncError } = await supabase
+            .from('posts')
+            .upsert(reviewPosts, { onConflict: 'interaction_id' });
+          if (reviewSyncError) throw reviewSyncError;
+        }
+      }
+
       setInteractions(nextInteractions);
       setInteractionsLoaded(true);
       interactionsUserIdRef.current = targetUserId;
@@ -294,6 +319,21 @@ export function CoffeeDataProvider({ children }) {
       ...data,
       cafe: data.cafe ? normalizeCafe(data.cafe) : currentInteraction?.cafe || null,
     };
+
+    if (Object.prototype.hasOwnProperty.call(patch, 'review_text')) {
+      if (String(data.review_text || '').trim()) {
+        const { error: reviewSyncError } = await supabase
+          .from('posts')
+          .upsert(toReviewPost(data), { onConflict: 'interaction_id' });
+        if (reviewSyncError) throw reviewSyncError;
+      } else {
+        const { error: hideReviewError } = await supabase
+          .from('posts')
+          .update({ status: 'hidden', updated_at: data.updated_at })
+          .eq('interaction_id', data.id);
+        if (hideReviewError) throw hideReviewError;
+      }
+    }
 
     setInteractions((current) => {
       const exists = current.some((interaction) => interaction.cafe_id === cafeId);
