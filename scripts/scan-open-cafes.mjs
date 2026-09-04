@@ -60,8 +60,8 @@ const fetchBox = async (box, offset) => {
         },
         body: new URLSearchParams({ data: queryFor(box) }),
       }, 60000);
-      if (!Array.isArray(payload.elements) || payload.elements.length === 0) {
-        throw new Error('respuesta vacía');
+      if (!Array.isArray(payload.elements)) {
+        throw new Error('respuesta sin elementos');
       }
       return payload;
     } catch (error) {

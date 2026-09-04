@@ -1,56 +1,7 @@
 {
-  "scanned_at": "2026-09-04T19:31:01.124Z",
-  "zones_scanned": 23,
-  "failed_zones": [
-    {
-      "zone": 1,
-      "error": "https://overpass-api.de/api/interpreter: respuesta vacía | https://overpass.kumi.systems/api/interpreter: respuesta vacía | https://overpass.private.coffee/api/interpreter: 504 Gateway Timeout"
-    },
-    {
-      "zone": 2,
-      "error": "https://overpass.kumi.systems/api/interpreter: 504 Gateway Timeout | https://overpass.private.coffee/api/interpreter: 504 Gateway Timeout | https://overpass-api.de/api/interpreter: respuesta vacía"
-    },
-    {
-      "zone": 3,
-      "error": "https://overpass.private.coffee/api/interpreter: respuesta vacía | https://overpass-api.de/api/interpreter: 429 Too Many Requests | https://overpass.kumi.systems/api/interpreter: respuesta vacía"
-    },
-    {
-      "zone": 4,
-      "error": "https://overpass-api.de/api/interpreter: respuesta vacía | https://overpass.kumi.systems/api/interpreter: respuesta vacía | https://overpass.private.coffee/api/interpreter: respuesta vacía"
-    },
-    {
-      "zone": 5,
-      "error": "https://overpass.kumi.systems/api/interpreter: respuesta vacía | https://overpass.private.coffee/api/interpreter: respuesta vacía | https://overpass-api.de/api/interpreter: respuesta vacía"
-    },
-    {
-      "zone": 1,
-      "error": "https://overpass-api.de/api/interpreter: respuesta vacía | https://overpass.kumi.systems/api/interpreter: This operation was aborted | https://overpass.private.coffee/api/interpreter: respuesta vacía"
-    },
-    {
-      "zone": 2,
-      "error": "https://overpass.kumi.systems/api/interpreter: 504 Gateway Timeout | https://overpass.private.coffee/api/interpreter: respuesta vacía | https://overpass-api.de/api/interpreter: respuesta vacía"
-    },
-    {
-      "zone": 3,
-      "error": "https://overpass.private.coffee/api/interpreter: This operation was aborted | https://overpass-api.de/api/interpreter: 504 Gateway Timeout | https://overpass.kumi.systems/api/interpreter: respuesta vacía"
-    },
-    {
-      "zone": 4,
-      "error": "https://overpass-api.de/api/interpreter: respuesta vacía | https://overpass.kumi.systems/api/interpreter: respuesta vacía | https://overpass.private.coffee/api/interpreter: 504 Gateway Timeout"
-    },
-    {
-      "zone": 5,
-      "error": "https://overpass.kumi.systems/api/interpreter: respuesta vacía | https://overpass.private.coffee/api/interpreter: This operation was aborted | https://overpass-api.de/api/interpreter: respuesta vacía"
-    },
-    {
-      "zone": 6,
-      "error": "https://overpass.private.coffee/api/interpreter: respuesta vacía | https://overpass-api.de/api/interpreter: respuesta vacía | https://overpass.kumi.systems/api/interpreter: respuesta vacía"
-    },
-    {
-      "zone": 7,
-      "error": "https://overpass-api.de/api/interpreter: respuesta vacía | https://overpass.kumi.systems/api/interpreter: 504 Gateway Timeout | https://overpass.private.coffee/api/interpreter: 504 Gateway Timeout"
-    }
-  ],
+  "scanned_at": "2026-09-04T19:50:58.469Z",
+  "zones_scanned": 16,
+  "failed_zones": [],
   "cafes": [
     {
       "id": "osm:node:6661240925",
@@ -70,7 +21,7 @@
       "source_id": "node/6661240925",
       "source_url": "https://www.openstreetmap.org/node/6661240925",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.931Z"
+      "last_verified_at": "2026-09-04T19:50:58.466Z"
     },
     {
       "id": "osm:node:5432024842",
@@ -84,17 +35,17 @@
       "image_source_url": null,
       "image_attribution": null,
       "image_license": null,
-      "address": "Calle 77 528, Mérida, Yuc",
+      "address": "Calle 77 528, MÃƒÂ©rida, Yuc",
       "neighborhood": null,
       "source": "osm",
       "source_id": "node/5432024842",
       "source_url": "https://www.openstreetmap.org/node/5432024842",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:13543569601",
-      "nombre": "Alma Cálida",
+      "nombre": "Alma CÃƒÂ¡lida",
       "lat": 20.9592278,
       "lng": -89.6307358,
       "rating": null,
@@ -110,11 +61,11 @@
       "source_id": "node/13543569601",
       "source_url": "https://www.openstreetmap.org/node/13543569601",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:14007701947",
-      "nombre": "Orgánico Bar de Café & Cocina",
+      "nombre": "OrgÃƒÂ¡nico Bar de CafÃƒÂ© & Cocina",
       "lat": 20.9601778,
       "lng": -89.6256545,
       "rating": null,
@@ -124,17 +75,17 @@
       "image_source_url": null,
       "image_attribution": null,
       "image_license": null,
-      "address": "Calle 62 582, Mérida",
+      "address": "Calle 62 582, MÃƒÂ©rida",
       "neighborhood": null,
       "source": "osm",
       "source_id": "node/14007701947",
       "source_url": "https://www.openstreetmap.org/node/14007701947",
       "status": "needs_review",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:4803875140",
-      "nombre": "Cafetería La Primera de San Cristóbal",
+      "nombre": "CafeterÃƒÂ­a La Primera de San CristÃƒÂ³bal",
       "lat": 20.9614438,
       "lng": -89.6184282,
       "rating": null,
@@ -150,7 +101,7 @@
       "source_id": "node/4803875140",
       "source_url": "https://www.openstreetmap.org/node/4803875140",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:4316605490",
@@ -170,7 +121,7 @@
       "source_id": "node/4316605490",
       "source_url": "https://www.openstreetmap.org/node/4316605490",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:10934459705",
@@ -190,7 +141,7 @@
       "source_id": "node/10934459705",
       "source_url": "https://www.openstreetmap.org/node/10934459705",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:5411151722",
@@ -210,7 +161,7 @@
       "source_id": "node/5411151722",
       "source_url": "https://www.openstreetmap.org/node/5411151722",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:8263119752",
@@ -230,7 +181,7 @@
       "source_id": "node/8263119752",
       "source_url": "https://www.openstreetmap.org/node/8263119752",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:9356763818",
@@ -250,11 +201,11 @@
       "source_id": "node/9356763818",
       "source_url": "https://www.openstreetmap.org/node/9356763818",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:4293127692",
-      "nombre": "Bisquets Obregón",
+      "nombre": "Bisquets ObregÃƒÂ³n",
       "lat": 20.9677725,
       "lng": -89.6241916,
       "rating": null,
@@ -270,7 +221,7 @@
       "source_id": "node/4293127692",
       "source_url": "https://www.openstreetmap.org/node/4293127692",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:5670808327",
@@ -290,7 +241,7 @@
       "source_id": "node/5670808327",
       "source_url": "https://www.openstreetmap.org/node/5670808327",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:9733620417",
@@ -310,7 +261,7 @@
       "source_id": "node/9733620417",
       "source_url": "https://www.openstreetmap.org/node/9733620417",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:9738766118",
@@ -330,7 +281,7 @@
       "source_id": "node/9738766118",
       "source_url": "https://www.openstreetmap.org/node/9738766118",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:11287387069",
@@ -350,11 +301,11 @@
       "source_id": "node/11287387069",
       "source_url": "https://www.openstreetmap.org/node/11287387069",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:12777074732",
-      "nombre": "Delicoffee cafetería",
+      "nombre": "Delicoffee cafeterÃƒÂ­a",
       "lat": 20.9658741,
       "lng": -89.6269376,
       "rating": null,
@@ -370,7 +321,7 @@
       "source_id": "node/12777074732",
       "source_url": "https://www.openstreetmap.org/node/12777074732",
       "status": "needs_review",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:5850108186",
@@ -390,7 +341,7 @@
       "source_id": "node/5850108186",
       "source_url": "https://www.openstreetmap.org/node/5850108186",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:4551562890",
@@ -410,7 +361,7 @@
       "source_id": "node/4551562890",
       "source_url": "https://www.openstreetmap.org/node/4551562890",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:6223650085",
@@ -424,13 +375,13 @@
       "image_source_url": null,
       "image_attribution": null,
       "image_license": null,
-      "address": "Calle 59 527C, Centro, Mérida",
+      "address": "Calle 59 527C, Centro, MÃƒÂ©rida",
       "neighborhood": "Centro",
       "source": "osm",
       "source_id": "node/6223650085",
       "source_url": "https://www.openstreetmap.org/node/6223650085",
       "status": "needs_review",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:12771231803",
@@ -450,7 +401,7 @@
       "source_id": "node/12771231803",
       "source_url": "https://www.openstreetmap.org/node/12771231803",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:4381762591",
@@ -470,11 +421,11 @@
       "source_id": "node/4381762591",
       "source_url": "https://www.openstreetmap.org/node/4381762591",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:13844973201",
-      "nombre": "Silvestre Café Galería",
+      "nombre": "Silvestre CafÃƒÂ© GalerÃƒÂ­a",
       "lat": 20.9659923,
       "lng": -89.6138274,
       "rating": null,
@@ -490,11 +441,11 @@
       "source_id": "node/13844973201",
       "source_url": "https://www.openstreetmap.org/node/13844973201",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:way:699554845",
-      "nombre": "Café La Habana",
+      "nombre": "CafÃƒÂ© La Habana",
       "lat": 20.9689335,
       "lng": -89.623868,
       "rating": null,
@@ -504,17 +455,17 @@
       "image_source_url": null,
       "image_attribution": null,
       "image_license": null,
-      "address": "Calle 59 62, Mérida",
+      "address": "Calle 59 62, MÃƒÂ©rida",
       "neighborhood": null,
       "source": "osm",
       "source_id": "way/699554845",
       "source_url": "https://www.openstreetmap.org/way/699554845",
       "status": "needs_review",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:way:1055765846",
-      "nombre": "Cafetería ENES Mérida",
+      "nombre": "CafeterÃƒÂ­a ENES MÃƒÂ©rida",
       "lat": 20.9889065,
       "lng": -89.7351721,
       "rating": null,
@@ -530,7 +481,7 @@
       "source_id": "way/1055765846",
       "source_url": "https://www.openstreetmap.org/way/1055765846",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:way:1248863080",
@@ -550,11 +501,11 @@
       "source_id": "way/1248863080",
       "source_url": "https://www.openstreetmap.org/way/1248863080",
       "status": "needs_review",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:12758737616",
-      "nombre": "Churrería Don Porfirio",
+      "nombre": "ChurrerÃƒÂ­a Don Porfirio",
       "lat": 20.9900719,
       "lng": -89.662989,
       "rating": null,
@@ -570,11 +521,11 @@
       "source_id": "node/12758737616",
       "source_url": "https://www.openstreetmap.org/node/12758737616",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:5112149460",
-      "nombre": "Café Espiral",
+      "nombre": "CafÃƒÂ© Espiral",
       "lat": 20.9990294,
       "lng": -89.6556616,
       "rating": null,
@@ -590,7 +541,7 @@
       "source_id": "node/5112149460",
       "source_url": "https://www.openstreetmap.org/node/5112149460",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:12200840339",
@@ -610,7 +561,7 @@
       "source_id": "node/12200840339",
       "source_url": "https://www.openstreetmap.org/node/12200840339",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:12596310641",
@@ -630,7 +581,7 @@
       "source_id": "node/12596310641",
       "source_url": "https://www.openstreetmap.org/node/12596310641",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:13024850769",
@@ -644,13 +595,13 @@
       "image_source_url": null,
       "image_attribution": null,
       "image_license": null,
-      "address": "Calle 36 153, San Damián, Mérida",
-      "neighborhood": "San Damián",
+      "address": "Calle 36 153, San DamiÃƒÂ¡n, MÃƒÂ©rida",
+      "neighborhood": "San DamiÃƒÂ¡n",
       "source": "osm",
       "source_id": "node/13024850769",
       "source_url": "https://www.openstreetmap.org/node/13024850769",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:way:1245607118",
@@ -664,13 +615,13 @@
       "image_source_url": null,
       "image_attribution": null,
       "image_license": null,
-      "address": "59-a, Mérida",
+      "address": "59-a, MÃƒÂ©rida",
       "neighborhood": null,
       "source": "osm",
       "source_id": "way/1245607118",
       "source_url": "https://www.openstreetmap.org/way/1245607118",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:way:1421078056",
@@ -690,31 +641,11 @@
       "source_id": "way/1421078056",
       "source_url": "https://www.openstreetmap.org/way/1421078056",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
-    },
-    {
-      "id": "osm:node:5292778521",
-      "nombre": "Maiz Canela y Cilantro",
-      "lat": 20.9721281,
-      "lng": -89.6279813,
-      "rating": null,
-      "reviews": 0,
-      "link": "https://www.openstreetmap.org/node/5292778521",
-      "image_url": null,
-      "image_source_url": null,
-      "image_attribution": null,
-      "image_license": null,
-      "address": null,
-      "neighborhood": null,
-      "source": "osm",
-      "source_id": "node/5292778521",
-      "source_url": "https://www.openstreetmap.org/node/5292778521",
-      "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:12437469922",
-      "nombre": "Manier Café",
+      "nombre": "Manier CafÃƒÂ©",
       "lat": 20.971716,
       "lng": -89.6326347,
       "rating": null,
@@ -730,11 +661,11 @@
       "source_id": "node/12437469922",
       "source_url": "https://www.openstreetmap.org/node/12437469922",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:6898349785",
-      "nombre": "Café Voltaire",
+      "nombre": "CafÃƒÂ© Voltaire",
       "lat": 20.9751888,
       "lng": -89.6284793,
       "rating": null,
@@ -750,7 +681,7 @@
       "source_id": "node/6898349785",
       "source_url": "https://www.openstreetmap.org/node/6898349785",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:4085361694",
@@ -770,7 +701,7 @@
       "source_id": "node/4085361694",
       "source_url": "https://www.openstreetmap.org/node/4085361694",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:5063087717",
@@ -790,7 +721,7 @@
       "source_id": "node/5063087717",
       "source_url": "https://www.openstreetmap.org/node/5063087717",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:5310352121",
@@ -804,13 +735,13 @@
       "image_source_url": null,
       "image_attribution": null,
       "image_license": null,
-      "address": "Calle 60 53, Mérida",
+      "address": "Calle 60 53, MÃƒÂ©rida",
       "neighborhood": null,
       "source": "osm",
       "source_id": "node/5310352121",
       "source_url": "https://www.openstreetmap.org/node/5310352121",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:5432506022",
@@ -830,11 +761,11 @@
       "source_id": "node/5432506022",
       "source_url": "https://www.openstreetmap.org/node/5432506022",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:5501740722",
-      "nombre": "Bendito Café",
+      "nombre": "Bendito CafÃƒÂ©",
       "lat": 20.9713823,
       "lng": -89.6252419,
       "rating": null,
@@ -850,11 +781,11 @@
       "source_id": "node/5501740722",
       "source_url": "https://www.openstreetmap.org/node/5501740722",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:9356750317",
-      "nombre": "Voltacafé",
+      "nombre": "VoltacafÃƒÂ©",
       "lat": 20.9722629,
       "lng": -89.6231871,
       "rating": null,
@@ -870,11 +801,11 @@
       "source_id": "node/9356750317",
       "source_url": "https://www.openstreetmap.org/node/9356750317",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:9583751917",
-      "nombre": "Café Chuc - Tradición Yucateca",
+      "nombre": "CafÃƒÂ© Chuc - TradiciÃƒÂ³n Yucateca",
       "lat": 20.9722013,
       "lng": -89.6222813,
       "rating": null,
@@ -884,17 +815,17 @@
       "image_source_url": null,
       "image_attribution": null,
       "image_license": null,
-      "address": "Calle 60 465, Mérida",
+      "address": "Calle 60 465, MÃƒÂ©rida",
       "neighborhood": null,
       "source": "osm",
       "source_id": "node/9583751917",
       "source_url": "https://www.openstreetmap.org/node/9583751917",
       "status": "needs_review",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:12549582601",
-      "nombre": "Café Lucy",
+      "nombre": "CafÃƒÂ© Lucy",
       "lat": 20.9732457,
       "lng": -89.6219148,
       "rating": null,
@@ -910,11 +841,11 @@
       "source_id": "node/12549582601",
       "source_url": "https://www.openstreetmap.org/node/12549582601",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:12629392324",
-      "nombre": "Café Riqueza",
+      "nombre": "CafÃƒÂ© Riqueza",
       "lat": 20.9743002,
       "lng": -89.6217106,
       "rating": null,
@@ -930,7 +861,7 @@
       "source_id": "node/12629392324",
       "source_url": "https://www.openstreetmap.org/node/12629392324",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:13048692667",
@@ -944,13 +875,13 @@
       "image_source_url": null,
       "image_attribution": null,
       "image_license": null,
-      "address": "Calle 53 502N, Centro, Mérida",
+      "address": "Calle 53 502N, Centro, MÃƒÂ©rida",
       "neighborhood": "Centro",
       "source": "osm",
       "source_id": "node/13048692667",
       "source_url": "https://www.openstreetmap.org/node/13048692667",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:13672001001",
@@ -970,7 +901,7 @@
       "source_id": "node/13672001001",
       "source_url": "https://www.openstreetmap.org/node/13672001001",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:13672007202",
@@ -990,11 +921,11 @@
       "source_id": "node/13672007202",
       "source_url": "https://www.openstreetmap.org/node/13672007202",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:14007740426",
-      "nombre": "Tinoc Café",
+      "nombre": "Tinoc CafÃƒÂ©",
       "lat": 20.9723132,
       "lng": -89.6206835,
       "rating": null,
@@ -1004,33 +935,13 @@
       "image_source_url": null,
       "image_attribution": null,
       "image_license": null,
-      "address": "Calle 58 444, Mérida",
+      "address": "Calle 58 444, MÃƒÂ©rida",
       "neighborhood": null,
       "source": "osm",
       "source_id": "node/14007740426",
       "source_url": "https://www.openstreetmap.org/node/14007740426",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
-    },
-    {
-      "id": "osm:node:14038504201",
-      "nombre": "Mercy's Coffee & Co.",
-      "lat": 20.9704604,
-      "lng": -89.6262515,
-      "rating": null,
-      "reviews": 0,
-      "link": "https://www.openstreetmap.org/node/14038504201",
-      "image_url": null,
-      "image_source_url": null,
-      "image_attribution": null,
-      "image_license": null,
-      "address": "Calle 57 529, Centro, Mérida",
-      "neighborhood": "Centro",
-      "source": "osm",
-      "source_id": "node/14038504201",
-      "source_url": "https://www.openstreetmap.org/node/14038504201",
-      "status": "needs_review",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:10584314825",
@@ -1050,11 +961,11 @@
       "source_id": "node/10584314825",
       "source_url": "https://www.openstreetmap.org/node/10584314825",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:4213559290",
-      "nombre": "Café Crème",
+      "nombre": "CafÃƒÂ© CrÃƒÂ¨me",
       "lat": 20.9792041,
       "lng": -89.6208393,
       "rating": null,
@@ -1070,7 +981,7 @@
       "source_id": "node/4213559290",
       "source_url": "https://www.openstreetmap.org/node/4213559290",
       "status": "needs_review",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:6040037888",
@@ -1090,11 +1001,11 @@
       "source_id": "node/6040037888",
       "source_url": "https://www.openstreetmap.org/node/6040037888",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:7114661578",
-      "nombre": "Café del Sol",
+      "nombre": "CafÃƒÂ© del Sol",
       "lat": 20.9753344,
       "lng": -89.6211769,
       "rating": null,
@@ -1110,7 +1021,7 @@
       "source_id": "node/7114661578",
       "source_url": "https://www.openstreetmap.org/node/7114661578",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:9859052695",
@@ -1130,11 +1041,11 @@
       "source_id": "node/9859052695",
       "source_url": "https://www.openstreetmap.org/node/9859052695",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:12543063904",
-      "nombre": "Café La Habana",
+      "nombre": "CafÃƒÂ© La Habana",
       "lat": 20.9766611,
       "lng": -89.621465,
       "rating": null,
@@ -1150,11 +1061,11 @@
       "source_id": "node/12543063904",
       "source_url": "https://www.openstreetmap.org/node/12543063904",
       "status": "needs_review",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:13012312498",
-      "nombre": "La 60 Café Atelier",
+      "nombre": "La 60 CafÃƒÂ© Atelier",
       "lat": 20.9776905,
       "lng": -89.6212607,
       "rating": null,
@@ -1170,11 +1081,11 @@
       "source_id": "node/13012312498",
       "source_url": "https://www.openstreetmap.org/node/13012312498",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:4384694190",
-      "nombre": "Dulcería y Sorbetería Colón",
+      "nombre": "DulcerÃƒÂ­a y SorbeterÃƒÂ­a ColÃƒÂ³n",
       "lat": 20.9798182,
       "lng": -89.6185157,
       "rating": null,
@@ -1190,7 +1101,7 @@
       "source_id": "node/4384694190",
       "source_url": "https://www.openstreetmap.org/node/4384694190",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:4584167894",
@@ -1210,7 +1121,7 @@
       "source_id": "node/4584167894",
       "source_url": "https://www.openstreetmap.org/node/4584167894",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:4835220021",
@@ -1230,11 +1141,11 @@
       "source_id": "node/4835220021",
       "source_url": "https://www.openstreetmap.org/node/4835220021",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:7107954328",
-      "nombre": "Márago Coffee",
+      "nombre": "MÃƒÂ¡rago Coffee",
       "lat": 20.9795024,
       "lng": -89.6190502,
       "rating": null,
@@ -1250,11 +1161,11 @@
       "source_id": "node/7107954328",
       "source_url": "https://www.openstreetmap.org/node/7107954328",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:10553619151",
-      "nombre": "Café Cafico",
+      "nombre": "CafÃƒÂ© Cafico",
       "lat": 20.9750391,
       "lng": -89.6203927,
       "rating": null,
@@ -1270,7 +1181,7 @@
       "source_id": "node/10553619151",
       "source_url": "https://www.openstreetmap.org/node/10553619151",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:12581598271",
@@ -1290,7 +1201,7 @@
       "source_id": "node/12581598271",
       "source_url": "https://www.openstreetmap.org/node/12581598271",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:13598581201",
@@ -1310,11 +1221,11 @@
       "source_id": "node/13598581201",
       "source_url": "https://www.openstreetmap.org/node/13598581201",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:12210733051",
-      "nombre": "De la Reina Roja Café",
+      "nombre": "De la Reina Roja CafÃƒÂ©",
       "lat": 20.9782656,
       "lng": -89.6123485,
       "rating": null,
@@ -1330,11 +1241,11 @@
       "source_id": "node/12210733051",
       "source_url": "https://www.openstreetmap.org/node/12210733051",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:12210733057",
-      "nombre": "Te Invoco Y Suspiro Café",
+      "nombre": "Te Invoco Y Suspiro CafÃƒÂ©",
       "lat": 20.9783081,
       "lng": -89.6122645,
       "rating": null,
@@ -1350,7 +1261,7 @@
       "source_id": "node/12210733057",
       "source_url": "https://www.openstreetmap.org/node/12210733057",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:12210733069",
@@ -1370,11 +1281,11 @@
       "source_id": "node/12210733069",
       "source_url": "https://www.openstreetmap.org/node/12210733069",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:12210733075",
-      "nombre": "Abuelo Guillén",
+      "nombre": "Abuelo GuillÃƒÂ©n",
       "lat": 20.9786658,
       "lng": -89.6117854,
       "rating": null,
@@ -1390,7 +1301,7 @@
       "source_id": "node/12210733075",
       "source_url": "https://www.openstreetmap.org/node/12210733075",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:12210733078",
@@ -1410,7 +1321,7 @@
       "source_id": "node/12210733078",
       "source_url": "https://www.openstreetmap.org/node/12210733078",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:11957748516",
@@ -1430,7 +1341,7 @@
       "source_id": "node/11957748516",
       "source_url": "https://www.openstreetmap.org/node/11957748516",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:12198320258",
@@ -1450,7 +1361,7 @@
       "source_id": "node/12198320258",
       "source_url": "https://www.openstreetmap.org/node/12198320258",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:12349511638",
@@ -1470,11 +1381,11 @@
       "source_id": "node/12349511638",
       "source_url": "https://www.openstreetmap.org/node/12349511638",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:12349511662",
-      "nombre": "Taco City Café",
+      "nombre": "Taco City CafÃƒÂ©",
       "lat": 20.9765382,
       "lng": -89.597283,
       "rating": null,
@@ -1490,7 +1401,7 @@
       "source_id": "node/12349511662",
       "source_url": "https://www.openstreetmap.org/node/12349511662",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:10608061457",
@@ -1510,11 +1421,11 @@
       "source_id": "node/10608061457",
       "source_url": "https://www.openstreetmap.org/node/10608061457",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:11660875569",
-      "nombre": "Manga-Jō Café",
+      "nombre": "Manga-JÃ…Â CafÃƒÂ©",
       "lat": 21.000744,
       "lng": -89.627836,
       "rating": null,
@@ -1530,11 +1441,11 @@
       "source_id": "node/11660875569",
       "source_url": "https://www.openstreetmap.org/node/11660875569",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:4835385923",
-      "nombre": "Uj Cafetería",
+      "nombre": "Uj CafeterÃƒÂ­a",
       "lat": 20.9889712,
       "lng": -89.6170932,
       "rating": null,
@@ -1550,11 +1461,11 @@
       "source_id": "node/4835385923",
       "source_url": "https://www.openstreetmap.org/node/4835385923",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:2303170293",
-      "nombre": "La Vía",
+      "nombre": "La VÃƒÂ­a",
       "lat": 20.9945724,
       "lng": -89.6186878,
       "rating": null,
@@ -1570,7 +1481,7 @@
       "source_id": "node/2303170293",
       "source_url": "https://www.openstreetmap.org/node/2303170293",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:5025946224",
@@ -1590,11 +1501,11 @@
       "source_id": "node/5025946224",
       "source_url": "https://www.openstreetmap.org/node/5025946224",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:4334764676",
-      "nombre": "Café Louvre",
+      "nombre": "CafÃƒÂ© Louvre",
       "lat": 21.0018969,
       "lng": -89.6074805,
       "rating": null,
@@ -1604,13 +1515,13 @@
       "image_source_url": null,
       "image_attribution": null,
       "image_license": null,
-      "address": "Avenida Jose Diaz Bolio 75, Mérida",
+      "address": "Avenida Jose Diaz Bolio 75, MÃƒÂ©rida",
       "neighborhood": null,
       "source": "osm",
       "source_id": "node/4334764676",
       "source_url": "https://www.openstreetmap.org/node/4334764676",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:2028735442",
@@ -1630,7 +1541,7 @@
       "source_id": "node/2028735442",
       "source_url": "https://www.openstreetmap.org/node/2028735442",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:2124462124",
@@ -1650,7 +1561,7 @@
       "source_id": "node/2124462124",
       "source_url": "https://www.openstreetmap.org/node/2124462124",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:12580931388",
@@ -1670,7 +1581,7 @@
       "source_id": "node/12580931388",
       "source_url": "https://www.openstreetmap.org/node/12580931388",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:12580931430",
@@ -1690,7 +1601,7 @@
       "source_id": "node/12580931430",
       "source_url": "https://www.openstreetmap.org/node/12580931430",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:13428400501",
@@ -1710,7 +1621,7 @@
       "source_id": "node/13428400501",
       "source_url": "https://www.openstreetmap.org/node/13428400501",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:12198109466",
@@ -1730,7 +1641,7 @@
       "source_id": "node/12198109466",
       "source_url": "https://www.openstreetmap.org/node/12198109466",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.468Z"
     },
     {
       "id": "osm:node:12580931350",
@@ -1750,7 +1661,7 @@
       "source_id": "node/12580931350",
       "source_url": "https://www.openstreetmap.org/node/12580931350",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.469Z"
     },
     {
       "id": "osm:node:12580931352",
@@ -1770,7 +1681,7 @@
       "source_id": "node/12580931352",
       "source_url": "https://www.openstreetmap.org/node/12580931352",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.469Z"
     },
     {
       "id": "osm:node:12586258807",
@@ -1790,7 +1701,7 @@
       "source_id": "node/12586258807",
       "source_url": "https://www.openstreetmap.org/node/12586258807",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.469Z"
     },
     {
       "id": "osm:node:6245876544",
@@ -1810,11 +1721,11 @@
       "source_id": "node/6245876544",
       "source_url": "https://www.openstreetmap.org/node/6245876544",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.469Z"
     },
     {
       "id": "osm:node:12580931353",
-      "nombre": "Café Lote Único",
+      "nombre": "CafÃƒÂ© Lote ÃƒÅ¡nico",
       "lat": 21.0158257,
       "lng": -89.5899652,
       "rating": null,
@@ -1830,7 +1741,7 @@
       "source_id": "node/12580931353",
       "source_url": "https://www.openstreetmap.org/node/12580931353",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.469Z"
     },
     {
       "id": "osm:node:1625735022",
@@ -1850,7 +1761,7 @@
       "source_id": "node/1625735022",
       "source_url": "https://www.openstreetmap.org/node/1625735022",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.469Z"
     },
     {
       "id": "osm:node:1625735024",
@@ -1870,7 +1781,7 @@
       "source_id": "node/1625735024",
       "source_url": "https://www.openstreetmap.org/node/1625735024",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.933Z"
+      "last_verified_at": "2026-09-04T19:50:58.469Z"
     },
     {
       "id": "osm:way:1248815305",
@@ -1890,7 +1801,7 @@
       "source_id": "way/1248815305",
       "source_url": "https://www.openstreetmap.org/way/1248815305",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.934Z"
+      "last_verified_at": "2026-09-04T19:50:58.469Z"
     },
     {
       "id": "osm:way:1272145503",
@@ -1910,11 +1821,11 @@
       "source_id": "way/1272145503",
       "source_url": "https://www.openstreetmap.org/way/1272145503",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.934Z"
+      "last_verified_at": "2026-09-04T19:50:58.469Z"
     },
     {
       "id": "osm:way:1177973219",
-      "nombre": "Midna´s Frappé  (Suc. Nueva Mayapan)",
+      "nombre": "MidnaÃ‚Â´s FrappÃƒÂ©  (Suc. Nueva Mayapan)",
       "lat": 20.9766752,
       "lng": -89.5893982,
       "rating": null,
@@ -1930,7 +1841,7 @@
       "source_id": "way/1177973219",
       "source_url": "https://www.openstreetmap.org/way/1177973219",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.934Z"
+      "last_verified_at": "2026-09-04T19:50:58.469Z"
     },
     {
       "id": "osm:way:1376566053",
@@ -1950,11 +1861,11 @@
       "source_id": "way/1376566053",
       "source_url": "https://www.openstreetmap.org/way/1376566053",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.934Z"
+      "last_verified_at": "2026-09-04T19:50:58.469Z"
     },
     {
       "id": "osm:way:1359967096",
-      "nombre": "Juan Valdez Café",
+      "nombre": "Juan Valdez CafÃƒÂ©",
       "lat": 21.0223723,
       "lng": -89.6066048,
       "rating": null,
@@ -1970,7 +1881,7 @@
       "source_id": "way/1359967096",
       "source_url": "https://www.openstreetmap.org/way/1359967096",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.934Z"
+      "last_verified_at": "2026-09-04T19:50:58.469Z"
     },
     {
       "id": "osm:node:5541593323",
@@ -1990,7 +1901,7 @@
       "source_id": "node/5541593323",
       "source_url": "https://www.openstreetmap.org/node/5541593323",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.934Z"
+      "last_verified_at": "2026-09-04T19:50:58.469Z"
     },
     {
       "id": "osm:node:13336396158",
@@ -2010,7 +1921,7 @@
       "source_id": "node/13336396158",
       "source_url": "https://www.openstreetmap.org/node/13336396158",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.934Z"
+      "last_verified_at": "2026-09-04T19:50:58.469Z"
     },
     {
       "id": "osm:node:8986763660",
@@ -2024,17 +1935,17 @@
       "image_source_url": null,
       "image_attribution": null,
       "image_license": null,
-      "address": "calle 113 entre 146 y 148 Fraccionamiento los heroes Plaza Heroes, 97306 Mérida, Yuc., Mérida , Yucatan",
+      "address": "calle 113 entre 146 y 148 Fraccionamiento los heroes Plaza Heroes, 97306 MÃƒÂ©rida, Yuc., MÃƒÂ©rida , Yucatan",
       "neighborhood": null,
       "source": "osm",
       "source_id": "node/8986763660",
       "source_url": "https://www.openstreetmap.org/node/8986763660",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.934Z"
+      "last_verified_at": "2026-09-04T19:50:58.469Z"
     },
     {
       "id": "osm:way:1177972986",
-      "nombre": "Midna´s Frappe",
+      "nombre": "MidnaÃ‚Â´s Frappe",
       "lat": 20.972585,
       "lng": -89.5570142,
       "rating": null,
@@ -2044,13 +1955,13 @@
       "image_source_url": null,
       "image_attribution": null,
       "image_license": null,
-      "address": "Calle 51 287, Kanasín",
+      "address": "Calle 51 287, KanasÃƒÂ­n",
       "neighborhood": null,
       "source": "osm",
       "source_id": "way/1177972986",
       "source_url": "https://www.openstreetmap.org/way/1177972986",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.934Z"
+      "last_verified_at": "2026-09-04T19:50:58.469Z"
     },
     {
       "id": "osm:node:2026936989",
@@ -2070,7 +1981,7 @@
       "source_id": "node/2026936989",
       "source_url": "https://www.openstreetmap.org/node/2026936989",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.934Z"
+      "last_verified_at": "2026-09-04T19:50:58.469Z"
     },
     {
       "id": "osm:way:368527504",
@@ -2090,7 +2001,7 @@
       "source_id": "way/368527504",
       "source_url": "https://www.openstreetmap.org/way/368527504",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.934Z"
+      "last_verified_at": "2026-09-04T19:50:58.469Z"
     },
     {
       "id": "osm:node:2026898898",
@@ -2110,7 +2021,7 @@
       "source_id": "node/2026898898",
       "source_url": "https://www.openstreetmap.org/node/2026898898",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.934Z"
+      "last_verified_at": "2026-09-04T19:50:58.469Z"
     },
     {
       "id": "osm:node:6652951676",
@@ -2130,7 +2041,7 @@
       "source_id": "node/6652951676",
       "source_url": "https://www.openstreetmap.org/node/6652951676",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.934Z"
+      "last_verified_at": "2026-09-04T19:50:58.469Z"
     },
     {
       "id": "osm:node:6652951681",
@@ -2150,11 +2061,11 @@
       "source_id": "node/6652951681",
       "source_url": "https://www.openstreetmap.org/node/6652951681",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.934Z"
+      "last_verified_at": "2026-09-04T19:50:58.469Z"
     },
     {
       "id": "osm:node:6652960511",
-      "nombre": "La Crepería",
+      "nombre": "La CreperÃƒÂ­a",
       "lat": 21.0395879,
       "lng": -89.6316853,
       "rating": null,
@@ -2170,7 +2081,7 @@
       "source_id": "node/6652960511",
       "source_url": "https://www.openstreetmap.org/node/6652960511",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.934Z"
+      "last_verified_at": "2026-09-04T19:50:58.469Z"
     },
     {
       "id": "osm:node:2028779188",
@@ -2190,7 +2101,7 @@
       "source_id": "node/2028779188",
       "source_url": "https://www.openstreetmap.org/node/2028779188",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.934Z",
+      "last_verified_at": "2026-09-04T19:50:58.469Z",
       "imageUrl": null,
       "imageSourceUrl": null,
       "imageAttribution": null,
@@ -2214,7 +2125,7 @@
       "source_id": "node/12345230637",
       "source_url": "https://www.openstreetmap.org/node/12345230637",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.934Z"
+      "last_verified_at": "2026-09-04T19:50:58.469Z"
     },
     {
       "id": "osm:node:12588854592",
@@ -2234,7 +2145,7 @@
       "source_id": "node/12588854592",
       "source_url": "https://www.openstreetmap.org/node/12588854592",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.934Z"
+      "last_verified_at": "2026-09-04T19:50:58.469Z"
     },
     {
       "id": "osm:node:12345212847",
@@ -2254,7 +2165,7 @@
       "source_id": "node/12345212847",
       "source_url": "https://www.openstreetmap.org/node/12345212847",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.934Z"
+      "last_verified_at": "2026-09-04T19:50:58.469Z"
     },
     {
       "id": "osm:node:6601491204",
@@ -2274,7 +2185,7 @@
       "source_id": "node/6601491204",
       "source_url": "https://www.openstreetmap.org/node/6601491204",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.934Z"
+      "last_verified_at": "2026-09-04T19:50:58.469Z"
     },
     {
       "id": "osm:node:13873881018",
@@ -2294,7 +2205,7 @@
       "source_id": "node/13873881018",
       "source_url": "https://www.openstreetmap.org/node/13873881018",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.934Z"
+      "last_verified_at": "2026-09-04T19:50:58.469Z"
     },
     {
       "id": "osm:node:12911209279",
@@ -2314,7 +2225,7 @@
       "source_id": "node/12911209279",
       "source_url": "https://www.openstreetmap.org/node/12911209279",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.934Z"
+      "last_verified_at": "2026-09-04T19:50:58.469Z"
     },
     {
       "id": "osm:node:12911209280",
@@ -2334,7 +2245,7 @@
       "source_id": "node/12911209280",
       "source_url": "https://www.openstreetmap.org/node/12911209280",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.934Z"
+      "last_verified_at": "2026-09-04T19:50:58.469Z"
     },
     {
       "id": "osm:node:13302914043",
@@ -2354,7 +2265,8 @@
       "source_id": "node/13302914043",
       "source_url": "https://www.openstreetmap.org/node/13302914043",
       "status": "active",
-      "last_verified_at": "2026-09-04T19:27:25.934Z"
+      "last_verified_at": "2026-09-04T19:50:58.469Z"
     }
   ]
 }
+
