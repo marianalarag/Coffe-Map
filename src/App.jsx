@@ -281,6 +281,7 @@ function App() {
   useEffect(() => {
     let isCancelled = false;
     let mapInstance = null;
+    let mapLoadTimeoutId = null;
     const markerEntries = cafeMarkerEntriesRef.current;
 
     const initMap = async () => {
@@ -307,14 +308,22 @@ function App() {
           attributionControl: false,
         });
 
+        mapLoadTimeoutId = window.setTimeout(() => {
+          if (isCancelled) return;
+          setMapLoading(false);
+          showToast('El mapa tardó demasiado en cargar. Revisa tu conexión e intenta de nuevo.', 'error');
+        }, 12000);
+
         mapInstance.addControl(new maplibre.AttributionControl({ compact: true }), 'top-right');
         mapInstance.once('load', () => {
           if (isCancelled) return;
+          window.clearTimeout(mapLoadTimeoutId);
           setMap(mapInstance);
           setMapLoading(false);
         });
         mapInstance.once('error', (event) => {
           if (isCancelled) return;
+          window.clearTimeout(mapLoadTimeoutId);
           console.error(event.error);
           showToast('No se pudo cargar el mapa de Mérida.', 'error');
           setMapLoading(false);
@@ -330,6 +339,7 @@ function App() {
 
     return () => {
       isCancelled = true;
+      window.clearTimeout(mapLoadTimeoutId);
       markerEntries.forEach(({ marker }) => marker.remove());
       markerEntries.clear();
       if (markerRenderFrameRef.current) {

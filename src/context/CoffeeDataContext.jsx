@@ -6,13 +6,23 @@ import { areDuplicateCafes, deduplicateCafes } from '../utils/cafeDeduplication'
 
 const CoffeeDataContext = createContext(null);
 
-const CAFES_CACHE_KEY = 'coffee-map:cafes:v4';
+const CAFES_CACHE_KEY = 'coffee-map:cafes:v5';
 const CAFES_CACHE_TTL_MS = 15 * 60 * 1000;
+const CAFE_REQUEST_TIMEOUT_MS = 8 * 1000;
 const VISIBLE_CAFE_SOURCES = ['manual', 'community', 'osm', 'overture'];
 const CAFE_COLUMNS = 'id,nombre,lat,lng,rating,reviews,link,address,neighborhood,category,image_url,image_source_url,image_attribution,image_license,source,source_id,source_url';
 const INTERACTION_COLUMNS = 'id,user_id,cafe_id,is_visited,is_favorite,in_waitlist,rating,review_text,visited_on,updated_at';
 const INTERACTION_WITH_CAFE_COLUMNS = `${INTERACTION_COLUMNS},cafe:cafes(${CAFE_COLUMNS})`;
 const ADMIN_SCAN_SYNC_KEY = 'coffee-map:admin-scan:2026-08-30-v1';
+
+const withRequestTimeout = (request, timeoutMs, message) => {
+  let timeoutId;
+  const timeout = new Promise((_, reject) => {
+    timeoutId = window.setTimeout(() => reject(new Error(message)), timeoutMs);
+  });
+
+  return Promise.race([request, timeout]).finally(() => window.clearTimeout(timeoutId));
+};
 
 const toReviewPost = (interaction) => ({
   user_id: interaction.user_id,
@@ -111,11 +121,15 @@ export function CoffeeDataProvider({ children }) {
       setCafesLoading(true);
 
       try {
-        const { data, error } = await supabase
-          .from('cafes')
-          .select(CAFE_COLUMNS)
-          .in('source', VISIBLE_CAFE_SOURCES)
-          .order('nombre', { ascending: true });
+        const { data, error } = await withRequestTimeout(
+          supabase
+            .from('cafes')
+            .select(CAFE_COLUMNS)
+            .in('source', VISIBLE_CAFE_SOURCES)
+            .order('nombre', { ascending: true }),
+          CAFE_REQUEST_TIMEOUT_MS,
+          'La carga de cafeterías tardó demasiado.',
+        );
 
         if (error) throw error;
 
@@ -130,13 +144,18 @@ export function CoffeeDataProvider({ children }) {
         writeCachedCafes(normalizedCafes);
         return normalizedCafes;
       } catch (error) {
-        cafesLoadedRef.current = cafesRef.current.length > 0;
-        setCafesState((current) => ({
-          ...current,
-          cafesLoaded: current.cafes.length > 0,
-          cafesError: error.message || 'No se pudieron cargar las cafeterias.',
-        }));
-        throw error;
+        console.warn('Supabase no respondió a tiempo; usando el respaldo local de cafeterías.', error);
+        const scanModule = await import('../data/openCafeScan.json');
+        const fallbackCafes = deduplicateCafes([
+          ...cafesRef.current,
+          ...(scanModule.default?.cafes || []).map(normalizeCafe),
+        ]).sort((first, second) => first.nombre.localeCompare(second.nombre));
+
+        cafesRef.current = fallbackCafes;
+        cafesLoadedRef.current = true;
+        setCafesState({ cafes: fallbackCafes, cafesLoaded: true, cafesError: '' });
+        writeCachedCafes(fallbackCafes);
+        return fallbackCafes;
       } finally {
         cafeRequestRef.current = null;
         setCafesLoading(false);
