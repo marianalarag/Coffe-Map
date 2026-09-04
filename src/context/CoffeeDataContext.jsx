@@ -9,7 +9,6 @@ const CoffeeDataContext = createContext(null);
 const CAFES_CACHE_KEY = 'coffee-map:cafes:v5';
 const CAFES_CACHE_TTL_MS = 15 * 60 * 1000;
 const CAFE_REQUEST_TIMEOUT_MS = 8 * 1000;
-const VISIBLE_CAFE_SOURCES = ['manual', 'community', 'osm', 'overture'];
 const CAFE_COLUMNS = 'id,nombre,lat,lng,rating,reviews,link,address,neighborhood,category,image_url,image_source_url,image_attribution,image_license,source,source_id,source_url';
 const INTERACTION_COLUMNS = 'id,user_id,cafe_id,is_visited,is_favorite,in_waitlist,rating,review_text,visited_on,updated_at';
 const INTERACTION_WITH_CAFE_COLUMNS = `${INTERACTION_COLUMNS},cafe:cafes(${CAFE_COLUMNS})`;
@@ -125,7 +124,6 @@ export function CoffeeDataProvider({ children }) {
           supabase
             .from('cafes')
             .select(CAFE_COLUMNS)
-            .in('source', VISIBLE_CAFE_SOURCES)
             .order('nombre', { ascending: true }),
           CAFE_REQUEST_TIMEOUT_MS,
           'La carga de cafeterías tardó demasiado.',

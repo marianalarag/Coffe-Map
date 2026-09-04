@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { writeFile } from 'node:fs/promises';
 const MERIDA = { south: 20.86, west: -89.75, north: 21.08, east: -89.52 };
 const ENDPOINTS = [
   'https://overpass-api.de/api/interpreter',
@@ -185,7 +186,16 @@ const enrichExistingOsm = async () => {
 };
 
 const scan = async () => {
-  const grid = process.argv.includes('--whole') ? boxes(1, 1) : boxes(4, 4);
+  const allZones = (process.argv.includes('--whole') ? boxes(1, 1) : boxes(4, 4))
+    .map((box, index) => ({ ...box, zone: index + 1 }));
+  const zonesArg = process.argv.find((value) => value.startsWith('--zones='));
+  const requestedZoneNumbers = zonesArg
+    ? new Set(zonesArg.slice('--zones='.length).split(',').map(Number).filter(Number.isInteger))
+    : null;
+  const grid = requestedZoneNumbers
+    ? allZones.filter((_, index) => requestedZoneNumbers.has(index + 1))
+    : allZones;
+  if (requestedZoneNumbers && grid.length === 0) throw new Error('No se encontraron zonas válidas para reintentar.');
   const elements = [];
   const failed = [];
   const concurrency = 4;
@@ -196,7 +206,7 @@ const scan = async () => {
       try {
         return { elements: (await fetchBox(box, index)).elements || [] };
       } catch (error) {
-        return { error: { zone: index + 1, error: error.message } };
+        return { error: { zone: box.zone, error: error.message } };
       }
     }));
     results.forEach((result) => {
@@ -271,4 +281,17 @@ if (partArg) {
   result.cafes = result.cafes.filter((_, index) => index % total === part);
   result.part = { part, total };
 }
-console.log(`SCAN_RESULT=${JSON.stringify(result)}`);
+const outputArg = process.argv.find((value) => value.startsWith('--output='));
+if (outputArg) {
+  const outputPath = outputArg.slice('--output='.length);
+  if (!outputPath) throw new Error('Indica una ruta para --output.');
+  await writeFile(outputPath, `${JSON.stringify({
+    scanned_at: new Date().toISOString(),
+    zones_scanned: result.zones,
+    failed_zones: result.failed,
+    cafes: result.cafes,
+  }, null, 2)}\n`);
+  console.log(`SCAN_FILE=${outputPath} CAFES=${result.cafes.length} FAILED_ZONES=${result.failed.length}`);
+} else {
+  console.log(`SCAN_RESULT=${JSON.stringify(result)}`);
+}

@@ -9,7 +9,7 @@ import { useCoffeeData } from './context/CoffeeDataContext'
 const MERIDA_CENTER = { lat: 20.9753, lng: -89.6178 };
 const MERIDA_BOUNDS = [[20.86, -89.75], [21.08, -89.52]];
 const MAP_STYLE_URL = import.meta.env.VITE_MAP_STYLE_URL
-  || 'https://tiles.openfreemap.org/styles/liberty';
+  || 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
 const MAP_TARGET_STORAGE_KEY = 'coffee-map:focus-cafe';
 const MARKER_RENDER_PADDING = 0.18;
 const MAX_RENDERED_MARKERS = 140;
