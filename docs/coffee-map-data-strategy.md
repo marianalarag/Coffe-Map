@@ -17,6 +17,14 @@ Use Supabase as the source of truth for app screens:
 The public app reads Supabase first. Open-data scans are controlled admin jobs,
 not requests made whenever a user opens the map or a cafe detail page.
 
+## Visual basemap
+
+The visible Merida basemap is generated from a bounded Overture Maps export and
+served by Coffee Map as a compact local asset. Leaflet draws the streets, land
+use, water, and labels without a hosted map-tile provider or API key. Refresh
+the raw export with `scripts/build-overture-basemap.sql`, then run
+`npm run map:optimize` before publishing.
+
 ## What to store for each cafe
 
 Keep the permanent row small and app-owned:
