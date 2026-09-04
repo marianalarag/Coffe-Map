@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Search, ScanSearch, LocateFixed, AlertCircle, CheckCircle2, MapPin, Sparkles, Coffee } from 'lucide-react'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import BottomNav from './components/BottomNav'
 import { useAuth } from './context/AuthContext'
@@ -9,7 +11,10 @@ import { useCoffeeData } from './context/CoffeeDataContext'
 const MERIDA_CENTER = { lat: 20.9753, lng: -89.6178 };
 const MERIDA_BOUNDS = [[20.86, -89.75], [21.08, -89.52]];
 const MAP_STYLE_URL = import.meta.env.VITE_MAP_STYLE_URL
-  || 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
+  || 'https://tiles.openfreemap.org/styles/liberty';
+const MAP_TILE_URL = import.meta.env.VITE_MAP_TILE_URL || '';
+const MAP_TILE_ATTRIBUTION = import.meta.env.VITE_MAP_TILE_ATTRIBUTION
+  || '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 const MAP_TARGET_STORAGE_KEY = 'coffee-map:focus-cafe';
 const MARKER_RENDER_PADDING = 0.18;
 const MAX_RENDERED_MARKERS = 140;
@@ -76,17 +81,11 @@ const getClusterMarkerHtml = (count) => `
 
 const getMarkerGroups = (map, cafes) => {
   const zoom = map.getZoom();
-  const bounds = map.getBounds();
-  const latitudePadding = (bounds.getNorth() - bounds.getSouth()) * MARKER_RENDER_PADDING;
-  const longitudePadding = (bounds.getEast() - bounds.getWest()) * MARKER_RENDER_PADDING;
+  const paddedBounds = map.getBounds().pad(MARKER_RENDER_PADDING);
   const visibleCafes = cafes.filter((cafe) => {
     const lat = Number(cafe.lat);
     const lng = Number(cafe.lng);
-    return Number.isFinite(lat) && Number.isFinite(lng)
-      && lat >= bounds.getSouth() - latitudePadding
-      && lat <= bounds.getNorth() + latitudePadding
-      && lng >= bounds.getWest() - longitudePadding
-      && lng <= bounds.getEast() + longitudePadding;
+    return Number.isFinite(lat) && Number.isFinite(lng) && paddedBounds.contains([lat, lng]);
   });
 
   let cellSize = zoom <= 11 ? 76 : zoom <= 13 ? 56 : zoom <= 14 ? 44 : zoom <= 15 ? 32 : zoom <= 16 ? 22 : 14;
@@ -96,7 +95,7 @@ const getMarkerGroups = (map, cafes) => {
     const cells = new Map();
 
     visibleCafes.forEach((cafe) => {
-      const point = map.project([Number(cafe.lng), Number(cafe.lat)], zoom);
+      const point = map.project([Number(cafe.lat), Number(cafe.lng)], zoom);
       const cellKey = `${Math.floor(point.x / cellSize)}:${Math.floor(point.y / cellSize)}`;
       const cell = cells.get(cellKey);
 
@@ -146,7 +145,7 @@ function App() {
   const { logout } = useAuth();
   const { cafes, cafesLoading, cafesError, interactions } = useCoffeeData();
   const mapRef = useRef(null)
-  const mapLibraryRef = useRef(null)
+  const markerLayerRef = useRef(null)
   const cafeMarkerEntriesRef = useRef(new Map())
   const markerRenderFrameRef = useRef(null)
   const userMarkerRef = useRef(null)
@@ -220,13 +219,13 @@ function App() {
 
           if (!isInMerida) {
             setLocating(false);
-            map.easeTo({ center: [MERIDA_CENTER.lng, MERIDA_CENTER.lat], zoom: 13, duration: 650 });
+            map.setView([MERIDA_CENTER.lat, MERIDA_CENTER.lng], 13, { animate: true });
             showToast('Coffee Map está limitado a Mérida.', 'location');
             return;
           }
 
           setUserLocation(pos);
-          map.easeTo({ center: [pos.lng, pos.lat], zoom: 15, duration: 650 });
+          map.setView([pos.lat, pos.lng], 15, { animate: true });
           setLocating(false);
         },
         (error) => {
@@ -253,7 +252,7 @@ function App() {
       const visibleCafes = cafes.filter((cafe) => (
         Number.isFinite(Number(cafe.lat))
         && Number.isFinite(Number(cafe.lng))
-        && bounds.contains([Number(cafe.lng), Number(cafe.lat)])
+        && bounds.contains([Number(cafe.lat), Number(cafe.lng)])
       ));
 
       setScanResultCount(visibleCafes.length);
@@ -280,8 +279,7 @@ function App() {
 
   useEffect(() => {
     let isCancelled = false;
-    let mapInstance = null;
-    let mapLoadTimeoutId = null;
+    let leafletMap = null;
     const markerEntries = cafeMarkerEntriesRef.current;
 
     const initMap = async () => {
@@ -290,49 +288,50 @@ function App() {
       try {
         if (isCancelled || !mapRef.current) return;
 
-        const maplibreModule = await import('maplibre-gl');
-        const maplibre = maplibreModule.default || maplibreModule;
-        if (isCancelled || !mapRef.current) return;
-        mapLibraryRef.current = maplibre;
-
-        mapInstance = new maplibre.Map({
-          container: mapRef.current,
-          style: MAP_STYLE_URL,
-          center: [MERIDA_CENTER.lng, MERIDA_CENTER.lat],
+        leafletMap = L.map(mapRef.current, {
+          center: [MERIDA_CENTER.lat, MERIDA_CENTER.lng],
           zoom: 14,
           minZoom: 11,
-          maxZoom: 19,
-          maxBounds: [
-            [MERIDA_BOUNDS[0][1], MERIDA_BOUNDS[0][0]],
-            [MERIDA_BOUNDS[1][1], MERIDA_BOUNDS[1][0]],
-          ],
+          maxBounds: MERIDA_BOUNDS,
+          maxBoundsViscosity: 1,
+          zoomControl: false,
           attributionControl: false,
         });
 
-        mapLoadTimeoutId = window.setTimeout(() => {
-          if (isCancelled) return;
-          setMapLoading(false);
-          showToast('El mapa tardó demasiado en cargar. Revisa tu conexión e intenta de nuevo.', 'error');
-        }, 12000);
+        L.control.attribution({ position: 'topright', prefix: false })
+          .addTo(leafletMap);
 
-        mapInstance.addControl(new maplibre.AttributionControl({ compact: true }), 'top-right');
-        mapInstance.once('load', () => {
+        if (MAP_TILE_URL) {
+          L.tileLayer(MAP_TILE_URL, {
+            attribution: MAP_TILE_ATTRIBUTION,
+            maxZoom: 19,
+            updateWhenIdle: true,
+            updateWhenZooming: false,
+            keepBuffer: 2,
+          }).addTo(leafletMap);
+        } else {
+          const { maplibreGL } = await import('@maplibre/maplibre-gl-leaflet');
           if (isCancelled) return;
-          window.clearTimeout(mapLoadTimeoutId);
-          setMap(mapInstance);
-          setMapLoading(false);
-        });
-        mapInstance.once('error', (event) => {
-          if (isCancelled) return;
-          window.clearTimeout(mapLoadTimeoutId);
-          console.error(event.error);
-          showToast('No se pudo cargar el mapa de Mérida.', 'error');
-          setMapLoading(false);
-        });
+          maplibreGL({
+            style: MAP_STYLE_URL,
+            interactive: false,
+            maxZoom: 19,
+          }).addTo(leafletMap);
+        }
+
+        markerLayerRef.current = L.layerGroup().addTo(leafletMap);
+
+        if (!isCancelled) {
+          setMap(leafletMap);
+        }
       } catch (error) {
         if (isCancelled) return;
         console.error(error);
         showToast('No se pudo cargar el mapa de Merida.', 'error');
+      } finally {
+        if (!isCancelled) {
+          setMapLoading(false);
+        }
       }
     };
 
@@ -340,17 +339,18 @@ function App() {
 
     return () => {
       isCancelled = true;
-      window.clearTimeout(mapLoadTimeoutId);
-      markerEntries.forEach(({ marker }) => marker.remove());
+      if (markerLayerRef.current) {
+        markerLayerRef.current.remove();
+        markerLayerRef.current = null;
+      }
       markerEntries.clear();
       if (markerRenderFrameRef.current) {
         window.cancelAnimationFrame(markerRenderFrameRef.current);
         markerRenderFrameRef.current = null;
       }
-      if (mapInstance) {
-        mapInstance.remove();
+      if (leafletMap) {
+        leafletMap.remove();
       }
-      mapLibraryRef.current = null;
       setMap(null);
     };
   }, [showToast]);
@@ -369,8 +369,7 @@ function App() {
   }, [mapIntroPending, showInitialLoading]);
 
   const renderVisibleMarkers = useCallback(() => {
-    const Marker = mapLibraryRef.current?.Marker;
-    if (!map || !Marker) return;
+    if (!map || !markerLayerRef.current) return;
 
     const markerGroups = getMarkerGroups(map, cafes);
     const nextKeys = new Set(markerGroups.map((group) => group.key));
@@ -393,44 +392,50 @@ function App() {
       if (existingEntry?.signature === signature) return;
       if (existingEntry) existingEntry.marker.remove();
 
-      const element = document.createElement('button');
-      element.type = 'button';
-      element.className = isCafe
-        ? 'coffee-map-leaflet-marker'
-        : 'coffee-map-leaflet-marker coffee-map-leaflet-cluster-icon';
-      element.title = isCafe ? group.cafe.nombre : `${group.cafes.length} cafeterías cercanas`;
-      element.setAttribute('aria-label', element.title);
-      element.innerHTML = isCafe
-        ? getCafeMarkerHtml({ cafe: group.cafe, markerColor, showPreview: showMarkerPreviews })
-        : getClusterMarkerHtml(group.cafes.length);
-
-      const marker = new Marker({ element, anchor: 'bottom' })
-        .setLngLat([group.lng, group.lat])
-        .addTo(map);
+      const marker = L.marker([group.lat, group.lng], {
+        title: isCafe ? group.cafe.nombre : `${group.cafes.length} cafeterías cercanas`,
+        riseOnHover: true,
+        icon: L.divIcon(isCafe ? {
+          className: 'coffee-map-leaflet-marker',
+          html: getCafeMarkerHtml({ cafe: group.cafe, markerColor, showPreview: showMarkerPreviews }),
+          iconSize: [28, 36],
+          iconAnchor: [14, 34],
+        } : {
+          className: 'coffee-map-leaflet-marker coffee-map-leaflet-cluster-icon',
+          html: getClusterMarkerHtml(group.cafes.length),
+          iconSize: [42, 42],
+          iconAnchor: [21, 21],
+        }),
+      });
 
       if (isCafe) {
-        element.addEventListener('click', () => navigate(`/cafe/${group.cafe.id}`));
+        marker.on('click', () => navigate(`/cafe/${group.cafe.id}`));
       } else {
-        element.addEventListener('click', () => {
-          const latitudes = group.cafes.map((cafe) => Number(cafe.lat)).filter(Number.isFinite);
-          const longitudes = group.cafes.map((cafe) => Number(cafe.lng)).filter(Number.isFinite);
-          if (!latitudes.length || !longitudes.length) return;
-          const southWest = [Math.min(...longitudes), Math.min(...latitudes)];
-          const northEast = [Math.max(...longitudes), Math.max(...latitudes)];
+        marker.on('click', () => {
+          const clusterBounds = L.latLngBounds(
+            group.cafes.map((cafe) => [Number(cafe.lat), Number(cafe.lng)]),
+          );
 
-          if (southWest[0] === northEast[0] && southWest[1] === northEast[1]) {
-            map.easeTo({ center: [group.lng, group.lat], zoom: 18, duration: 550 });
+          if (!clusterBounds.isValid()) return;
+
+          const northEast = clusterBounds.getNorthEast();
+          const southWest = clusterBounds.getSouthWest();
+          if (northEast.equals(southWest)) {
+            map.setView([group.lat, group.lng], 18, { animate: true });
             return;
           }
 
-          map.fitBounds([southWest, northEast], {
-            duration: 550,
+          map.fitBounds(clusterBounds.pad(0.35), {
+            animate: true,
+            duration: 0.55,
             maxZoom: 18,
-            padding: { top: 86, right: 72, bottom: 118, left: 72 },
+            paddingTopLeft: [72, 86],
+            paddingBottomRight: [72, 118],
           });
         });
       }
 
+      marker.addTo(markerLayerRef.current);
       cafeMarkerEntriesRef.current.set(group.key, { marker, signature });
     });
   }, [cafes, map, navigate, visitedCafeIds]);
@@ -470,7 +475,7 @@ function App() {
       target?.classList.remove('coffee-map-leaflet-shell--scan-target', 'coffee-map-leaflet-cluster--scan-target');
       target?.style.removeProperty('--scan-delay');
 
-      if (!scanning || !map?.getBounds().contains(marker.getLngLat()) || !target) return;
+      if (!scanning || !map?.getBounds().contains(marker.getLatLng()) || !target) return;
 
       const targetClass = target.classList.contains('coffee-map-leaflet-cluster')
         ? 'coffee-map-leaflet-cluster--scan-target'
@@ -496,19 +501,19 @@ function App() {
       userMarkerRef.current = null;
     }
 
-    const Marker = mapLibraryRef.current?.Marker;
-    if (!Marker) return;
-    const element = document.createElement('span');
-    element.className = 'coffee-map-leaflet-marker';
-    element.title = 'Tu ubicación';
-    element.innerHTML = `
-      <span class="coffee-map-leaflet-pin coffee-map-leaflet-pin--user">
-        <span class="coffee-map-leaflet-dot"></span>
-      </span>
-    `;
-    userMarkerRef.current = new Marker({ element, anchor: 'bottom' })
-      .setLngLat([userLocation.lng, userLocation.lat])
-      .addTo(map);
+    userMarkerRef.current = L.marker([userLocation.lat, userLocation.lng], {
+      title: 'Tu ubicacion',
+      icon: L.divIcon({
+        className: 'coffee-map-leaflet-marker',
+        html: `
+          <span class="coffee-map-leaflet-pin coffee-map-leaflet-pin--user">
+            <span class="coffee-map-leaflet-dot"></span>
+          </span>
+        `,
+        iconSize: [28, 36],
+        iconAnchor: [14, 34],
+      }),
+    }).addTo(map);
 
     return () => {
       if (userMarkerRef.current) {
@@ -537,7 +542,7 @@ function App() {
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
 
     window.sessionStorage.removeItem(MAP_TARGET_STORAGE_KEY);
-    map.easeTo({ center: [lng, lat], zoom: 18, duration: 650 });
+    map.setView([lat, lng], 18, { animate: true });
     showToast(`Mostrando ${cafe?.nombre || target.nombre || 'cafeteria'} en el mapa.`, 'location');
   }, [cafes, location.pathname, map, showToast]);
 
@@ -558,20 +563,14 @@ function App() {
         .animate-cream-curtain-reveal {
           animation: creamCurtainReveal 780ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
         }
-        .maplibregl-map {
+        .leaflet-container {
           background: #E6DAC1;
           font-family: inherit;
         }
         .coffee-map-leaflet-marker {
-          width: 28px;
-          height: 36px;
-          display: block;
-          padding: 0;
           background: transparent;
           border: 0;
           overflow: visible !important;
-          appearance: none;
-          cursor: pointer;
         }
         .coffee-map-leaflet-shell {
           position: relative;
@@ -580,8 +579,6 @@ function App() {
           height: 36px;
         }
         .coffee-map-leaflet-cluster-icon {
-          width: 42px;
-          height: 42px;
           display: grid !important;
           place-items: center;
         }
@@ -676,7 +673,7 @@ function App() {
           opacity: 1;
           transform: translate(-50%, 0) scale(1);
         }
-        .maplibregl-ctrl-attrib {
+        .leaflet-control-attribution {
           max-width: 128px;
           margin: max(58px, calc(env(safe-area-inset-top, 0px) + 45px)) 8px 0 0 !important;
           padding: 3px 7px !important;
@@ -688,8 +685,7 @@ function App() {
           line-height: 1.25 !important;
           backdrop-filter: blur(8px);
         }
-        .maplibregl-ctrl-attrib a { color: inherit !important; }
-        .maplibregl-ctrl-attrib-button { display: none !important; }
+        .leaflet-control-attribution a { color: inherit !important; }
         .map-scan-overlay {
           position: absolute;
           inset: 0;
