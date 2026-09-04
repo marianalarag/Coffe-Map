@@ -12,7 +12,9 @@ const CAFE_REQUEST_TIMEOUT_MS = 8 * 1000;
 const CAFE_COLUMNS = 'id,nombre,lat,lng,rating,reviews,link,address,neighborhood,category,image_url,image_source_url,image_attribution,image_license,source,source_id,source_url';
 const INTERACTION_COLUMNS = 'id,user_id,cafe_id,is_visited,is_favorite,in_waitlist,rating,review_text,visited_on,updated_at';
 const INTERACTION_WITH_CAFE_COLUMNS = `${INTERACTION_COLUMNS},cafe:cafes(${CAFE_COLUMNS})`;
-const ADMIN_SCAN_SYNC_KEY = 'coffee-map:admin-scan:2026-08-30-v1';
+// Change this version whenever a validated source scan is published so the next
+// administrator session synchronizes only the newly discovered, unique cafes.
+const ADMIN_SCAN_SYNC_KEY = 'coffee-map:admin-scan:2026-09-04-v2';
 
 const withRequestTimeout = (request, timeoutMs, message) => {
   let timeoutId;
