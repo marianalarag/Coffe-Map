@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, BarChart3, Camera, Coffee, Database, ExternalLink, FileUp, Image, MapPinned, RefreshCw, ScanSearch, Search, Shield, Trash2, Users, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useCoffeeData } from '../context/CoffeeDataContext';
 import { supabase } from '../supabase';
 import { areDuplicateCafes } from '../utils/cafeDeduplication';
 
@@ -306,6 +307,7 @@ function MetricCard({ label, value, icon }) {
 function AdminDashboardPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { addCafes, refreshCafes } = useCoffeeData();
   const [tab, setTab] = useState('overview');
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState('');
@@ -375,6 +377,10 @@ function AdminDashboardPage() {
       setNotice(`Escaneando OpenStreetMap: zona ${current}/${total} · ${found} encontradas · ${failed} fallidas`);
     });
     const saved = await upsertDiscoveredCafes(result.cafes);
+    // Keep the map's shared state current so accepted discoveries become pins
+    // as soon as the scan finishes, without needing a reload.
+    addCafes(saved.accepted);
+    await refreshCafes();
     const reviewCount = saved.accepted.filter((cafe) => cafe.status === 'needs_review').length;
     return `OSM terminado: ${result.cafes.length} detectadas, ${saved.created} nuevas, ${saved.refreshed} actualizadas, ${saved.skipped.length} duplicadas, ${reviewCount} para revisar y ${result.failed}/${result.total} zonas fallidas.`;
   }, 'Escaneo de Mérida completado.');
@@ -387,6 +393,8 @@ function AdminDashboardPage() {
       const payload = JSON.parse(await file.text());
       const incoming = parseOvertureGeoJson(payload);
       const saved = await upsertDiscoveredCafes(incoming);
+      addCafes(saved.accepted);
+      await refreshCafes();
       return `Overture terminado: ${incoming.length} válidas, ${saved.created} nuevas, ${saved.refreshed} actualizadas y ${saved.skipped.length} duplicadas. Los registros quedan en “Revisar”.`;
     }, 'Archivo de Overture importado.');
   };
