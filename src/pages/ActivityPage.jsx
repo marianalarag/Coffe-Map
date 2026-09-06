@@ -64,6 +64,7 @@ export function ActivityFeed({ userIdFilter = null, compact = false }) {
         .from('posts')
         .select('id,user_id,cafe_id,content,image_url,kind,rating,visited_on,created_at,updated_at')
         .eq('status', 'published')
+        .order('updated_at', { ascending: false })
         .order('created_at', { ascending: false })
         .limit(60);
 
@@ -72,9 +73,14 @@ export function ActivityFeed({ userIdFilter = null, compact = false }) {
       const { data: postRows, error: postError } = await postsQuery;
       if (postError) throw postError;
 
-      const userIds = [...new Set((postRows || []).map((post) => post.user_id))];
-      const cafeIds = [...new Set((postRows || []).map((post) => post.cafe_id).filter(Boolean))];
-      const postIds = (postRows || []).map((post) => post.id);
+      const orderedPostRows = [...(postRows || [])].sort((first, second) => (
+        String(second.updated_at || second.created_at || '').localeCompare(String(first.updated_at || first.created_at || ''))
+        || String(second.created_at || '').localeCompare(String(first.created_at || ''))
+        || String(second.id).localeCompare(String(first.id))
+      ));
+      const userIds = [...new Set(orderedPostRows.map((post) => post.user_id))];
+      const cafeIds = [...new Set(orderedPostRows.map((post) => post.cafe_id).filter(Boolean))];
+      const postIds = orderedPostRows.map((post) => post.id);
       const [{ data: profiles }, { data: cafes }, { data: imageRows }] = await Promise.all([
         userIds.length ? supabase.from('profiles').select('id,username,avatar_url').in('id', userIds) : { data: [] },
         cafeIds.length ? supabase.from('cafes').select('id,nombre').in('id', cafeIds) : { data: [] },
@@ -84,7 +90,7 @@ export function ActivityFeed({ userIdFilter = null, compact = false }) {
       const cafeMap = new Map((cafes || []).map((cafe) => [cafe.id, cafe]));
       const imagesByPost = new Map();
       (imageRows || []).forEach((image) => imagesByPost.set(image.post_id, [...(imagesByPost.get(image.post_id) || []), image]));
-      setPosts((postRows || []).map((post) => ({
+      setPosts(orderedPostRows.map((post) => ({
         ...post,
         profile: profileMap.get(post.user_id),
         cafe: cafeMap.get(post.cafe_id),

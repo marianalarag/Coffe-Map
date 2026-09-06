@@ -928,7 +928,9 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 .activity-carousel-dots span { width: 5px; height: 5px; background: rgba(255,255,255,.52); border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,.35); transition: width 160ms ease, background 160ms ease; }
 .activity-carousel-dots span.is-active { width: 13px; background: #fff; border-radius: 999px; }
 .activity-feed.is-compact { padding: 0; }
-.profile-activity-panel .activity-post { max-width: 720px; margin-inline: auto; }
+.profile-activity-panel { width: 100%; max-width: 860px; margin-inline: auto; }
+.profile-activity-panel .activity-feed { display: flex; flex-direction: column; gap: 16px; width: 100%; }
+.profile-activity-panel .activity-post { box-sizing: border-box; width: 100%; max-width: none; margin: 0; }
 
 /* Profile tabs, visited places, friends and avatar viewer */
 .profile-tab-panel { padding: 22px 20px 145px; }
