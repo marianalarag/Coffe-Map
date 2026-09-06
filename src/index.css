@@ -723,7 +723,7 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 .collection-cafe-card { min-width: 0; overflow: hidden; padding: 0; color: #302820; text-align: left; background: #eee8dc; border: 0; border-radius: 12px; cursor: pointer; box-shadow: 0 7px 13px rgba(0,0,0,.15); }
 .collection-cafe-card:active, .collection-review-card:active { transform: scale(.98); }
 .collection-cafe-image-wrap { position: relative; height: 83px; overflow: hidden; }
-.collection-cafe-image-wrap img { width: 100%; height: 100%; display: block; object-fit: cover; }
+.collection-cafe-image-wrap img { width: 100%; height: 100%; display: block; object-fit: cover; transform: scale(1.012); }
 .collection-heart { position: absolute; top: 6px; right: 6px; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; padding: 0; color: #E6DAC1; background: #271D18; border-radius: 50%; line-height: 0; }
 .collection-heart svg { display: block; margin: 0; transform: none; }
 .collection-cafe-copy { display: grid; grid-template-columns: 1fr auto; grid-template-rows: 17px 13px; column-gap: 3px; padding: 4px 6px 5px; }
@@ -894,6 +894,7 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 .half-star-rating:focus-visible { border-radius: 7px; box-shadow: 0 0 0 2px rgba(230,218,193,.42); }
 .half-star-rating.is-readonly { cursor: default; pointer-events: none; }
 .half-star { position: relative; display: block; flex: 0 0 var(--star-size); color: #d7c6a5; line-height: 0; }
+.half-star-full { width: var(--star-size); height: var(--star-size); display: block; color: #d7c6a5; }
 .half-star-empty { position: absolute; inset: 0; width: var(--star-size); height: var(--star-size); color: rgba(230,218,193,.28); }
 .half-star-fill { position: absolute; inset: 0 auto 0 0; display: block; width: var(--star-fill); height: var(--star-size); overflow: hidden; color: #d7c6a5; }
 .half-star-fill svg { width: var(--star-size); height: var(--star-size); display: block; max-width: none; }
@@ -931,6 +932,11 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 .profile-activity-panel { width: 100%; max-width: 860px; margin-inline: auto; }
 .profile-activity-panel .activity-feed { display: flex; flex-direction: column; gap: 16px; width: 100%; }
 .profile-activity-panel .activity-post { box-sizing: border-box; width: 100%; max-width: none; margin: 0; }
+
+@media (min-width: 900px) {
+  .profile-activity-panel { max-width: none; }
+  .profile-activity-panel .activity-feed { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 20px; }
+}
 
 /* Profile tabs, visited places, friends and avatar viewer */
 .profile-tab-panel { padding: 22px 20px 145px; }

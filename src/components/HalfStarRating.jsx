@@ -62,8 +62,16 @@ function HalfStarRating({ value = 0, onChange, readOnly = false, size = 24, labe
         const fill = Math.min(1, Math.max(0, Number(value || 0) - index)) * 100;
         return (
           <span className="half-star" key={index} style={{ '--star-fill': `${fill}%`, '--star-size': `${size}px`, width: size, height: size }}>
-            <Star className="half-star-empty" size={size} />
-            <span className="half-star-fill"><Star size={size} fill="currentColor" strokeWidth={0} /></span>
+            {fill >= 100 ? (
+              <Star className="half-star-full" size={size} fill="currentColor" strokeWidth={0} />
+            ) : fill <= 0 ? (
+              <Star className="half-star-empty" size={size} />
+            ) : (
+              <>
+                <Star className="half-star-empty" size={size} />
+                <span className="half-star-fill"><Star size={size} fill="currentColor" strokeWidth={0} /></span>
+              </>
+            )}
           </span>
         );
       })}
