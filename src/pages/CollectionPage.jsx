@@ -115,7 +115,7 @@ function CafeGrid({ entries, collection, onOpen }) {
       {entries.map(({ cafe, interaction }) => (
         <button className="collection-cafe-card" type="button" key={interaction.id} onClick={() => onOpen(cafe.id)}>
           <div className="collection-cafe-image-wrap">
-            <img src={getImage(cafe)} alt={cafe.nombre} />
+            <img src={getImage(cafe)} alt={cafe.nombre} loading="lazy" decoding="async" />
             <span className="collection-heart">
               <BadgeIcon size={16} fill={collection === 'favorites' || collection === 'ratings' ? 'currentColor' : 'none'} strokeWidth={2} />
             </span>
@@ -123,7 +123,7 @@ function CafeGrid({ entries, collection, onOpen }) {
           <div className="collection-cafe-copy">
             <strong>{cafe.nombre}</strong>
             <span><Star size={9} fill="currentColor" /> {getRating(interaction, cafe).toFixed(1)}</span>
-            <span title={cafe.address || 'Dirección no disponible'}><MapPin size={9} /> {getCafeNeighborhood(cafe)}</span>
+            <span title={cafe.address || 'Dirección no disponible'}><MapPin size={13} strokeWidth={2.4} /> {getCafeNeighborhood(cafe)}</span>
           </div>
         </button>
       ))}
@@ -140,7 +140,7 @@ function ReviewsList({ entries, onOpen }) {
             <h2>{cafe.nombre}</h2>
           </div>
           <div className="collection-review-body">
-            <img src={getImage(cafe)} alt={cafe.nombre} />
+            <img src={getImage(cafe)} alt={cafe.nombre} loading="lazy" decoding="async" />
             <div>
               <div className="collection-review-rating"><HalfStarRating value={getRating(interaction, cafe)} readOnly size={14} /><span>{getRating(interaction, cafe).toFixed(1)}</span></div>
               <p>{interaction.review_text}</p>

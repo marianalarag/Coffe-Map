@@ -8,6 +8,7 @@ import { useCoffeeData } from '../context/CoffeeDataContext';
 import { supabase } from '../supabase';
 
 const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
+const NEW_POST_DRAFT_KEY = 'coffee-map:new-post-draft';
 const getAvatar = (user, profile) => profile?.avatar_url || `https://api.dicebear.com/7.x/miniavs/svg?seed=${encodeURIComponent(user?.email || 'coffee-user')}`;
 
 function NewPostPage() {
@@ -15,6 +16,8 @@ function NewPostPage() {
   const location = useLocation();
   const fileInputRef = useRef(null);
   const hydratedComposerRef = useRef('');
+  const draftHydratedRef = useRef(false);
+  const draftRef = useRef(null);
   const { user, userProfile } = useAuth();
   const { cafes, interactionsByCafeId, interactionsLoaded, loadCafes, saveCafeInteraction } = useCoffeeData();
   const requestedCafeId = new URLSearchParams(location.search).get('cafe') || '';
@@ -27,6 +30,7 @@ function NewPostPage() {
   const [photoRightsConfirmed, setPhotoRightsConfirmed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState({ type: '', message: '' });
+  const [draftSaved, setDraftSaved] = useState(false);
   const avatar = useMemo(() => getAvatar(user, userProfile), [user, userProfile]);
   const username = userProfile?.username || user?.email?.split('@')[0] || 'coffee lover';
   const selectedCafe = useMemo(() => (
@@ -34,19 +38,33 @@ function NewPostPage() {
     || interactionsByCafeId.get(cafeId)?.cafe
     || null
   ), [cafeId, cafes, interactionsByCafeId]);
-  const cafeOptions = useMemo(() => (
-    selectedCafe && !cafes.some((cafe) => cafe.id === selectedCafe.id)
-      ? [selectedCafe, ...cafes]
-      : cafes
-  ), [cafes, selectedCafe]);
+  useEffect(() => {
+    if (!user?.id || draftHydratedRef.current) return;
+    try {
+      const savedDraft = JSON.parse(window.localStorage.getItem(`${NEW_POST_DRAFT_KEY}:${user.id}`) || 'null');
+      if (savedDraft) {
+        draftRef.current = savedDraft;
+        setText(savedDraft.text || '');
+        setCafeId(requestedCafeId || savedDraft.cafeId || '');
+        setRating(Number(savedDraft.rating) || 0);
+        setIsFavorite(Boolean(savedDraft.isFavorite));
+      } else if (requestedCafeId) {
+        setCafeId(requestedCafeId);
+      }
+    } catch {
+      if (requestedCafeId) setCafeId(requestedCafeId);
+    }
+    draftHydratedRef.current = true;
+  }, [requestedCafeId, user?.id]);
 
   useEffect(() => {
     if (location.pathname !== '/new-post') return;
-    setCafeId(requestedCafeId);
+    if (requestedCafeId) setCafeId(requestedCafeId);
   }, [location.pathname, location.key, requestedCafeId]);
 
   useEffect(() => {
-    if (location.pathname !== '/new-post' || !cafeId || !interactionsLoaded) return;
+    if (location.pathname !== '/new-post' || !cafeId || !interactionsLoaded || !draftHydratedRef.current) return;
+    if (draftRef.current?.text?.trim() || draftRef.current?.cafeId) return;
     const hydrationKey = `${location.key}:${cafeId}`;
     if (hydratedComposerRef.current === hydrationKey) return;
 
@@ -56,6 +74,21 @@ function NewPostPage() {
     setIsFavorite(Boolean(currentInteraction?.is_favorite));
     hydratedComposerRef.current = hydrationKey;
   }, [cafeId, interactionsByCafeId, interactionsLoaded, location.key, location.pathname]);
+
+  useEffect(() => {
+    if (!user?.id || !draftHydratedRef.current) return;
+    const hasDraft = Boolean(text.trim() || cafeId || rating || isFavorite || photos.length);
+    const storageKey = `${NEW_POST_DRAFT_KEY}:${user.id}`;
+    if (!hasDraft) {
+      window.localStorage.removeItem(storageKey);
+      setDraftSaved(false);
+      return;
+    }
+    const draft = { text, cafeId, rating, isFavorite, savedAt: Date.now() };
+    draftRef.current = draft;
+    window.localStorage.setItem(storageKey, JSON.stringify(draft));
+    setDraftSaved(true);
+  }, [cafeId, isFavorite, photos.length, rating, text, user?.id]);
 
   const choosePhotos = (event) => {
     const files = [...(event.target.files || [])].slice(0, 6);
@@ -185,6 +218,9 @@ function NewPostPage() {
       setRating(0);
       setIsFavorite(false);
       clearPhotos();
+      draftRef.current = null;
+      window.localStorage.removeItem(`${NEW_POST_DRAFT_KEY}:${user.id}`);
+      setDraftSaved(false);
       setFeedback({ type: 'success', message: cafeId ? 'Reseña publicada en Actividad.' : 'Publicación creada.' });
       window.setTimeout(() => navigate('/activity'), 650);
     } catch (error) {
@@ -201,11 +237,11 @@ function NewPostPage() {
         <header className="social-topbar"><button type="button" aria-label="Cerrar" onClick={() => navigate(-1)}><X size={19} /></button><span>Nueva publicación</span><button type="button" className="social-post-button" disabled={(!text.trim() && photos.length === 0) || submitting} onClick={publishPost}>{submitting ? 'Subiendo…' : 'Publicar'}</button></header>
         {feedback.message && <p className={`post-feedback post-feedback-${feedback.type}`}>{feedback.message}</p>}
         <section className="new-post-composer">
-          <div className="new-post-actions"><button type="button" onClick={() => navigate(-1)}>Cancelar</button><span>Comunidad Mérida</span></div>
+          <div className="new-post-actions"><button type="button" onClick={() => navigate(-1)}>Cancelar</button><span>{draftSaved ? 'Borrador guardado' : 'Comunidad Mérida'}</span></div>
           <div className="new-post-author"><img src={avatar} alt="" /><strong>{username}</strong></div>
           <textarea value={text} onChange={(event) => setText(event.target.value)} placeholder="¿Qué cafetería visitaste hoy?" maxLength={1000} autoFocus />
           {photoPreviews.length > 0 && <div className="new-post-photo-preview new-post-photo-gallery">{photoPreviews.map((preview, index) => <img src={preview} alt={`Vista previa ${index + 1}`} key={preview} />)}<button type="button" onClick={clearPhotos} aria-label="Quitar fotos"><X size={16} /></button></div>}
-          <label className="new-post-cafe-picker"><MapPin size={16} /><select value={cafeId} onChange={(event) => setCafeId(event.target.value)}><option value="">Relacionar una cafetería (opcional)</option>{cafeOptions.map((cafe) => <option value={cafe.id} key={cafe.id}>{cafe.nombre}</option>)}</select></label>
+          <div className="new-post-cafe-picker"><MapPin size={16} /><button type="button" onClick={() => navigate('/search?selectCafe=1&returnTo=%2Fnew-post')}>{selectedCafe?.nombre || 'Relacionar una cafetería (opcional)'}</button>{selectedCafe && <button type="button" className="new-post-cafe-clear" onClick={() => setCafeId('')} aria-label="Quitar cafetería relacionada"><X size={15} /></button>}</div>
           {photoPreviews.length > 0 && selectedCafe && <label className="new-post-photo-rights"><input type="checkbox" checked={photoRightsConfirmed} onChange={(event) => setPhotoRightsConfirmed(event.target.checked)} /><span>Confirmo que estas fotos son mías o que tengo permiso para publicarlas. Se agregarán a la galería de la cafetería y podrán usarse como portada.</span></label>}
           {selectedCafe && (
             <div className="new-post-review-options">

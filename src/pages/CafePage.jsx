@@ -5,6 +5,7 @@ import PageLoading from '../components/PageLoading';
 import { useAuth } from '../context/AuthContext';
 import { useCoffeeData } from '../context/CoffeeDataContext';
 import { supabase } from '../supabase';
+import { getCafeOpenStatus, getCafeScheduleRows } from '../utils/cafeHours';
 
 const MAP_TARGET_STORAGE_KEY = 'coffee-map:focus-cafe';
 const getLocalDate = () => {
@@ -133,6 +134,8 @@ function CafePage({ cafeId }) {
     isFavorite && { label: 'Favorita', className: 'bg-red-500/15 text-red-300 border-red-400/30' },
     inWaitlist && { label: 'Ir luego', className: 'bg-blue-500/15 text-blue-300 border-blue-400/30' },
   ].filter(Boolean);
+  const openStatus = getCafeOpenStatus(cafe?.openingHours);
+  const scheduleRows = getCafeScheduleRows(cafe?.openingHours);
 
   if ((cafesLoading && !cafesLoaded) || (interactionsLoading && !interaction)) {
     return <PageLoading message="Cargando cafeteria..." />;
@@ -158,7 +161,7 @@ function CafePage({ cafeId }) {
       <div className="h-[40vh] w-full relative shrink-0">
         {cafe.imageUrl ? (
           <>
-            <img src={cafe.imageUrl} alt={cafe.nombre} className="w-full h-full object-cover" />
+            <img src={cafe.imageUrl} alt={cafe.nombre} className="w-full h-full object-cover" fetchPriority="high" decoding="async" />
             {cafe.imageSourceUrl && (
               <a href={cafe.imageSourceUrl} target="_blank" rel="noreferrer" className="cafe-image-credit">
                 Foto: {cafe.imageAttribution || 'Wikimedia Commons'}{cafe.imageLicense ? ` · ${cafe.imageLicense}` : ''}
@@ -227,11 +230,35 @@ function CafePage({ cafeId }) {
             </div>
             <div className="grid grid-cols-3 gap-2">
               {communityPhotos.map((photo) => (
-                <img key={photo.id} src={photo.public_url} alt={cafe.nombre} className="w-full aspect-square object-cover rounded-2xl" />
+                <img key={photo.id} src={photo.public_url} alt={cafe.nombre} className="w-full aspect-square object-cover rounded-2xl" loading="lazy" decoding="async" />
               ))}
             </div>
           </section>
         )}
+
+        <section className="cafe-hours-card">
+          <header>
+            <span><Clock size={20} /></span>
+            <div><small>HORARIOS</small><h3>{openStatus.label}</h3></div>
+            <i className={`cafe-hours-status is-${openStatus.state}`} />
+          </header>
+          {scheduleRows.length > 0 ? (
+            <div className="cafe-hours-list">
+              {scheduleRows.map((row) => <p key={row.day}><span>{row.day}</span><strong>{row.hours}</strong></p>)}
+            </div>
+          ) : (
+            <p className="cafe-hours-pending">Aún no tenemos un horario verificado para esta cafetería.</p>
+          )}
+          {cafe.openingHoursSource === 'osm' && <small className="cafe-hours-source">Información de OpenStreetMap; puede cambiar.</small>}
+          {cafe.openingHoursSource === 'web' && (
+            <small className="cafe-hours-source">
+              Horario verificado en una fuente pública
+              {cafe.openingHoursSourceUrl ? <> · <a href={cafe.openingHoursSourceUrl} target="_blank" rel="noreferrer">ver fuente</a></> : null}
+              {cafe.openingHoursVerifiedAt ? ` · ${new Date(cafe.openingHoursVerifiedAt).toLocaleDateString('es-MX')}` : ''}.
+            </small>
+          )}
+          {cafe.openingHoursSource === 'admin' && <small className="cafe-hours-source">Horario verificado por Coffee Map.</small>}
+        </section>
 
         <div className="bg-[#27201A] rounded-4xl p-6 shadow-xl w-full border border-white/5 mb-6">
           <div className="flex justify-between items-center mb-4">

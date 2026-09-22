@@ -1,5 +1,5 @@
 import { createElement, useEffect, useState } from 'react';
-import { ArrowLeft, Bell, Check, Download, LockKeyhole, Mail, Save, ShieldCheck, UserRound } from 'lucide-react';
+import { ArrowLeft, Bell, Check, Download, Gauge, LockKeyhole, Mail, Save, ShieldCheck, UserRound } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import BottomNav from '../components/BottomNav';
 import PageLoading from '../components/PageLoading';
@@ -114,6 +114,14 @@ function SettingsPage() {
             <div><strong>Notificaciones</strong><span>Próximamente podrás controlar tus avisos.</span></div>
             <span className="account-settings-badge">Pronto</span>
           </div>
+
+          {userProfile?.role === 'administrador' && (
+            <button type="button" className="account-settings-admin" onClick={() => navigate('/admin')}>
+              <Gauge size={19} />
+              <span><strong>Modo administrador</strong><small>Base de datos, escáner, usuarios y portadas.</small></span>
+              <ShieldCheck size={18} />
+            </button>
+          )}
 
           {!window.matchMedia('(display-mode: standalone)').matches && window.navigator.standalone !== true && (
             <button

@@ -31,6 +31,10 @@ create table if not exists public.cafes (
   image_source_url text,
   image_attribution text,
   image_license text,
+  opening_hours text,
+  opening_hours_source text,
+  opening_hours_source_url text,
+  opening_hours_verified_at timestamptz,
   source text,
   source_id text,
   source_url text,
@@ -45,6 +49,13 @@ alter table public.cafes add column if not exists source text;
 alter table public.cafes add column if not exists source_id text;
 alter table public.cafes add column if not exists source_url text;
 alter table public.cafes add column if not exists address text;
+alter table public.cafes add column if not exists opening_hours text;
+alter table public.cafes add column if not exists opening_hours_source text;
+alter table public.cafes add column if not exists opening_hours_source_url text;
+alter table public.cafes add column if not exists opening_hours_verified_at timestamptz;
+alter table public.cafes drop constraint if exists cafes_opening_hours_source_check;
+alter table public.cafes add constraint cafes_opening_hours_source_check
+check (opening_hours_source is null or opening_hours_source in ('osm', 'admin', 'web', 'community'));
 alter table public.cafes add column if not exists category text not null default 'cafeteria';
 alter table public.cafes add column if not exists submitted_by uuid references public.profiles(id) on delete set null;
 alter table public.cafes drop constraint if exists cafes_category_check;

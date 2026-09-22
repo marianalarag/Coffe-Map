@@ -9,6 +9,8 @@ App social tipo Letterboxd para descubrir, guardar, reseñar y compartir cafeter
 - Publicaciones comunitarias con fotos y cafetería relacionada.
 - Galería moderada de fotos por cafetería.
 - Panel `/admin` con métricas, escáner abierto OSM/Overture, altas manuales, portadas, moderación de fotos/posts y roles.
+- Filtros del mapa por colonia, preview de cafeterías con doble toque en móvil y carga diferida de imágenes.
+- Asistente administrativo de enriquecimiento: propone ubicación, colonia, horarios y portadas desde fuentes abiertas; cada sugerencia exige revisión manual antes de guardarse.
 - Datos, autenticación y archivos en Supabase.
 - PWA desplegable en Vercel y proyectos nativos en `android/` e `ios/`.
 
@@ -47,7 +49,13 @@ El panel usa únicamente fuentes gratuitas y abiertas dentro de un bounding box 
 
 Las imágenes automáticas solo se aceptan desde Wikimedia Commons cuando la API confirma una licencia compatible y se conserva la atribución. Coffee Map prioriza fotos propias de administradores y usuarios, moderadas desde Supabase. No se copian fotos de servicios propietarios ni de sitios comerciales.
 
-## Android e iOS
+El asistente del panel funciona como chat. Si `VITE_CAFE_ASSISTANT_URL` está vacío, responde en modo fuentes abiertas (Nominatim + Openverse). Para conectar una IA propia, configura esa variable con un endpoint del servidor que reciba `{ message, cafe, history, locale, city }` y devuelva `{ message, suggestion, sources }`. La interfaz no guarda nada sin confirmación del administrador.
+
+## Web, Android e iPhone
+
+Coffee Map ya está preparado como un producto multiplataforma. La web y la PWA usan React/Vite; Android tiene un punto de entrada nativo en Kotlin y iPhone un punto de entrada nativo en Swift. Ambos clientes comparten la misma experiencia, autenticación, datos y backend, así que una cafetería, reseña o favorito se refleja en todas las plataformas.
+
+La decisión evita mantener tres versiones distintas de la interfaz y deja Kotlin/Swift disponibles para funciones específicas de cada sistema cuando sean necesarias. La arquitectura completa está documentada en [`docs/multiplatform-architecture.md`](docs/multiplatform-architecture.md).
 
 ```bash
 npm run mobile:sync

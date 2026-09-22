@@ -103,13 +103,13 @@ function CafeCard({ cafe, interaction, onOpen }) {
   return (
     <button type="button" className="home-cafe-card" onClick={() => onOpen(cafe.id)}>
       <div className="home-cafe-image-wrap">
-        <img src={getCafeImage(cafe)} alt={cafe.nombre} className="home-cafe-image" />
+        <img src={getCafeImage(cafe)} alt={cafe.nombre} className="home-cafe-image" loading="lazy" decoding="async" />
       </div>
       <div className="home-cafe-copy">
         <strong>{cafe.nombre}</strong>
         <div className="home-cafe-details">
           <span><Star size={10} fill="currentColor" /> {rating.toFixed(1)}</span>
-          <span title={getCafeAddress(cafe)}><MapPin size={10} /> {getCompactAddress(cafe)}</span>
+          <span title={getCafeAddress(cafe)}><MapPin size={14} strokeWidth={2.4} /> {getCompactAddress(cafe)}</span>
         </div>
       </div>
     </button>
@@ -205,7 +205,7 @@ function HomePage() {
           <section className="home-featured-section">
             <article className="home-featured-card">
               <button type="button" className="home-featured-open" onClick={() => navigate(`/cafe/${featuredCafe.id}`)} aria-label={`Abrir información de ${featuredCafe.nombre}`}>
-                <img src={getCafeImage(featuredCafe)} alt={featuredCafe.nombre} />
+                <img src={getCafeImage(featuredCafe)} alt={featuredCafe.nombre} fetchPriority="high" decoding="async" />
                 <span className="home-featured-shade" />
               </button>
               <button

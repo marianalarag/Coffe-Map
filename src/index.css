@@ -266,6 +266,41 @@ html.is-app-mode #root {
 }
 
 .map-search-control { top: max(16px, calc(env(safe-area-inset-top, 0px) + 9px)); }
+.map-neighborhood-filters {
+  top: max(66px, calc(env(safe-area-inset-top, 0px) + 58px));
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 2px 2px 7px;
+  scrollbar-width: none;
+  touch-action: pan-x;
+}
+.map-neighborhood-filters::-webkit-scrollbar { display: none; }
+.map-neighborhood-filters button {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 34px;
+  padding: 7px 12px;
+  color: #382b22;
+  background: rgba(255,248,233,.9);
+  border: 1px solid rgba(75,44,32,.12);
+  border-radius: 999px;
+  box-shadow: 0 5px 14px rgba(0,0,0,.16);
+  backdrop-filter: blur(10px);
+  font: 700 10px/1 "Inria Serif", Georgia, serif;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.map-neighborhood-filters button span { color: rgba(56,43,34,.52); font-size: 9px; }
+.map-neighborhood-filters button.is-active { color: #fff8e9; background: #4b2c20; border-color: #4b2c20; }
+.map-neighborhood-filters button.is-active span { color: rgba(255,248,233,.72); }
+.coffee-map-leaflet-shell.is-preview-open .coffee-map-leaflet-preview {
+  opacity: 1;
+  transform: translate(-50%, 0) scale(1);
+  pointer-events: auto;
+}
 .map-toast-stack { top: max(72px, calc(env(safe-area-inset-top, 0px) + 62px)); }
 .map-locate-control, .map-scan-control { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
 .search-page-header { padding-top: max(24px, calc(env(safe-area-inset-top, 0px) + 10px)); }
@@ -298,6 +333,8 @@ html.is-app-mode .map-scan-control {
 .new-post-cafe-picker { display: flex; align-items: center; gap: 9px; margin-bottom: 14px; padding: 11px 12px; color: #d8c7a8; background: #2b241d; border: 1px solid rgba(238,229,210,.12); border-radius: 13px; }
 .new-post-cafe-picker select { width: 100%; min-width: 0; color: #eee5d2; background: transparent; border: 0; outline: 0; font: 11px "Inria Serif", Georgia, serif; }
 .new-post-cafe-picker option { color: #302820; background: #eee5d2; }
+.new-post-cafe-picker > button:first-of-type { flex: 1; min-width: 0; padding: 0; overflow: hidden; color: #eee5d2; text-align: left; text-overflow: ellipsis; white-space: nowrap; background: transparent; border: 0; outline: 0; font: 11px "Inria Serif", Georgia, serif; cursor: pointer; }
+.new-post-cafe-picker .new-post-cafe-clear { width: 25px; height: 25px; display: grid; flex: 0 0 auto; place-items: center; padding: 0; color: rgba(238,229,210,.64); background: rgba(238,229,210,.08); border: 0; border-radius: 50%; cursor: pointer; }
 .new-post-review-options { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin: -2px 0 14px; color: #e6dac1; }
 .new-post-rating { display: flex; align-items: center; gap: 7px; color: rgba(230,218,193,.68); font-size: 9px; }
 .new-post-rating > svg { flex: 0 0 auto; }
@@ -310,15 +347,16 @@ html.is-app-mode .map-scan-control {
 .activity-post-image { width: 100%; max-height: 430px; display: block; margin-top: 13px; object-fit: cover; border-radius: 17px; }
 
 /* Admin control center */
-.admin-page { width: 100%; height: 100%; overflow-y: auto; padding: max(18px, env(safe-area-inset-top, 0px)) 16px calc(34px + env(safe-area-inset-bottom, 0px)); color: #eee5d2; background: #181511; font-family: "Inria Serif", Georgia, serif; }
-.admin-header { position: sticky; top: calc(-1 * env(safe-area-inset-top, 0px)); z-index: 20; display: grid; grid-template-columns: 42px 1fr 42px; align-items: center; min-height: 68px; margin: -18px -16px 0; padding: max(18px, env(safe-area-inset-top, 0px)) 16px 10px; background: rgba(24,21,17,.94); backdrop-filter: blur(18px); border-bottom: 1px solid rgba(238,229,210,.08); }
+.admin-page { --admin-page-gutter: 16px; --admin-top-inset: max(18px, env(safe-area-inset-top, 0px)); width: 100%; height: 100%; overflow-y: auto; padding: var(--admin-top-inset) var(--admin-page-gutter) calc(34px + env(safe-area-inset-bottom, 0px)); color: #eee5d2; background: #181511; font-family: "Inria Serif", Georgia, serif; }
+.admin-topbar { position: sticky; top: 0; z-index: 20; margin: calc(-1 * var(--admin-top-inset)) calc(-1 * var(--admin-page-gutter)) 18px; background: rgba(24,21,17,.96); border-bottom: 1px solid rgba(238,229,210,.08); box-shadow: 0 8px 22px rgba(0,0,0,.12); backdrop-filter: blur(18px); }
+.admin-header { display: grid; grid-template-columns: 42px 1fr 42px; align-items: center; min-height: 68px; padding: var(--admin-top-inset) var(--admin-page-gutter) 10px; }
 .admin-header button { width: 36px; height: 36px; display: grid; place-items: center; padding: 0; color: #eee5d2; background: #2d261f; border: 0; border-radius: 12px; }
 .admin-header button:last-child { justify-self: end; }
 .admin-header small { color: #ae9876; font-size: 8px; letter-spacing: .14em; }
 .admin-header h1 { margin: 2px 0 0; font: 400 23px "Lancelot", Georgia, serif; }
 .admin-spin { animation: admin-spin .8s linear infinite; }
 @keyframes admin-spin { to { transform: rotate(360deg); } }
-.admin-tabs { position: sticky; top: 68px; z-index: 19; display: flex; gap: 6px; margin: 0 -16px 18px; padding: 9px 16px 12px; overflow-x: auto; background: rgba(24,21,17,.94); scrollbar-width: none; }
+.admin-tabs { display: flex; gap: 6px; margin: 0; padding: 9px var(--admin-page-gutter) 12px; overflow-x: auto; scrollbar-width: none; }
 .admin-tabs::-webkit-scrollbar { display: none; }
 .admin-tabs button { min-width: max-content; display: flex; align-items: center; gap: 6px; padding: 9px 11px; color: rgba(238,229,210,.58); background: #27211b; border: 1px solid transparent; border-radius: 12px; font: 10px "Inria Serif", Georgia, serif; }
 .admin-tabs button.is-active { color: #2d241d; background: #e6dac1; }
@@ -355,6 +393,11 @@ html.is-app-mode .map-scan-control {
 .admin-row-copy span, .admin-row-copy p { color: rgba(238,229,210,.62); font-size: 9px; line-height: 1.35; }
 .admin-row select { max-width: 90px; padding: 7px; color: #e6dac1; background: #3a3027; border: 0; border-radius: 9px; font-size: 9px; }
 .admin-icon-action { width: 34px; height: 34px; display: grid; flex: 0 0 auto; place-items: center; padding: 0; color: #2d241d; background: #e6dac1; border: 0; border-radius: 10px; cursor: pointer; }
+.admin-duplicate-warning { display: flex; flex-direction: column; gap: 6px; color: #eee5d2; background: #3b2b22; border-color: rgba(230,218,193,.2); }
+.admin-duplicate-warning strong { font-size: 12px; }
+.admin-duplicate-warning p { margin: 0 0 3px; color: rgba(238,229,210,.62); font-size: 9px; line-height: 1.45; }
+.admin-duplicate-warning span { display: flex; justify-content: space-between; gap: 8px; padding: 7px 8px; color: #e6dac1; background: rgba(29,25,21,.42); border-radius: 8px; font-size: 9px; }
+.admin-duplicate-warning span small, .admin-duplicate-warning > small { color: rgba(238,229,210,.48); font-size: 8px; }
 .admin-photo-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .admin-photo-card { overflow: hidden; background: #27211b; border: 1px solid rgba(238,229,210,.07); border-radius: 16px; }
 .admin-photo-card > img { width: 100%; height: 140px; display: block; object-fit: cover; }
@@ -374,6 +417,20 @@ html.is-app-mode .map-scan-control {
 .cafe-photo-add-button { display: inline-flex; align-items: center; gap: 5px; padding: 7px 9px; color: #2d241d; background: #e6dac1; border: 0; border-radius: 10px; font: 700 9px "Inria Serif", Georgia, serif; }
 .cafe-photo-empty { width: 100%; min-height: 90px; display: flex; align-items: center; justify-content: center; gap: 12px; padding: 15px; color: rgba(230,218,193,.62); text-align: left; background: #1d1a15; border: 1px dashed rgba(230,218,193,.18); border-radius: 18px; }
 .cafe-photo-empty > span { display: flex; flex-direction: column; gap: 3px; }
+.cafe-hours-card { width: 100%; margin-bottom: 24px; padding: 18px; color: #e6dac1; background: #27201a; border: 1px solid rgba(255,255,255,.05); border-radius: 28px; box-shadow: 0 12px 28px rgba(0,0,0,.16); }
+.cafe-hours-card header { display: flex; align-items: center; gap: 11px; }
+.cafe-hours-card header > span { width: 42px; height: 42px; display: grid; flex: 0 0 42px; place-items: center; color: #2d241d; background: #e6dac1; border-radius: 14px; }
+.cafe-hours-card header > div { min-width: 0; flex: 1; }
+.cafe-hours-card header small { color: rgba(230,218,193,.46); font-size: 8px; font-weight: 800; letter-spacing: .12em; }
+.cafe-hours-card h3 { margin: 2px 0 0; font: 700 15px "Inria Serif", Georgia, serif; }
+.cafe-hours-status { width: 9px; height: 9px; flex: 0 0 9px; background: #8b7c6b; border-radius: 50%; box-shadow: 0 0 0 4px rgba(139,124,107,.12); }
+.cafe-hours-status.is-open { background: #8bc34a; box-shadow: 0 0 0 4px rgba(139,195,74,.13); }
+.cafe-hours-status.is-closed { background: #d58a78; box-shadow: 0 0 0 4px rgba(213,138,120,.13); }
+.cafe-hours-list { display: grid; gap: 7px; margin-top: 16px; padding-top: 14px; border-top: 1px solid rgba(230,218,193,.09); }
+.cafe-hours-list p { display: flex; justify-content: space-between; gap: 16px; margin: 0; color: rgba(230,218,193,.6); font-size: 10px; }
+.cafe-hours-list strong { color: #e6dac1; font-weight: 600; text-align: right; }
+.cafe-hours-pending { margin: 14px 0 0; color: rgba(230,218,193,.55); font-size: 10px; line-height: 1.5; }
+.cafe-hours-source { display: block; margin-top: 12px; color: rgba(230,218,193,.35); font-size: 7px; }
 .cafe-photo-empty strong { color: #e6dac1; font-size: 11px; }
 .cafe-photo-empty small { max-width: 235px; font-size: 9px; line-height: 1.4; }
 .photo-contribution-backdrop, .open-image-backdrop { position: fixed; inset: 0; z-index: 4300; display: grid; place-items: center; padding: 18px; background: rgba(9,7,6,.8); backdrop-filter: blur(7px); }
@@ -415,6 +472,32 @@ html.is-app-mode .map-scan-control {
 .open-image-grid button { padding: 8px; color: #2d241d; background: #e6dac1; border: 0; border-radius: 9px; font: 700 9px "Inria Serif", Georgia, serif; }
 .open-image-grid button:disabled { opacity: .4; }
 .open-image-confirmation { display: flex; align-items: flex-start; gap: 8px; margin: 0 17px 17px; padding: 12px; color: rgba(238,229,210,.7); background: #342a22; border-radius: 12px; font-size: 9px; line-height: 1.45; }
+.cafe-assistant-modal { width: min(100%, 580px); }
+.cafe-assistant-chat { display: flex; flex-direction: column; gap: 10px; padding: 14px 17px 0; }
+.cafe-assistant-picker { display: flex; flex-direction: column; gap: 5px; color: rgba(238,229,210,.6); font-size: 8px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.cafe-assistant-picker select { min-height: 38px; padding: 8px 10px; color: #eee5d2; background: #1d1915; border: 1px solid rgba(238,229,210,.12); border-radius: 10px; outline: 0; font: 10px "Inria Serif", Georgia, serif; letter-spacing: 0; text-transform: none; }
+.cafe-assistant-messages { display: flex; flex-direction: column; gap: 7px; max-height: 190px; overflow-y: auto; padding: 5px 2px; scrollbar-width: thin; }
+.cafe-assistant-message { max-width: 88%; margin: 0; padding: 9px 11px; border-radius: 13px; font-size: 10px; line-height: 1.4; }
+.cafe-assistant-message.is-assistant { align-self: flex-start; color: rgba(238,229,210,.78); background: #342a22; border-bottom-left-radius: 4px; }
+.cafe-assistant-message.is-user { align-self: flex-end; color: #2d241d; background: #e6dac1; border-bottom-right-radius: 4px; }
+.cafe-assistant-composer { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; }
+.cafe-assistant-composer input { min-width: 0; min-height: 39px; padding: 9px 11px; color: #eee5d2; background: #1d1915; border: 1px solid rgba(238,229,210,.12); border-radius: 11px; outline: 0; font: 10px "Inria Serif", Georgia, serif; }
+.cafe-assistant-composer input:focus { border-color: rgba(230,218,193,.45); }
+.cafe-assistant-composer button { min-width: 62px; color: #2d241d; background: #e6dac1; border: 0; border-radius: 11px; font: 800 9px "Inria Serif", Georgia, serif; cursor: pointer; }
+.cafe-assistant-composer button:disabled { opacity: .4; cursor: wait; }
+.cafe-assistant-suggestion { display: flex; flex-direction: column; gap: 10px; padding: 14px 17px 17px; }
+.cafe-assistant-field { display: flex; flex-direction: column; gap: 3px; padding: 11px 12px; color: #eee5d2; background: #1d1915; border: 1px solid rgba(238,229,210,.09); border-radius: 12px; }
+.cafe-assistant-field small { color: #bca47f; font-size: 8px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.cafe-assistant-field strong { font-size: 11px; line-height: 1.35; }
+.cafe-assistant-field span { color: rgba(238,229,210,.48); font-size: 8px; }
+.cafe-assistant-image { position: relative; overflow: hidden; min-height: 160px; border-radius: 13px; background: #1d1915; }
+.cafe-assistant-image img { width: 100%; height: 190px; display: block; object-fit: cover; }
+.cafe-assistant-image span { position: absolute; right: 0; bottom: 0; left: 0; padding: 10px; color: #fff; background: linear-gradient(transparent, rgba(0,0,0,.82)); font-size: 8px; }
+.cafe-assistant-sources { display: flex; flex-wrap: wrap; gap: 8px; }
+.cafe-assistant-sources a { display: inline-flex; align-items: center; gap: 4px; padding: 7px 9px; color: #d5bd96; background: #342a22; border-radius: 999px; font-size: 8px; }
+.cafe-assistant-suggestion .open-image-confirmation { margin: 0; }
+.cafe-assistant-save { min-height: 42px; color: #2d241d; background: #e6dac1; border: 0; border-radius: 11px; font: 800 10px "Inria Serif", Georgia, serif; cursor: pointer; }
+.cafe-assistant-save:disabled { opacity: .45; cursor: wait; }
 @media (max-width: 640px) {
   .photo-contribution-backdrop, .open-image-backdrop { place-items: end center; padding: 0; }
   .photo-contribution-modal, .open-image-modal { width: 100%; max-height: 92dvh; border-radius: 20px 20px 0 0; }
@@ -423,7 +506,7 @@ html.is-app-mode .map-scan-control {
 }
 
 @media (min-width: 720px) {
-  .admin-page { padding-right: 28px; padding-left: 28px; }
+  .admin-page { --admin-page-gutter: 28px; }
   .admin-metrics { grid-template-columns: repeat(5, minmax(0, 1fr)); }
   .admin-photo-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .admin-manual-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -509,6 +592,9 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 .activity-post { padding: 17px 18px 13px; background: #28221c; border: 1px solid rgba(201,173,132,.2); border-radius: 24px; }
 .activity-post-header { display: flex; align-items: center; gap: 9px; color: rgba(238,229,210,.74); font-size: 11px; }
 .activity-post-header img { width: 35px; height: 35px; }
+.activity-author { min-width: 0; display: flex; align-items: center; gap: 9px; padding: 0; color: inherit; background: transparent; border: 0; font: inherit; cursor: pointer; }
+.activity-author span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 3px; }
+.activity-author:hover span, .activity-author:focus-visible span { text-decoration-color: currentColor; }
 .activity-post-header small { margin-left: auto; color: rgba(238,229,210,.44); font-size: 9px; }
 .activity-post-header svg { color: rgba(238,229,210,.5); }
 .activity-post h2 { margin: 14px 0 7px; color: #eee5d2; font: 400 19px "Lancelot", Georgia, serif; }
@@ -516,7 +602,13 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 .activity-review-grid { display: grid; grid-template-columns: minmax(110px, 42%) 1fr; gap: 15px; align-items: start; }
 .activity-review-grid img { width: 100%; height: 170px; object-fit: cover; border-radius: 3px; }
 .activity-review-grid p, .activity-post-copy { margin: 0; color: rgba(238,229,210,.73); font-size: 11px; line-height: 1.45; }
-.activity-post-actions { display: flex; justify-content: flex-end; gap: 13px; margin-top: 13px; color: #c4a77c; }
+.activity-post-actions { display: flex; justify-content: flex-end; gap: 5px; margin-top: 13px; color: #c4a77c; }
+.activity-post-actions button { min-width: 38px; height: 36px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; padding: 0 8px; color: inherit; background: transparent; border: 0; border-radius: 12px; cursor: pointer; }
+.activity-post-actions button:hover, .activity-post-actions button:focus-visible { background: rgba(196,167,124,.12); }
+.activity-post-actions button.is-active { color: #dda08f; }
+.activity-post-actions span { font-size: 9px; font-weight: 700; }
+.home-cafe-details svg, .profile-cafe-copy svg, .collection-cafe-copy svg { width: 14px !important; min-width: 14px; height: 14px !important; flex: 0 0 14px; }
+.home-cafe-details span:last-child { min-width: 0; }
 .activity-mini-event { display: flex; align-items: center; gap: 10px; min-height: 62px; padding: 10px 17px; color: rgba(238,229,210,.7); background: #28221c; border: 1px solid rgba(201,173,132,.2); border-radius: 23px; font-size: 10px; }
 .activity-mini-event img { width: 35px; height: 35px; }
 .activity-mini-event span { flex: 1; }
@@ -528,6 +620,13 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 .profile-page { position: relative; width: 100%; max-width: 100%; height: 100%; min-height: 100%; min-width: 0; overflow: hidden; color: #eee5d2; background: #1d1a15; font-family: "Inria Serif", Georgia, serif; isolation: isolate; }
 .profile-scroll { width: 100%; max-width: none; height: 100%; min-width: 0; margin: 0; overflow-x: hidden; overflow-y: auto; padding-bottom: calc(118px + env(safe-area-inset-bottom, 0px)); background: #1d1a15; scroll-padding-bottom: calc(118px + env(safe-area-inset-bottom, 0px)); scrollbar-width: none; }
 .profile-scroll::-webkit-scrollbar { display: none; }
+.public-profile-shell { padding-top: 18px; }
+.public-profile-header { position: relative; min-height: 190px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 9px; padding: 28px; background-color: #372821; background-position: center; background-size: cover; border-radius: 24px; }
+.public-profile-header > img { width: 76px; height: 76px; object-fit: cover; border: 3px solid #e6dac1; border-radius: 50%; }
+.public-profile-header h1 { margin: 0; color: #eee5d2; font: 400 27px "Lancelot", Georgia, serif; }
+.public-profile-back { position: absolute; top: 15px; left: 15px; width: 38px; height: 38px; display: grid; place-items: center; color: #eee5d2; background: rgba(29,26,21,.7); border: 0; border-radius: 50%; cursor: pointer; }
+.public-profile-activity { padding: 22px 0 120px; }
+.public-profile-activity > h2 { margin: 0 0 14px; color: #eee5d2; font: 400 23px "Lancelot", Georgia, serif; }
 .profile-hero { position: relative; min-height: calc(198px + env(safe-area-inset-top, 0px)); padding: max(19px, calc(env(safe-area-inset-top, 0px) + 10px)) 20px 0; }
 .profile-cover { position: absolute; inset: 0 0 auto; height: 122px; overflow: hidden; background-color: #372821; background-position: center; background-size: cover; }
 .profile-cover-edit { position: absolute; top: 78px; right: 20px; z-index: 24; min-height: 30px; display: flex; align-items: center; gap: 6px; padding: 0 10px; color: #eee5d2; background: rgba(29,26,21,.68); border: 1px solid rgba(255,255,255,.22); border-radius: 999px; font-size: 9px; cursor: pointer; box-shadow: 0 5px 16px rgba(0,0,0,.22); backdrop-filter: blur(8px); }
@@ -618,6 +717,10 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 .account-settings-badge { padding: 4px 7px; color: #d9c8a8; background: #493a33; border-radius: 999px; font-size: 8px !important; }
 .account-settings-install { width: 100%; display: flex; align-items: center; gap: 11px; padding: 14px; color: #302820; text-align: left; background: #e6dac1; border: 0; border-radius: 14px; cursor: pointer; }
 .account-settings-install > span { display: flex; flex-direction: column; gap: 2px; }
+.account-settings-admin { min-height: 58px; display: flex; align-items: center; gap: 11px; padding: 11px 13px; color: #2d241d; text-align: left; background: #e6dac1; border: 0; border-radius: 15px; cursor: pointer; }
+.account-settings-admin > span { min-width: 0; display: flex; flex: 1; flex-direction: column; gap: 2px; }
+.account-settings-admin strong { font-size: 11px; }
+.account-settings-admin small { opacity: .68; font-size: 8px; }
 .account-settings-install strong { font: 700 12px "Inria Serif", Georgia, serif; }
 .account-settings-install small { color: rgba(48,40,32,.68); font: 9px "Inria Serif", Georgia, serif; }
 .account-settings-feedback { margin: 2px 2px 0; font-size: 10px; line-height: 1.4; }
@@ -822,6 +925,7 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 @media (min-width: 900px) {
   .new-post-composer textarea { min-height: calc(100vh - 430px); }
   .activity-feed { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 18px; }
+  .activity-feed-column { min-width: 0; display: flex; flex-direction: column; gap: 18px; }
   .activity-empty { grid-column: 1 / -1; }
   .collection-scroll { padding-right: clamp(40px, 5vw, 96px); padding-left: clamp(40px, 5vw, 96px); }
   .collection-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
@@ -936,6 +1040,7 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 @media (min-width: 900px) {
   .profile-activity-panel { max-width: none; }
   .profile-activity-panel .activity-feed { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 20px; }
+  .profile-activity-panel .activity-feed-column { gap: 20px; }
 }
 
 /* Profile tabs, visited places, friends and avatar viewer */
@@ -973,8 +1078,10 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 .profile-avatar-viewer label { display: flex; align-items: center; gap: 7px; padding: 11px 16px; color: #271D18; background: #E6DAC1; border-radius: 999px; font: 700 10px "Inria Serif", serif; }
 
 /* Readable neighborhood labels on small cafe cards */
-.home-cafe-details { align-items: flex-start; }
-.home-cafe-details span:last-child { max-width: 60px; align-items: flex-start; text-align: right; white-space: normal; line-height: 1.15; }
+.home-cafe-details { display: grid; grid-template-columns: max-content minmax(0, 1fr); align-items: start; column-gap: 10px; }
+.home-cafe-details span:first-child { white-space: nowrap; }
+.home-cafe-details span:last-child { width: 100%; max-width: none; min-width: 0; justify-content: flex-end; align-items: flex-start; text-align: right; white-space: normal; line-height: 1.2; }
+.home-cafe-details span:last-child svg { margin-top: .05em; }
 .profile-cafe-copy { grid-template-rows: 15px auto; }
 .profile-cafe-copy span:last-child { max-width: 68px; align-items: flex-start; text-align: right; white-space: normal; line-height: 1.1; }
 .collection-cafe-copy { min-height: 45px; grid-template-rows: 17px auto; }

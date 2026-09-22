@@ -507,7 +507,7 @@ function ProfilePage() {
                     <div className="profile-cafe-copy">
                       <strong>{cafe.nombre}</strong>
                       <span><Star size={9} fill="currentColor" /> {Number(cafe.rating || 4.5).toFixed(1)}</span>
-                      <span title={cafe.address || 'Dirección no disponible'}><MapPin size={9} /> {getCafeNeighborhood(cafe)}</span>
+                      <span title={cafe.address || 'Dirección no disponible'}><MapPin size={13} strokeWidth={2.4} /> {getCafeNeighborhood(cafe)}</span>
                     </div>
                   </button>
                 ))

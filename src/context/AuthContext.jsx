@@ -5,7 +5,7 @@ import { clearLocalSupabaseSession, supabase } from '../supabase';
 const AuthContext = createContext(null);
 
 const PROFILE_COLUMNS = 'id,username,avatar_url,cover_url,text_color,role';
-const PROFILE_CACHE_PREFIX = 'coffee-map:profile:';
+const PROFILE_CACHE_PREFIX = 'coffee-map:profile:v2:';
 const PROFILE_CACHE_TTL_MS = 15 * 60 * 1000;
 const AUTH_REQUEST_TIMEOUT_MS = 12 * 1000;
 const PROFILE_REQUEST_TIMEOUT_MS = 10 * 1000;

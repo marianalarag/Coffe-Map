@@ -7,6 +7,7 @@ import ActivityPage from '../pages/ActivityPage.jsx';
 import SearchPage from '../pages/SearchPage.jsx';
 import CafePage from '../pages/CafePage.jsx';
 import ProfilePage from '../pages/ProfilePage.jsx';
+import PublicProfilePage from '../pages/PublicProfilePage.jsx';
 import CollectionPage from '../pages/CollectionPage.jsx';
 import SettingsPage from '../pages/SettingsPage.jsx';
 import AdminDashboardPage from '../pages/AdminDashboardPage.jsx';
@@ -38,6 +39,11 @@ const getRouteEntry = (pathname) => {
 
   if (pathname === '/profile') {
     return { key: 'profile', type: 'profile' };
+  }
+
+  const profileMatch = pathname.match(/^\/profile\/([^/]+)$/);
+  if (profileMatch) {
+    return { key: `public-profile:${profileMatch[1]}`, type: 'public-profile', profileId: profileMatch[1] };
   }
 
   if (pathname === '/settings') {
@@ -79,6 +85,8 @@ const renderRoute = (entry) => {
       return <ActivityPage />;
     case 'profile':
       return <ProfilePage />;
+    case 'public-profile':
+      return <PublicProfilePage profileId={entry.profileId} />;
     case 'settings':
       return <SettingsPage />;
     case 'collection':

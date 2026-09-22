@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, BarChart3, Camera, Coffee, Database, ExternalLink, FileUp, Image, MapPinned, RefreshCw, ScanSearch, Search, Shield, Trash2, Users, X } from 'lucide-react';
+import { ArrowLeft, BarChart3, Camera, Clock, Coffee, Database, ExternalLink, FileUp, Image, MapPinned, RefreshCw, ScanSearch, Search, Shield, Sparkles, Trash2, Users, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCoffeeData } from '../context/CoffeeDataContext';
 import { supabase } from '../supabase';
-import { areDuplicateCafes } from '../utils/cafeDeduplication';
+import { areDuplicateCafes, distanceBetweenCafes } from '../utils/cafeDeduplication';
 
 const MERIDA_BBOX = { south: 20.86, west: -89.75, north: 21.08, east: -89.52 };
 const OVERPASS_URLS = [
@@ -17,6 +17,7 @@ const OVERTURE_CAFE_CATEGORIES = new Set(['cafe', 'coffee_shop', 'coffee', 'tea_
 const OPEN_IMAGE_CACHE = new Map();
 const OPENVERSE_API_URL = 'https://api.openverse.org/v1/images/';
 const OPENVERSE_LICENSES = new Set(['by', 'by-sa', 'cc0', 'pdm']);
+const CAFE_ASSISTANT_URL = import.meta.env.VITE_CAFE_ASSISTANT_URL || '';
 const TABS = [
   { id: 'overview', label: 'Resumen', icon: <BarChart3 size={17} /> },
   { id: 'cafes', label: 'Cafeterías', icon: <Coffee size={17} /> },
@@ -54,6 +55,64 @@ const searchOpenverse = async (cafeName) => {
 
   const exactResults = await request(`"${cafeName}" Mérida Yucatán`);
   return exactResults.length > 0 ? exactResults : request(`${cafeName} Mérida Yucatán cafetería`);
+};
+
+const getReverseGeocodeSuggestion = async (cafe) => {
+  const params = new URLSearchParams({
+    lat: String(cafe.lat),
+    lon: String(cafe.lng),
+    format: 'jsonv2',
+    zoom: '18',
+    addressdetails: '1',
+  });
+  const response = await fetch(`https://nominatim.openstreetmap.org/reverse?${params}`, {
+    headers: { Accept: 'application/json', 'Accept-Language': 'es' },
+  });
+  if (!response.ok) throw new Error(`Nominatim respondió con ${response.status}.`);
+  const payload = await response.json();
+  const address = payload.address || {};
+  const neighborhood = address.suburb || address.neighbourhood || address.quarter || address.city_district || null;
+  const addressText = [
+    [address.road, address.house_number].filter(Boolean).join(' '),
+    neighborhood,
+    address.city || address.town || address.municipality,
+    address.state,
+    address.postcode,
+  ].filter(Boolean).join(', ');
+  return {
+    address: addressText || null,
+    neighborhood,
+    source_url: payload.place_id ? `https://www.openstreetmap.org/?mlat=${cafe.lat}&mlon=${cafe.lng}#map=19/${cafe.lat}/${cafe.lng}` : null,
+  };
+};
+
+const researchCafe = async (cafe) => {
+  if (CAFE_ASSISTANT_URL) {
+    const response = await fetch(CAFE_ASSISTANT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cafe, locale: 'es-MX', city: 'Mérida, Yucatán' }),
+    });
+    if (!response.ok) throw new Error(`El asistente respondió con ${response.status}.`);
+    return response.json();
+  }
+
+  const [locationResult, imageResult] = await Promise.allSettled([
+    getReverseGeocodeSuggestion(cafe),
+    searchOpenverse(cafe.nombre),
+  ]);
+  const location = locationResult.status === 'fulfilled' ? locationResult.value : {};
+  const images = imageResult.status === 'fulfilled' ? imageResult.value : [];
+  return {
+    address: location.address || cafe.address || null,
+    neighborhood: location.neighborhood || cafe.neighborhood || null,
+    opening_hours: cafe.opening_hours || null,
+    opening_hours_source: cafe.opening_hours ? cafe.opening_hours_source || 'osm' : null,
+    opening_hours_source_url: cafe.opening_hours_source_url || null,
+    image: images[0] || null,
+    sources: [location.source_url, images[0]?.foreign_landing_url].filter(Boolean),
+    mode: 'open-sources',
+  };
 };
 
 const isInsideMerida = ({ lat, lng }) => (
@@ -186,6 +245,10 @@ const scanOpenStreetMapBox = async (box) => {
           image_url: null,
           address: getOsmAddress(element.tags),
           neighborhood: getOsmNeighborhood(element.tags),
+          opening_hours: element.tags?.opening_hours || null,
+          opening_hours_source: element.tags?.opening_hours ? 'osm' : null,
+          opening_hours_source_url: element.tags?.opening_hours ? `https://www.openstreetmap.org/${element.type}/${element.id}` : null,
+          opening_hours_verified_at: element.tags?.opening_hours ? new Date().toISOString() : null,
           category: element.tags?.shop === 'bakery' ? 'panaderia' : 'cafeteria',
           source: 'osm',
           source_id: sourceId,
@@ -228,7 +291,7 @@ const fetchAllCafes = async () => {
   for (let from = 0; ; from += 1000) {
     const { data, error } = await supabase
       .from('cafes')
-      .select('id,nombre,lat,lng,source,source_id')
+      .select('id,nombre,lat,lng,source,source_id,opening_hours,opening_hours_source,opening_hours_source_url,opening_hours_verified_at')
       .range(from, from + 999);
     if (error) throw error;
     rows.push(...(data || []));
@@ -255,12 +318,27 @@ const filterDuplicates = (incoming, existing) => {
 const upsertDiscoveredCafes = async (incoming) => {
   const existing = await fetchAllCafes();
   const existingIds = new Set(existing.map((cafe) => cafe.id));
-  const { accepted, skipped } = filterDuplicates(incoming, existing);
+  const existingById = new Map(existing.map((cafe) => [cafe.id, cafe]));
+  const { accepted: discovered, skipped } = filterDuplicates(incoming, existing);
+  const accepted = discovered.map((cafe) => {
+    const current = existingById.get(cafe.id);
+    return current?.opening_hours && current.opening_hours_source !== 'osm'
+      ? {
+          ...cafe,
+          opening_hours: current.opening_hours,
+          opening_hours_source: current.opening_hours_source,
+          opening_hours_source_url: current.opening_hours_source_url,
+          opening_hours_verified_at: current.opening_hours_verified_at,
+        }
+      : cafe;
+  });
   for (let index = 0; index < accepted.length; index += 250) {
     const { error } = await supabase.from('cafes').upsert(accepted.slice(index, index + 250), { onConflict: 'id' });
     if (error) throw error;
   }
-  window.sessionStorage.removeItem('coffee-map:cafes:v1');
+  Object.keys(window.sessionStorage)
+    .filter((key) => key.startsWith('coffee-map:cafes:'))
+    .forEach((key) => window.sessionStorage.removeItem(key));
   return {
     accepted,
     skipped,
@@ -323,9 +401,31 @@ function AdminDashboardPage() {
   const [openImageLoading, setOpenImageLoading] = useState(false);
   const [openImageError, setOpenImageError] = useState('');
   const [openImageVerified, setOpenImageVerified] = useState(false);
+  const [assistantCafe, setAssistantCafe] = useState(null);
+  const [assistantSuggestion, setAssistantSuggestion] = useState(null);
+  const [assistantLoading, setAssistantLoading] = useState(false);
+  const [assistantError, setAssistantError] = useState('');
+  const [assistantVerified, setAssistantVerified] = useState(false);
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  const [assistantInput, setAssistantInput] = useState('');
+  const [assistantMessages, setAssistantMessages] = useState([]);
 
   const profileMap = useMemo(() => new Map(users.map((profile) => [profile.id, profile])), [users]);
   const cafeMap = useMemo(() => new Map(cafes.map((cafe) => [cafe.id, cafe])), [cafes]);
+  const exactLocationCandidates = useMemo(() => {
+    const candidates = [];
+    for (let index = 0; index < cafes.length; index += 1) {
+      for (let nextIndex = index + 1; nextIndex < cafes.length; nextIndex += 1) {
+        const first = cafes[index];
+        const second = cafes[nextIndex];
+        const distance = distanceBetweenCafes(first, second);
+        if (distance <= 8 && normalizeName(first.nombre) !== normalizeName(second.nombre)) {
+          candidates.push({ first, second, distance: Math.round(distance) });
+        }
+      }
+    }
+    return candidates;
+  }, [cafes]);
 
   const loadDashboard = useCallback(async () => {
     setLoading(true);
@@ -337,7 +437,7 @@ function AdminDashboardPage() {
         supabase.from('posts').select('id', { count: 'exact', head: true }),
         supabase.from('cafe_photos').select('id', { count: 'exact', head: true }),
         supabase.from('user_cafes').select('id', { count: 'exact', head: true }).not('review_text', 'eq', ''),
-        supabase.from('cafes').select('id,nombre,lat,lng,address,neighborhood,image_url,source,status,last_verified_at').order('nombre').limit(1000),
+        supabase.from('cafes').select('id,nombre,lat,lng,address,neighborhood,image_url,opening_hours,opening_hours_source,opening_hours_source_url,opening_hours_verified_at,source,status,last_verified_at').order('nombre').limit(1000),
         supabase.from('cafe_photos').select('id,cafe_id,user_id,storage_path,public_url,status,is_cover,rights_confirmed,rights_basis,rights_note,created_at').order('created_at', { ascending: false }).limit(100),
         supabase.from('posts').select('id,user_id,cafe_id,content,image_url,status,created_at').order('created_at', { ascending: false }).limit(100),
         supabase.from('profiles').select('id,username,avatar_url,role,updated_at').order('updated_at', { ascending: false }).limit(250),
@@ -371,6 +471,107 @@ function AdminDashboardPage() {
       setActionLoading('');
     }
   };
+
+  const openCafeAssistant = (cafe = null) => {
+    setAssistantCafe(cafe);
+    setAssistantError('');
+    setAssistantVerified(false);
+    setAssistantSuggestion(null);
+    setAssistantInput('');
+    setAssistantMessages([{
+      role: 'assistant',
+      content: cafe
+        ? `Estoy listo para investigar ${cafe.nombre}. Puedes pedirme su horario, ubicación, colonia o una portada con licencia abierta.`
+        : 'Hola. Selecciona una cafetería y dime qué información quieres investigar.',
+    }]);
+    setAssistantOpen(true);
+  };
+
+  const sendAssistantMessage = async (event) => {
+    event.preventDefault();
+    const message = assistantInput.trim();
+    if (!message || assistantLoading) return;
+    if (!assistantCafe) {
+      setAssistantMessages((current) => [...current, { role: 'user', content: message }, {
+        role: 'assistant', content: 'Primero selecciona una cafetería para que pueda investigar sus datos.',
+      }]);
+      setAssistantInput('');
+      return;
+    }
+
+    const nextMessages = [...assistantMessages, { role: 'user', content: message }];
+    setAssistantMessages(nextMessages);
+    setAssistantInput('');
+    setAssistantError('');
+    setAssistantSuggestion(null);
+    setAssistantLoading(true);
+    try {
+      let responseMessage;
+      let suggestion;
+      if (CAFE_ASSISTANT_URL) {
+        const response = await fetch(CAFE_ASSISTANT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message,
+            cafe: assistantCafe,
+            history: nextMessages.slice(-12),
+            locale: 'es-MX',
+            city: 'Mérida, Yucatán',
+          }),
+        });
+        if (!response.ok) throw new Error(`El asistente respondió con ${response.status}.`);
+        const payload = await response.json();
+        responseMessage = payload.message || payload.reply || 'Terminé la investigación.';
+        suggestion = payload.suggestion || payload.data || null;
+      } else {
+        suggestion = await researchCafe(assistantCafe);
+        responseMessage = `Revisé fuentes abiertas para ${assistantCafe.nombre}. Encontré ${[
+          suggestion.address && 'ubicación',
+          suggestion.neighborhood && 'colonia',
+          suggestion.opening_hours && 'horario',
+          (suggestion.image_url || suggestion.image?.url) && 'una imagen candidata',
+        ].filter(Boolean).join(', ') || 'información insuficiente'}. Revisa las fuentes y decide qué quieres guardar.`;
+      }
+      if (suggestion) setAssistantSuggestion(suggestion);
+      setAssistantMessages((current) => [...current, { role: 'assistant', content: responseMessage }]);
+    } catch (error) {
+      setAssistantError(error.message || 'No se pudo completar la investigación.');
+      setAssistantMessages((current) => [...current, { role: 'assistant', content: 'No pude completar la consulta. Revisa la conexión e intenta otra vez.' }]);
+    } finally {
+      setAssistantLoading(false);
+    }
+  };
+
+  const applyCafeAssistant = () => runAction(`assistant:${assistantCafe.id}`, async () => {
+    if (!assistantVerified) throw new Error('Confirma que revisaste las fuentes antes de guardar.');
+    const image = assistantSuggestion.image || {};
+    const patch = {
+      address: assistantSuggestion.address || assistantCafe.address || null,
+      neighborhood: assistantSuggestion.neighborhood || assistantCafe.neighborhood || null,
+      opening_hours: assistantSuggestion.opening_hours || assistantCafe.opening_hours || null,
+      opening_hours_source: assistantSuggestion.opening_hours
+        ? assistantSuggestion.opening_hours_source || 'assistant'
+        : assistantCafe.opening_hours_source || null,
+      opening_hours_source_url: assistantSuggestion.opening_hours_source_url || assistantCafe.opening_hours_source_url || null,
+      opening_hours_verified_at: assistantSuggestion.opening_hours
+        ? new Date().toISOString()
+        : assistantCafe.opening_hours_verified_at || null,
+    };
+    const imageUrl = assistantSuggestion.image_url || image.url;
+    if (imageUrl) {
+      patch.image_url = imageUrl;
+      patch.image_source_url = assistantSuggestion.image_source_url || image.foreign_landing_url || null;
+      patch.image_attribution = assistantSuggestion.image_attribution || [image.creator || image.title || 'Autor no indicado', image.provider ? `vía ${image.provider}` : 'vía Openverse'].join(' · ');
+      patch.image_license = assistantSuggestion.image_license || getOpenverseLicenseLabel(image);
+    }
+    const { error } = await supabase.from('cafes').update(patch).eq('id', assistantCafe.id);
+    if (error) throw error;
+    await refreshCafes();
+    setAssistantOpen(false);
+    setAssistantCafe(null);
+    setAssistantSuggestion(null);
+  }, `Datos sugeridos guardados para ${assistantCafe?.nombre}.`);
 
   const importOsm = () => runAction('scan', async () => {
     const result = await scanOpenStreetMap(({ current, total, found, failed }) => {
@@ -458,7 +659,27 @@ function AdminDashboardPage() {
       moderated_by: user.id,
     });
     if (photoError) throw photoError;
+    setCafes((current) => current.map((item) => (
+      item.id === cafe.id ? { ...item, image_url: data.publicUrl } : item
+    )));
+    await refreshCafes();
     }, `Portada de ${cafe.nombre} actualizada.`);
+  };
+
+  const editCafeHours = (cafe) => {
+    const value = window.prompt('Horario semanal (ejemplo: Mo-Fr 08:00-20:00; Sa-Su 09:00-18:00). Déjalo vacío para marcarlo por confirmar.', cafe.opening_hours || '');
+    if (value === null) return;
+    return runAction(`hours:${cafe.id}`, async () => {
+      const openingHours = value.trim() || null;
+      const { error } = await supabase.from('cafes').update({
+        opening_hours: openingHours,
+        opening_hours_source: openingHours ? 'admin' : null,
+        opening_hours_source_url: null,
+        opening_hours_verified_at: openingHours ? new Date().toISOString() : null,
+      }).eq('id', cafe.id);
+      if (error) throw error;
+      await refreshCafes();
+    }, `Horario de ${cafe.nombre} actualizado.`);
   };
 
   const findOpenImages = async (cafe) => {
@@ -488,6 +709,7 @@ function AdminDashboardPage() {
       image_license: getOpenverseLicenseLabel(image),
     }).eq('id', openImageCafe.id);
     if (error) throw error;
+    await refreshCafes();
     setOpenImageCafe(null);
     setOpenImageResults([]);
     setOpenImageVerified(false);
@@ -509,6 +731,7 @@ function AdminDashboardPage() {
         image_license: null,
       }).eq('id', photo.cafe_id);
       if (coverError) throw coverError;
+      await refreshCafes();
     }
   }, status === 'approved' ? 'Foto aprobada.' : 'Foto rechazada.');
 
@@ -530,6 +753,7 @@ function AdminDashboardPage() {
 
   return (
     <main className="admin-page">
+      <div className="admin-topbar">
       <header className="admin-header">
         <button type="button" onClick={() => navigate('/')} aria-label="Volver"><ArrowLeft size={22} /></button>
         <div><small>COFFEE MAP MÉRIDA</small><h1>Centro de control</h1></div>
@@ -541,6 +765,7 @@ function AdminDashboardPage() {
           <button type="button" key={id} className={tab === id ? 'is-active' : ''} onClick={() => setTab(id)}>{icon}<span>{label}</span></button>
         ))}
       </nav>
+      </div>
 
       {notice && <p className="admin-notice">{notice}</p>}
 
@@ -565,6 +790,7 @@ function AdminDashboardPage() {
             <article className="admin-panel admin-scan-panel">
               <div><ScanSearch size={24} /><h2>Escáner abierto de Mérida</h2><p>Recorre 16 zonas de OpenStreetMap, obtiene fotos reutilizables de Wikimedia Commons, evita duplicados contra toda la base y permite sumar datos abiertos de Overture.</p></div>
               <div className="admin-scan-actions">
+                <button type="button" onClick={() => openCafeAssistant()} disabled={Boolean(actionLoading)}><Sparkles size={15} /> Abrir asistente</button>
                 <button type="button" onClick={importOsm} disabled={Boolean(actionLoading)}>{actionLoading === 'scan' ? 'Escaneando OSM…' : 'Escanear OSM gratis'}</button>
                 <label className="admin-import-action">
                   <FileUp size={15} /> {actionLoading === 'overture' ? 'Importando…' : 'Importar Overture'}
@@ -580,13 +806,25 @@ function AdminDashboardPage() {
               <input placeholder="Enlace de Maps (opcional)" value={manualCafe.link} onChange={(event) => setManualCafe({ ...manualCafe, link: event.target.value })} />
               <button type="submit" disabled={Boolean(actionLoading)}>Guardar cafetería</button>
             </form>
+            {exactLocationCandidates.length > 0 && (
+              <article className="admin-panel admin-duplicate-warning">
+                <strong>Posibles duplicados en el mismo punto</strong>
+                <p>Revisa estos registros antes de seguir importando. No se combinan automáticamente porque podrían ser negocios distintos dentro de la misma plaza.</p>
+                {exactLocationCandidates.slice(0, 4).map(({ first, second, distance }) => (
+                  <span key={`${first.id}:${second.id}`}>{first.nombre} · {second.nombre} <small>{distance} m</small></span>
+                ))}
+                {exactLocationCandidates.length > 4 && <small>+{exactLocationCandidates.length - 4} coincidencias más</small>}
+              </article>
+            )}
             <div className="admin-list">
               {cafes.map((cafe) => (
                 <article className="admin-row admin-cafe-row" key={cafe.id}>
                   <div className="admin-thumb">{cafe.image_url ? <img src={cafe.image_url} alt="" /> : <Coffee size={20} />}</div>
-                  <div className="admin-row-copy"><strong>{cafe.nombre}</strong><small>{cafe.source} · {cafe.status}</small>{cafe.address && <span>{cafe.address}</span>}</div>
+                  <div className="admin-row-copy"><strong>{cafe.nombre}</strong><small>{cafe.source} · {cafe.status}</small>{cafe.address && <span>{cafe.address}</span>}<span>{cafe.opening_hours || 'Horario por confirmar'}</span></div>
                   <select value={cafe.status} onChange={(event) => runAction(`cafe:${cafe.id}`, async () => { const { error } = await supabase.from('cafes').update({ status: event.target.value }).eq('id', cafe.id); if (error) throw error; }, 'Estado actualizado.')}><option value="active">Activa</option><option value="needs_review">Revisar</option><option value="closed">Cerrada</option></select>
+                  <button type="button" className="admin-icon-action" title="Asistente: revisar horario, ubicación y portada" onClick={() => openCafeAssistant(cafe)}><Sparkles size={17} /></button>
                   <button type="button" className="admin-icon-action" title="Buscar foto con licencia abierta" onClick={() => findOpenImages(cafe)}><Search size={17} /></button>
+                  <button type="button" className="admin-icon-action" title="Editar horario" onClick={() => editCafeHours(cafe)}><Clock size={17} /></button>
                   <label className="admin-icon-action" title="Subir portada"><Camera size={17} /><input hidden type="file" accept="image/*" onChange={(event) => uploadCafeCover(cafe, event.target.files?.[0])} /></label>
                 </article>
               ))}
@@ -622,6 +860,72 @@ function AdminDashboardPage() {
           </article>)}
         </section>}
       </div>
+
+      {assistantOpen && (
+        <div className="open-image-backdrop" onMouseDown={(event) => {
+          if (event.target === event.currentTarget && !assistantLoading && !actionLoading) {
+            setAssistantOpen(false);
+            setAssistantCafe(null);
+          }
+        }}>
+          <section className="open-image-modal cafe-assistant-modal" role="dialog" aria-modal="true" aria-labelledby="cafe-assistant-title">
+            <header>
+              <div><small>ASISTENTE DE DATOS · REVISIÓN MANUAL</small><h2 id="cafe-assistant-title">{assistantCafe ? `Investigar ${assistantCafe.nombre}` : 'Asistente Coffee Map'}</h2></div>
+              <button type="button" onClick={() => { setAssistantOpen(false); setAssistantCafe(null); }} disabled={assistantLoading || Boolean(actionLoading)} aria-label="Cerrar"><X size={18} /></button>
+            </header>
+            <p className="open-image-warning">Busca horarios, ubicación, colonia y una portada en fuentes públicas. Revisa cada dato antes de guardarlo; el asistente no consulta ni copia la base privada de Google.</p>
+            <div className="cafe-assistant-chat">
+              <label className="cafe-assistant-picker">Cafetería
+                <select value={assistantCafe?.id || ''} onChange={(event) => {
+                  const cafe = cafes.find((item) => item.id === event.target.value) || null;
+                  setAssistantCafe(cafe);
+                  setAssistantSuggestion(null);
+                  setAssistantVerified(false);
+                }}>
+                  <option value="">Selecciona una cafetería</option>
+                  {cafes.map((cafe) => <option value={cafe.id} key={cafe.id}>{cafe.nombre}</option>)}
+                </select>
+              </label>
+              <div className="cafe-assistant-messages" aria-live="polite">
+                {assistantMessages.map((message, index) => (
+                  <p className={`cafe-assistant-message is-${message.role}`} key={`${message.role}:${index}`}>{message.content}</p>
+                ))}
+                {assistantLoading && <p className="cafe-assistant-message is-assistant">Estoy investigando…</p>}
+              </div>
+              <form className="cafe-assistant-composer" onSubmit={sendAssistantMessage}>
+                <input value={assistantInput} onChange={(event) => setAssistantInput(event.target.value)} placeholder="Ej. busca el horario y una portada…" disabled={assistantLoading} />
+                <button type="submit" disabled={!assistantInput.trim() || assistantLoading} aria-label="Enviar consulta">Enviar</button>
+              </form>
+            </div>
+            {assistantLoading && <p className="open-image-state">Reuniendo sugerencias…</p>}
+            {assistantError && <p className="open-image-state is-error">{assistantError}</p>}
+            {assistantSuggestion && (
+              <div className="cafe-assistant-suggestion">
+                <div className="cafe-assistant-field"><small>Ubicación</small><strong>{assistantSuggestion.address || 'Sin sugerencia'}</strong><span>{assistantSuggestion.neighborhood || 'Colonia por confirmar'}</span></div>
+                <div className="cafe-assistant-field"><small>Horario</small><strong>{assistantSuggestion.opening_hours || 'Por confirmar'}</strong><span>{assistantSuggestion.opening_hours_source ? `Fuente: ${assistantSuggestion.opening_hours_source}` : 'No se encontró un horario verificable'}</span></div>
+                {(assistantSuggestion.image_url || assistantSuggestion.image?.url) && (
+                  <div className="cafe-assistant-image">
+                    <img src={assistantSuggestion.image_url || assistantSuggestion.image.url} alt="Candidata para portada" loading="lazy" decoding="async" />
+                    <span>{assistantSuggestion.image?.creator || assistantSuggestion.image_attribution || 'Imagen candidata; revisa la licencia'}</span>
+                  </div>
+                )}
+                <div className="cafe-assistant-sources">
+                  {(assistantSuggestion.sources || [assistantSuggestion.opening_hours_source_url, assistantSuggestion.image_source_url]).filter(Boolean).map((source) => (
+                    <a href={source} target="_blank" rel="noreferrer" key={source}><ExternalLink size={12} /> Revisar fuente</a>
+                  ))}
+                </div>
+                <label className="open-image-confirmation">
+                  <input type="checkbox" checked={assistantVerified} onChange={(event) => setAssistantVerified(event.target.checked)} />
+                  Confirmo que revisé ubicación, horario, imagen y licencia antes de guardar.
+                </label>
+                <button type="button" className="cafe-assistant-save" disabled={!assistantVerified || Boolean(actionLoading)} onClick={applyCafeAssistant}>
+                  {actionLoading === `assistant:${assistantCafe.id}` ? 'Guardando…' : 'Guardar sugerencias revisadas'}
+                </button>
+              </div>
+            )}
+          </section>
+        </div>
+      )}
 
       {openImageCafe && (
         <div className="open-image-backdrop" onMouseDown={(event) => {

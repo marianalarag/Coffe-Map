@@ -7,6 +7,7 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import BottomNav from './components/BottomNav'
 import { useAuth } from './context/AuthContext'
 import { useCoffeeData } from './context/CoffeeDataContext'
+import { getCafeNeighborhood } from './utils/cafeAddress'
 
 const MERIDA_CENTER = { lat: 20.9753, lng: -89.6178 };
 const MERIDA_BOUNDS = [[20.86, -89.75], [21.08, -89.52]];
@@ -44,8 +45,8 @@ const getSafeImageStyle = (imageUrl) => {
   return `background-image: url('${String(imageUrl).replaceAll("'", '%27')}');`;
 };
 
-const getCafeMarkerHtml = ({ cafe, markerColor, showPreview }) => {
-  if (!showPreview) {
+const getCafeMarkerHtml = ({ cafe, markerColor, showPreview, previewOpen }) => {
+  if (!showPreview && !previewOpen) {
     return `
       <span class="coffee-map-leaflet-shell">
         <span class="coffee-map-leaflet-pin" style="--marker-color: ${markerColor}">
@@ -61,7 +62,7 @@ const getCafeMarkerHtml = ({ cafe, markerColor, showPreview }) => {
     : 'coffee-map-leaflet-preview';
 
   return `
-    <span class="coffee-map-leaflet-shell">
+    <span class="coffee-map-leaflet-shell${previewOpen ? ' is-preview-open' : ''}">
       <span class="coffee-map-leaflet-pin" style="--marker-color: ${markerColor}">
         <span class="coffee-map-leaflet-dot"></span>
       </span>
@@ -158,15 +159,30 @@ function App() {
   const [loggingOut, setLoggingOut] = useState(false)
   const [userLocation, setUserLocation] = useState(null)
   const [locating, setLocating] = useState(false)
-  const [mapIntroPending, setMapIntroPending] = useState(() => {
-    const animationType = window.sessionStorage.getItem('coffee-map:map-entry-animation');
-    if (animationType === 'slide-up') {
-      window.sessionStorage.removeItem('coffee-map:map-entry-animation');
-      return true;
-    }
-    return false;
-  })
-  const [playMapReveal, setPlayMapReveal] = useState(false)
+  const [selectedNeighborhood, setSelectedNeighborhood] = useState('Todas')
+  const [selectedPreviewCafeId, setSelectedPreviewCafeId] = useState(null)
+  const isTouchDevice = useMemo(() => (
+    window.matchMedia?.('(hover: none), (pointer: coarse)').matches ?? false
+  ), [])
+
+  const neighborhoods = useMemo(() => {
+    const counts = new Map()
+    cafes.forEach((cafe) => {
+      const neighborhood = getCafeNeighborhood(cafe)
+      if (neighborhood && neighborhood !== 'Colonia por confirmar') {
+        counts.set(neighborhood, (counts.get(neighborhood) || 0) + 1)
+      }
+    })
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'es'))
+      .map(([name, count]) => ({ name, count }))
+  }, [cafes])
+
+  const filteredCafes = useMemo(() => (
+    selectedNeighborhood === 'Todas'
+      ? cafes
+      : cafes.filter((cafe) => getCafeNeighborhood(cafe) === selectedNeighborhood)
+  ), [cafes, selectedNeighborhood])
 
   const visitedCafeIds = useMemo(() => {
     return new Set(
@@ -310,6 +326,7 @@ function App() {
             keepBuffer: 2,
           }).addTo(leafletMap);
         } else {
+          // Download the map renderer only when the map screen is opened.
           const { maplibreGL } = await import('@maplibre/maplibre-gl-leaflet');
           if (isCancelled) return;
           maplibreGL({
@@ -355,25 +372,14 @@ function App() {
     };
   }, [showToast]);
 
-  const showInitialLoading = mapLoading || (cafesLoading && cafes.length === 0);
-
-  useEffect(() => {
-    if (!mapIntroPending || showInitialLoading) return;
-
-    const frameId = window.requestAnimationFrame(() => {
-      setPlayMapReveal(true);
-      setMapIntroPending(false);
-    });
-
-    return () => window.cancelAnimationFrame(frameId);
-  }, [mapIntroPending, showInitialLoading]);
+  const showInitialLoading = mapLoading;
 
   const renderVisibleMarkers = useCallback(() => {
     if (!map || !markerLayerRef.current) return;
 
-    const markerGroups = getMarkerGroups(map, cafes);
+    const markerGroups = getMarkerGroups(map, filteredCafes);
     const nextKeys = new Set(markerGroups.map((group) => group.key));
-    const showMarkerPreviews = window.matchMedia?.('(hover: hover) and (pointer: fine)').matches ?? false;
+    const showMarkerPreviews = !isTouchDevice;
 
     cafeMarkerEntriesRef.current.forEach((entry, key) => {
       if (nextKeys.has(key)) return;
@@ -385,7 +391,7 @@ function App() {
       const isCafe = group.type === 'cafe';
       const markerColor = isCafe && visitedCafeIds.has(group.cafe.id) ? '#B39978' : '#4B2C20';
       const signature = isCafe
-        ? `${markerColor}|${group.cafe.nombre}|${group.cafe.imageUrl || ''}`
+        ? `${markerColor}|${group.cafe.nombre}|${group.cafe.imageUrl || ''}|${selectedPreviewCafeId === group.cafe.id}`
         : group.cafes.map((cafe) => cafe.id).join('|');
       const existingEntry = cafeMarkerEntriesRef.current.get(group.key);
 
@@ -397,9 +403,14 @@ function App() {
         riseOnHover: true,
         icon: L.divIcon(isCafe ? {
           className: 'coffee-map-leaflet-marker',
-          html: getCafeMarkerHtml({ cafe: group.cafe, markerColor, showPreview: showMarkerPreviews }),
-          iconSize: [28, 36],
-          iconAnchor: [14, 34],
+          html: getCafeMarkerHtml({
+            cafe: group.cafe,
+            markerColor,
+            showPreview: showMarkerPreviews,
+            previewOpen: selectedPreviewCafeId === group.cafe.id,
+          }),
+          iconSize: [42, 52],
+          iconAnchor: [21, 49],
         } : {
           className: 'coffee-map-leaflet-marker coffee-map-leaflet-cluster-icon',
           html: getClusterMarkerHtml(group.cafes.length),
@@ -409,7 +420,14 @@ function App() {
       });
 
       if (isCafe) {
-        marker.on('click', () => navigate(`/cafe/${group.cafe.id}`));
+        marker.on('click', (event) => {
+          L.DomEvent.stopPropagation(event);
+          if (isTouchDevice && selectedPreviewCafeId !== group.cafe.id) {
+            setSelectedPreviewCafeId(group.cafe.id);
+            return;
+          }
+          navigate(`/cafe/${group.cafe.id}`);
+        });
       } else {
         marker.on('click', () => {
           const clusterBounds = L.latLngBounds(
@@ -438,7 +456,7 @@ function App() {
       marker.addTo(markerLayerRef.current);
       cafeMarkerEntriesRef.current.set(group.key, { marker, signature });
     });
-  }, [cafes, map, navigate, visitedCafeIds]);
+  }, [filteredCafes, isTouchDevice, map, navigate, selectedPreviewCafeId, visitedCafeIds]);
 
   useEffect(() => {
     if (!map) return undefined;
@@ -455,16 +473,26 @@ function App() {
     };
 
     scheduleMarkerRender();
+    const clearPreview = () => setSelectedPreviewCafeId(null);
     map.on('moveend resize', scheduleMarkerRender);
+    map.on('click', clearPreview);
 
     return () => {
       map.off('moveend resize', scheduleMarkerRender);
+      map.off('click', clearPreview);
       if (markerRenderFrameRef.current) {
         window.cancelAnimationFrame(markerRenderFrameRef.current);
         markerRenderFrameRef.current = null;
       }
     };
   }, [map, renderVisibleMarkers]);
+
+  useEffect(() => {
+    if (selectedNeighborhood !== 'Todas' && !neighborhoods.some(({ name }) => name === selectedNeighborhood)) {
+      setSelectedNeighborhood('Todas');
+    }
+    setSelectedPreviewCafeId(null);
+  }, [neighborhoods, selectedNeighborhood]);
 
   useEffect(() => {
     const scanTargets = [];
@@ -547,7 +575,7 @@ function App() {
   }, [cafes, location.pathname, map, showToast]);
 
   return (
-    <main className={`isolate h-full w-full relative overflow-hidden ${(playMapReveal || mapIntroPending) ? 'bg-[#E6DAC1]' : 'bg-gray-100'} ${scanning ? 'map-scan-active' : ''}`}>
+    <main className={`isolate h-full w-full relative overflow-hidden bg-gray-100 ${scanning ? 'map-scan-active' : ''}`}>
       <style>{`
         @keyframes slideIn {
           0% { transform: translateX(120%); opacity: 0; }
@@ -575,8 +603,8 @@ function App() {
         .coffee-map-leaflet-shell {
           position: relative;
           display: block;
-          width: 28px;
-          height: 36px;
+          width: 42px;
+          height: 52px;
         }
         .coffee-map-leaflet-cluster-icon {
           display: grid !important;
@@ -600,12 +628,12 @@ function App() {
         .coffee-map-leaflet-pin {
           --marker-color: #4B2C20;
           position: absolute;
-          left: 3px;
-          bottom: 5px;
+          left: 5px;
+          bottom: 7px;
           display: block;
-          width: 22px;
-          height: 22px;
-          border-radius: 12px 12px 12px 2px;
+          width: 32px;
+          height: 32px;
+          border-radius: 17px 17px 17px 3px;
           background: var(--marker-color);
           border: 2px solid var(--marker-color);
           box-shadow: 0 5px 12px rgba(0, 0, 0, 0.35);
@@ -620,8 +648,8 @@ function App() {
           position: absolute;
           left: 50%;
           top: 50%;
-          width: 6px;
-          height: 6px;
+          width: 9px;
+          height: 9px;
           border-radius: 999px;
           background: #fff;
           transform: translate(-50%, -50%);
@@ -629,7 +657,7 @@ function App() {
         .coffee-map-leaflet-preview {
           position: absolute;
           left: 50%;
-          bottom: 38px;
+          bottom: 52px;
           width: 150px;
           min-height: 74px;
           border-radius: 12px;
@@ -798,6 +826,28 @@ function App() {
         className="map-search-control absolute left-1/2 -translate-x-1/2 z-[1000] w-[85%] max-w-md h-11 rounded-full bg-[#27201A]/95 flex items-center px-5 cursor-pointer transition-all active:scale-[0.98] shadow-[0_8px_24px_rgba(0,0,0,0.22)]"
       >
         <Search className="text-white mr-3" size={22} />
+        <span className="text-white/75 text-[12px] font-semibold">Buscar cafeterías</span>
+      </div>
+
+      <div className="map-neighborhood-filters absolute left-1/2 -translate-x-1/2 z-[1000] w-[92%] max-w-3xl" role="toolbar" aria-label="Filtrar por colonia">
+        <button
+          type="button"
+          className={selectedNeighborhood === 'Todas' ? 'is-active' : ''}
+          onClick={() => setSelectedNeighborhood('Todas')}
+        >
+          Todas <span>{cafes.length}</span>
+        </button>
+        {neighborhoods.map(({ name, count }) => (
+          <button
+            type="button"
+            key={name}
+            className={selectedNeighborhood === name ? 'is-active' : ''}
+            onClick={() => setSelectedNeighborhood(name)}
+            title={`Mostrar cafeterías de ${name}`}
+          >
+            {name} <span>{count}</span>
+          </button>
+        ))}
       </div>
 
       {/* BotÃ³n de geolocalizaciÃ³n ajustado un poco mÃ¡s arriba para no chocar con la barra inferior */}
@@ -872,18 +922,11 @@ function App() {
         </div>
       )}
 
-      {showInitialLoading && !mapIntroPending && (
+      {showInitialLoading && (
         <div className="absolute inset-0 z-20 bg-[#1D1A15] flex flex-col items-center justify-center">
           <div className="w-10 h-10 border-4 border-[#372821] border-t-[#E6DAC1] rounded-full animate-spin"></div>
           <p className="mt-4 text-sm font-semibold text-[#E6DAC1]/60">Preparando cafeterias...</p>
         </div>
-      )}
-
-      {(mapIntroPending || playMapReveal) && (
-        <div
-          className={`absolute inset-0 z-[70] bg-[#E6DAC1] ${playMapReveal ? 'animate-cream-curtain-reveal' : ''}`}
-          onAnimationEnd={() => setPlayMapReveal(false)}
-        />
       )}
 
     </main>
