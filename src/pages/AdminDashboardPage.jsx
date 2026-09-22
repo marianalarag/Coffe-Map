@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, BarChart3, Camera, Clock, Coffee, Database, ExternalLink, FileUp, Image, MapPinned, RefreshCw, ScanSearch, Search, Shield, Sparkles, Trash2, Users, X } from 'lucide-react';
+import { ArrowLeft, BarChart3, Camera, ChevronLeft, ChevronRight, Clock, Coffee, Database, ExternalLink, FileUp, Image, MapPinned, RefreshCw, ScanSearch, Search, Shield, Sparkles, Trash2, Users, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCoffeeData } from '../context/CoffeeDataContext';
@@ -407,6 +407,7 @@ function AdminDashboardPage() {
   const [assistantError, setAssistantError] = useState('');
   const [assistantVerified, setAssistantVerified] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
+  const [assistantCollapsed, setAssistantCollapsed] = useState(false);
   const [assistantInput, setAssistantInput] = useState('');
   const [assistantMessages, setAssistantMessages] = useState([]);
 
@@ -478,6 +479,7 @@ function AdminDashboardPage() {
     setAssistantVerified(false);
     setAssistantSuggestion(null);
     setAssistantInput('');
+    setAssistantCollapsed(false);
     setAssistantMessages([{
       role: 'assistant',
       content: cafe
@@ -861,17 +863,27 @@ function AdminDashboardPage() {
         </section>}
       </div>
 
-      {assistantOpen && (
-        <div className="open-image-backdrop" onMouseDown={(event) => {
-          if (event.target === event.currentTarget && !assistantLoading && !actionLoading) {
-            setAssistantOpen(false);
-            setAssistantCafe(null);
-          }
-        }}>
-          <section className="open-image-modal cafe-assistant-modal" role="dialog" aria-modal="true" aria-labelledby="cafe-assistant-title">
+      {!assistantOpen && (
+        <button type="button" className="admin-assistant-launcher" onClick={() => openCafeAssistant()}>
+          <Sparkles size={17} /> <span>Asistente</span>
+        </button>
+      )}
+
+      {assistantOpen && assistantCollapsed && (
+        <button type="button" className="admin-assistant-tab" onClick={() => setAssistantCollapsed(false)} aria-label="Mostrar asistente">
+          <ChevronLeft size={17} /> <span>IA</span>
+        </button>
+      )}
+
+      {assistantOpen && !assistantCollapsed && (
+        <aside className="admin-assistant-drawer">
+          <section className="open-image-modal cafe-assistant-modal" role="dialog" aria-modal="false" aria-labelledby="cafe-assistant-title">
             <header>
               <div><small>ASISTENTE DE DATOS · REVISIÓN MANUAL</small><h2 id="cafe-assistant-title">{assistantCafe ? `Investigar ${assistantCafe.nombre}` : 'Asistente Coffee Map'}</h2></div>
-              <button type="button" onClick={() => { setAssistantOpen(false); setAssistantCafe(null); }} disabled={assistantLoading || Boolean(actionLoading)} aria-label="Cerrar"><X size={18} /></button>
+              <div className="admin-assistant-header-actions">
+                <button type="button" onClick={() => setAssistantCollapsed(true)} disabled={assistantLoading || Boolean(actionLoading)} aria-label="Contraer asistente"><ChevronRight size={18} /></button>
+                <button type="button" onClick={() => { setAssistantOpen(false); setAssistantCafe(null); }} disabled={assistantLoading || Boolean(actionLoading)} aria-label="Cerrar"><X size={18} /></button>
+              </div>
             </header>
             <p className="open-image-warning">Busca horarios, ubicación, colonia y una portada en fuentes públicas. Revisa cada dato antes de guardarlo; el asistente no consulta ni copia la base privada de Google.</p>
             <div className="cafe-assistant-chat">
@@ -924,7 +936,7 @@ function AdminDashboardPage() {
               </div>
             )}
           </section>
-        </div>
+        </aside>
       )}
 
       {openImageCafe && (

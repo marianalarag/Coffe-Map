@@ -498,11 +498,27 @@ html.is-app-mode .map-scan-control {
 .cafe-assistant-suggestion .open-image-confirmation { margin: 0; }
 .cafe-assistant-save { min-height: 42px; color: #2d241d; background: #e6dac1; border: 0; border-radius: 11px; font: 800 10px "Inria Serif", Georgia, serif; cursor: pointer; }
 .cafe-assistant-save:disabled { opacity: .45; cursor: wait; }
+.admin-assistant-launcher { position: fixed; right: 22px; bottom: calc(22px + env(safe-area-inset-bottom, 0px)); z-index: 4600; display: inline-flex; align-items: center; gap: 8px; min-height: 42px; padding: 0 16px; color: #30271f; background: #e6dac1; border: 1px solid rgba(48,39,31,.12); border-radius: 999px; box-shadow: 0 12px 28px rgba(0,0,0,.35); font: 800 10px "Inria Serif", Georgia, serif; cursor: pointer; }
+.admin-assistant-launcher:hover { background: #f0e5cf; transform: translateY(-1px); }
+.admin-assistant-drawer { position: fixed; top: max(14px, env(safe-area-inset-top, 0px)); right: 18px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 4600; width: min(420px, calc(100vw - 24px)); pointer-events: none; }
+.admin-assistant-drawer > .cafe-assistant-modal { box-sizing: border-box; width: 100%; height: 100%; max-height: none; display: flex; flex-direction: column; overflow: hidden; pointer-events: auto; border-radius: 24px; box-shadow: 0 24px 70px rgba(0,0,0,.6); }
+.admin-assistant-drawer > .cafe-assistant-modal > header { flex: 0 0 auto; }
+.admin-assistant-drawer .open-image-warning { flex: 0 0 auto; }
+.admin-assistant-drawer .cafe-assistant-chat { flex: 0 0 auto; }
+.admin-assistant-drawer .cafe-assistant-suggestion { min-height: 0; overflow-y: auto; padding-bottom: 22px; scrollbar-width: thin; }
+.admin-assistant-header-actions { display: flex; align-items: center; gap: 4px; }
+.admin-assistant-header-actions button { width: 30px; height: 30px; display: grid; place-items: center; padding: 0; color: #eee5d2; background: #3a3027; border: 0; border-radius: 50%; cursor: pointer; }
+.admin-assistant-header-actions button:hover { background: #4a3a2f; }
+.admin-assistant-tab { position: fixed; top: 50%; right: 0; z-index: 4600; width: 43px; min-height: 104px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 10px 0; color: #30271f; background: #e6dac1; border: 0; border-radius: 18px 0 0 18px; box-shadow: 0 10px 28px rgba(0,0,0,.35); font: 800 9px "Inria Serif", Georgia, serif; cursor: pointer; transform: translateY(-50%); }
+.admin-assistant-tab span { writing-mode: vertical-rl; letter-spacing: .08em; }
 @media (max-width: 640px) {
   .photo-contribution-backdrop, .open-image-backdrop { place-items: end center; padding: 0; }
   .photo-contribution-modal, .open-image-modal { width: 100%; max-height: 92dvh; border-radius: 20px 20px 0 0; }
   .open-image-grid { grid-template-columns: repeat(2, minmax(0,1fr)); padding: 12px; }
   .open-image-grid article > img { height: 125px; }
+  .admin-assistant-launcher { right: 14px; bottom: calc(82px + env(safe-area-inset-bottom, 0px)); }
+  .admin-assistant-drawer { top: max(8px, env(safe-area-inset-top, 0px)); right: 8px; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); width: calc(100vw - 16px); }
+  .admin-assistant-drawer > .cafe-assistant-modal { border-radius: 20px; }
 }
 
 @media (min-width: 720px) {
