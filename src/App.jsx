@@ -829,7 +829,7 @@ function App() {
         <span className="text-white/75 text-[12px] font-semibold">Buscar cafeterías</span>
       </div>
 
-      <div className="map-neighborhood-filters absolute left-1/2 -translate-x-1/2 z-[1000] w-[92%] max-w-3xl" role="toolbar" aria-label="Filtrar por colonia">
+      <div className="map-neighborhood-filters absolute left-1/2 -translate-x-1/2 z-[1000]" role="toolbar" aria-label="Filtrar por colonia">
         <button
           type="button"
           className={selectedNeighborhood === 'Todas' ? 'is-active' : ''}
