@@ -86,12 +86,12 @@ const getReverseGeocodeSuggestion = async (cafe) => {
   };
 };
 
-const researchCafe = async (cafe) => {
+const researchCafe = async (cafe, request = '') => {
   if (CAFE_ASSISTANT_URL) {
     const response = await fetch(CAFE_ASSISTANT_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cafe, locale: 'es-MX', city: 'Mérida, Yucatán' }),
+      body: JSON.stringify({ message: request, cafe, locale: 'es-MX', city: 'Mérida, Yucatán' }),
     });
     if (!response.ok) throw new Error(`El asistente respondió con ${response.status}.`);
     return response.json();
@@ -113,6 +113,71 @@ const researchCafe = async (cafe) => {
     sources: [location.source_url, images[0]?.foreign_landing_url].filter(Boolean),
     mode: 'open-sources',
   };
+};
+
+const getOsmCafeSuggestion = async (cafe) => {
+  const sourceId = String(cafe.source_id || '');
+  if (!/^(node|way|relation)\/\d+$/.test(sourceId)) return {};
+  const response = await fetch(`https://api.openstreetmap.org/api/0.6/${sourceId}.json`);
+  if (!response.ok) return {};
+  const payload = await response.json();
+  const element = payload.elements?.[0];
+  const tags = element?.tags || {};
+  return tags.opening_hours ? {
+    opening_hours: tags.opening_hours,
+    opening_hours_source: 'osm',
+    opening_hours_source_url: `https://www.openstreetmap.org/${sourceId}`,
+  } : {};
+};
+
+const inferAssistantFields = (message) => {
+  const normalized = normalizeName(message);
+  const fields = new Set();
+  if (/horar|hora|apertura|cerrad|abiert/.test(normalized)) fields.add('hours');
+  if (/portada|foto|imagen|cover/.test(normalized)) fields.add('image');
+  if (/ubicacion|direccion|colonia|zona/.test(normalized)) fields.add('location');
+  return fields.size > 0 ? fields : new Set(['hours', 'image', 'location']);
+};
+
+const researchCafeForTask = async (cafe, request, fields) => {
+  if (CAFE_ASSISTANT_URL) {
+    const payload = await researchCafe(cafe, request);
+    return payload.suggestion || payload.data || payload;
+  }
+  const requests = [];
+  if (fields.has('hours')) requests.push(getOsmCafeSuggestion(cafe));
+  if (fields.has('location')) requests.push(getReverseGeocodeSuggestion(cafe));
+  if (fields.has('image')) requests.push(searchOpenverse(cafe.nombre).then((images) => ({ image: images[0] || null, sources: [images[0]?.foreign_landing_url].filter(Boolean) })));
+  const results = await Promise.allSettled(requests);
+  return results.reduce((suggestion, result) => result.status === 'fulfilled' ? { ...suggestion, ...result.value } : suggestion, {
+    address: cafe.address || null,
+    neighborhood: cafe.neighborhood || null,
+    opening_hours: cafe.opening_hours || null,
+    opening_hours_source: cafe.opening_hours ? cafe.opening_hours_source || 'osm' : null,
+    opening_hours_source_url: cafe.opening_hours_source_url || null,
+    mode: 'open-sources',
+  });
+};
+
+const getAssistantPatch = (cafe, suggestion) => {
+  const image = suggestion?.image || {};
+  const patch = {};
+  const imageUrl = suggestion?.image_url || image.url;
+  if (!cafe.address && suggestion?.address) patch.address = suggestion.address;
+  if (!cafe.neighborhood && suggestion?.neighborhood) patch.neighborhood = suggestion.neighborhood;
+  if (!cafe.opening_hours && suggestion?.opening_hours) {
+    patch.opening_hours = suggestion.opening_hours;
+    patch.opening_hours_source = suggestion.opening_hours_source || 'assistant';
+    patch.opening_hours_source_url = suggestion.opening_hours_source_url || null;
+    patch.opening_hours_verified_at = new Date().toISOString();
+  }
+  if (!cafe.image_url && imageUrl) {
+    patch.image_url = imageUrl;
+    patch.image_source_url = suggestion.image_source_url || image.foreign_landing_url || null;
+    patch.image_attribution = suggestion.image_attribution || [image.creator || image.title || 'Autor no indicado', image.provider ? `vía ${image.provider}` : 'vía Openverse'].join(' · ');
+    patch.image_license = suggestion.image_license || getOpenverseLicenseLabel(image);
+  }
+  return patch;
 };
 
 const isInsideMerida = ({ lat, lng }) => (
@@ -401,11 +466,11 @@ function AdminDashboardPage() {
   const [openImageLoading, setOpenImageLoading] = useState(false);
   const [openImageError, setOpenImageError] = useState('');
   const [openImageVerified, setOpenImageVerified] = useState(false);
-  const [assistantCafe, setAssistantCafe] = useState(null);
-  const [assistantSuggestion, setAssistantSuggestion] = useState(null);
   const [assistantLoading, setAssistantLoading] = useState(false);
   const [assistantError, setAssistantError] = useState('');
+  const [assistantBatch, setAssistantBatch] = useState(null);
   const [assistantVerified, setAssistantVerified] = useState(false);
+  const [assistantProgress, setAssistantProgress] = useState('');
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [assistantCollapsed, setAssistantCollapsed] = useState(false);
   const [assistantInput, setAssistantInput] = useState('');
@@ -438,7 +503,7 @@ function AdminDashboardPage() {
         supabase.from('posts').select('id', { count: 'exact', head: true }),
         supabase.from('cafe_photos').select('id', { count: 'exact', head: true }),
         supabase.from('user_cafes').select('id', { count: 'exact', head: true }).not('review_text', 'eq', ''),
-        supabase.from('cafes').select('id,nombre,lat,lng,address,neighborhood,image_url,opening_hours,opening_hours_source,opening_hours_source_url,opening_hours_verified_at,source,status,last_verified_at').order('nombre').limit(1000),
+        supabase.from('cafes').select('id,nombre,lat,lng,address,neighborhood,image_url,image_source_url,image_attribution,image_license,opening_hours,opening_hours_source,opening_hours_source_url,opening_hours_verified_at,source,source_id,status,last_verified_at').order('nombre').limit(1000),
         supabase.from('cafe_photos').select('id,cafe_id,user_id,storage_path,public_url,status,is_cover,rights_confirmed,rights_basis,rights_note,created_at').order('created_at', { ascending: false }).limit(100),
         supabase.from('posts').select('id,user_id,cafe_id,content,image_url,status,created_at').order('created_at', { ascending: false }).limit(100),
         supabase.from('profiles').select('id,username,avatar_url,role,updated_at').order('updated_at', { ascending: false }).limit(250),
@@ -474,17 +539,17 @@ function AdminDashboardPage() {
   };
 
   const openCafeAssistant = (cafe = null) => {
-    setAssistantCafe(cafe);
     setAssistantError('');
     setAssistantVerified(false);
-    setAssistantSuggestion(null);
-    setAssistantInput('');
+    setAssistantBatch(null);
+    setAssistantProgress('');
+    setAssistantInput(cafe ? `Revisa la información faltante de ${cafe.nombre}` : '');
     setAssistantCollapsed(false);
     setAssistantMessages([{
       role: 'assistant',
       content: cafe
-        ? `Estoy listo para investigar ${cafe.nombre}. Puedes pedirme su horario, ubicación, colonia o una portada con licencia abierta.`
-        : 'Hola. Selecciona una cafetería y dime qué información quieres investigar.',
+        ? `Puedo revisar ${cafe.nombre} o trabajar por lotes. Pídeme horarios, ubicaciones, colonias o portadas faltantes.`
+        : 'Hola. Pídeme una tarea para todo el panel, por ejemplo: “busca los horarios de las cafeterías y agrégalos a las faltantes”.',
     }]);
     setAssistantOpen(true);
   };
@@ -493,87 +558,73 @@ function AdminDashboardPage() {
     event.preventDefault();
     const message = assistantInput.trim();
     if (!message || assistantLoading) return;
-    if (!assistantCafe) {
-      setAssistantMessages((current) => [...current, { role: 'user', content: message }, {
-        role: 'assistant', content: 'Primero selecciona una cafetería para que pueda investigar sus datos.',
-      }]);
-      setAssistantInput('');
-      return;
-    }
 
     const nextMessages = [...assistantMessages, { role: 'user', content: message }];
+    const fields = inferAssistantFields(message);
+    const normalizedMessage = normalizeName(message);
+    const namedCafes = cafes.filter((cafe) => normalizedMessage.includes(normalizeName(cafe.nombre)));
+    const targetPool = namedCafes.length > 0 ? namedCafes : cafes;
+    const targets = targetPool.filter((cafe) => (
+      (fields.has('hours') && !cafe.opening_hours)
+      || (fields.has('image') && !cafe.image_url)
+      || (fields.has('location') && (!cafe.address || !cafe.neighborhood))
+    ));
+
     setAssistantMessages(nextMessages);
     setAssistantInput('');
     setAssistantError('');
-    setAssistantSuggestion(null);
+    setAssistantVerified(false);
+    setAssistantBatch(null);
     setAssistantLoading(true);
     try {
-      let responseMessage;
-      let suggestion;
-      if (CAFE_ASSISTANT_URL) {
-        const response = await fetch(CAFE_ASSISTANT_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message,
-            cafe: assistantCafe,
-            history: nextMessages.slice(-12),
-            locale: 'es-MX',
-            city: 'Mérida, Yucatán',
-          }),
-        });
-        if (!response.ok) throw new Error(`El asistente respondió con ${response.status}.`);
-        const payload = await response.json();
-        responseMessage = payload.message || payload.reply || 'Terminé la investigación.';
-        suggestion = payload.suggestion || payload.data || null;
-      } else {
-        suggestion = await researchCafe(assistantCafe);
-        responseMessage = `Revisé fuentes abiertas para ${assistantCafe.nombre}. Encontré ${[
-          suggestion.address && 'ubicación',
-          suggestion.neighborhood && 'colonia',
-          suggestion.opening_hours && 'horario',
-          (suggestion.image_url || suggestion.image?.url) && 'una imagen candidata',
-        ].filter(Boolean).join(', ') || 'información insuficiente'}. Revisa las fuentes y decide qué quieres guardar.`;
+      if (targets.length === 0) {
+        setAssistantMessages((current) => [...current, { role: 'assistant', content: 'No encontré cafeterías con esos datos faltantes. No modifiqué registros existentes.' }]);
+        return;
       }
-      if (suggestion) setAssistantSuggestion(suggestion);
-      setAssistantMessages((current) => [...current, { role: 'assistant', content: responseMessage }]);
+
+      const results = [];
+      const batchSize = CAFE_ASSISTANT_URL ? 4 : 3;
+      for (let index = 0; index < targets.length; index += batchSize) {
+        const currentTargets = targets.slice(index, index + batchSize);
+        setAssistantProgress(`Investigando ${Math.min(index + currentTargets.length, targets.length)} de ${targets.length} cafeterías…`);
+        const researched = await Promise.allSettled(currentTargets.map((cafe) => researchCafeForTask(cafe, message, fields)));
+        researched.forEach((result, resultIndex) => {
+          if (result.status === 'fulfilled') {
+            const cafe = currentTargets[resultIndex];
+            const patch = getAssistantPatch(cafe, result.value);
+            if (Object.keys(patch).length > 0) results.push({ cafe, suggestion: result.value, patch });
+          }
+        });
+      }
+
+      setAssistantBatch(results);
+      const changes = results.reduce((total, result) => total + Object.keys(result.patch).length, 0);
+      setAssistantMessages((current) => [...current, {
+        role: 'assistant',
+        content: `Terminé la revisión de ${targets.length} cafeterías. Preparé ${changes} cambios en ${results.length} registros. Revisa las fuentes y confirma para guardarlos en la web.`,
+      }]);
     } catch (error) {
-      setAssistantError(error.message || 'No se pudo completar la investigación.');
-      setAssistantMessages((current) => [...current, { role: 'assistant', content: 'No pude completar la consulta. Revisa la conexión e intenta otra vez.' }]);
+      setAssistantError(error.message || 'No se pudo completar la tarea.');
+      setAssistantMessages((current) => [...current, { role: 'assistant', content: 'No pude completar la tarea. Revisa la conexión e intenta otra vez.' }]);
     } finally {
+      setAssistantProgress('');
       setAssistantLoading(false);
     }
   };
 
-  const applyCafeAssistant = () => runAction(`assistant:${assistantCafe.id}`, async () => {
+  const applyAssistantBatch = () => runAction('assistant-batch', async () => {
     if (!assistantVerified) throw new Error('Confirma que revisaste las fuentes antes de guardar.');
-    const image = assistantSuggestion.image || {};
-    const patch = {
-      address: assistantSuggestion.address || assistantCafe.address || null,
-      neighborhood: assistantSuggestion.neighborhood || assistantCafe.neighborhood || null,
-      opening_hours: assistantSuggestion.opening_hours || assistantCafe.opening_hours || null,
-      opening_hours_source: assistantSuggestion.opening_hours
-        ? assistantSuggestion.opening_hours_source || 'assistant'
-        : assistantCafe.opening_hours_source || null,
-      opening_hours_source_url: assistantSuggestion.opening_hours_source_url || assistantCafe.opening_hours_source_url || null,
-      opening_hours_verified_at: assistantSuggestion.opening_hours
-        ? new Date().toISOString()
-        : assistantCafe.opening_hours_verified_at || null,
-    };
-    const imageUrl = assistantSuggestion.image_url || image.url;
-    if (imageUrl) {
-      patch.image_url = imageUrl;
-      patch.image_source_url = assistantSuggestion.image_source_url || image.foreign_landing_url || null;
-      patch.image_attribution = assistantSuggestion.image_attribution || [image.creator || image.title || 'Autor no indicado', image.provider ? `vía ${image.provider}` : 'vía Openverse'].join(' · ');
-      patch.image_license = assistantSuggestion.image_license || getOpenverseLicenseLabel(image);
-    }
-    const { error } = await supabase.from('cafes').update(patch).eq('id', assistantCafe.id);
-    if (error) throw error;
+    if (!assistantBatch?.length) throw new Error('No hay cambios sugeridos para guardar.');
+    const updates = await Promise.all(assistantBatch.map(({ cafe, patch }) => (
+      supabase.from('cafes').update(patch).eq('id', cafe.id)
+    )));
+    const updateError = updates.find((result) => result.error)?.error;
+    if (updateError) throw updateError;
     await refreshCafes();
-    setAssistantOpen(false);
-    setAssistantCafe(null);
-    setAssistantSuggestion(null);
-  }, `Datos sugeridos guardados para ${assistantCafe?.nombre}.`);
+    setAssistantMessages((current) => [...current, { role: 'assistant', content: `Guardé ${assistantBatch.length} cafeterías. Los horarios, ubicaciones y portadas ya quedaron conservados en la base de datos.` }]);
+    setAssistantBatch(null);
+    setAssistantVerified(false);
+  }, `Cambios del asistente guardados en ${assistantBatch?.length || 0} cafeterías.`);
 
   const importOsm = () => runAction('scan', async () => {
     const result = await scanOpenStreetMap(({ current, total, found, failed }) => {
@@ -879,59 +930,42 @@ function AdminDashboardPage() {
         <aside className="admin-assistant-drawer">
           <section className="open-image-modal cafe-assistant-modal" role="dialog" aria-modal="false" aria-labelledby="cafe-assistant-title">
             <header>
-              <div><small>ASISTENTE DE DATOS · REVISIÓN MANUAL</small><h2 id="cafe-assistant-title">{assistantCafe ? `Investigar ${assistantCafe.nombre}` : 'Asistente Coffee Map'}</h2></div>
+              <div><small>ASISTENTE DE DATOS · REVISIÓN MANUAL</small><h2 id="cafe-assistant-title">Asistente Coffee Map</h2></div>
               <div className="admin-assistant-header-actions">
                 <button type="button" onClick={() => setAssistantCollapsed(true)} disabled={assistantLoading || Boolean(actionLoading)} aria-label="Contraer asistente"><ChevronRight size={18} /></button>
-                <button type="button" onClick={() => { setAssistantOpen(false); setAssistantCafe(null); }} disabled={assistantLoading || Boolean(actionLoading)} aria-label="Cerrar"><X size={18} /></button>
+                <button type="button" onClick={() => setAssistantOpen(false)} disabled={assistantLoading || Boolean(actionLoading)} aria-label="Cerrar"><X size={18} /></button>
               </div>
             </header>
-            <p className="open-image-warning">Busca horarios, ubicación, colonia y una portada en fuentes públicas. Revisa cada dato antes de guardarlo; el asistente no consulta ni copia la base privada de Google.</p>
+            <p className="open-image-warning">Pídele tareas generales: investigar faltantes, preparar horarios, ubicar colonias y buscar portadas con licencia abierta. No consulta ni copia la base privada de Google.</p>
             <div className="cafe-assistant-chat">
-              <label className="cafe-assistant-picker">Cafetería
-                <select value={assistantCafe?.id || ''} onChange={(event) => {
-                  const cafe = cafes.find((item) => item.id === event.target.value) || null;
-                  setAssistantCafe(cafe);
-                  setAssistantSuggestion(null);
-                  setAssistantVerified(false);
-                }}>
-                  <option value="">Selecciona una cafetería</option>
-                  {cafes.map((cafe) => <option value={cafe.id} key={cafe.id}>{cafe.nombre}</option>)}
-                </select>
-              </label>
               <div className="cafe-assistant-messages" aria-live="polite">
                 {assistantMessages.map((message, index) => (
                   <p className={`cafe-assistant-message is-${message.role}`} key={`${message.role}:${index}`}>{message.content}</p>
                 ))}
                 {assistantLoading && <p className="cafe-assistant-message is-assistant">Estoy investigando…</p>}
+                {assistantProgress && <p className="cafe-assistant-progress">{assistantProgress}</p>}
               </div>
               <form className="cafe-assistant-composer" onSubmit={sendAssistantMessage}>
-                <input value={assistantInput} onChange={(event) => setAssistantInput(event.target.value)} placeholder="Ej. busca el horario y una portada…" disabled={assistantLoading} />
+                <input value={assistantInput} onChange={(event) => setAssistantInput(event.target.value)} placeholder="Ej. busca horarios y portadas faltantes…" disabled={assistantLoading} />
                 <button type="submit" disabled={!assistantInput.trim() || assistantLoading} aria-label="Enviar consulta">Enviar</button>
               </form>
             </div>
-            {assistantLoading && <p className="open-image-state">Reuniendo sugerencias…</p>}
             {assistantError && <p className="open-image-state is-error">{assistantError}</p>}
-            {assistantSuggestion && (
+            {assistantBatch && (
               <div className="cafe-assistant-suggestion">
-                <div className="cafe-assistant-field"><small>Ubicación</small><strong>{assistantSuggestion.address || 'Sin sugerencia'}</strong><span>{assistantSuggestion.neighborhood || 'Colonia por confirmar'}</span></div>
-                <div className="cafe-assistant-field"><small>Horario</small><strong>{assistantSuggestion.opening_hours || 'Por confirmar'}</strong><span>{assistantSuggestion.opening_hours_source ? `Fuente: ${assistantSuggestion.opening_hours_source}` : 'No se encontró un horario verificable'}</span></div>
-                {(assistantSuggestion.image_url || assistantSuggestion.image?.url) && (
-                  <div className="cafe-assistant-image">
-                    <img src={assistantSuggestion.image_url || assistantSuggestion.image.url} alt="Candidata para portada" loading="lazy" decoding="async" />
-                    <span>{assistantSuggestion.image?.creator || assistantSuggestion.image_attribution || 'Imagen candidata; revisa la licencia'}</span>
-                  </div>
-                )}
-                <div className="cafe-assistant-sources">
-                  {(assistantSuggestion.sources || [assistantSuggestion.opening_hours_source_url, assistantSuggestion.image_source_url]).filter(Boolean).map((source) => (
-                    <a href={source} target="_blank" rel="noreferrer" key={source}><ExternalLink size={12} /> Revisar fuente</a>
+                <div className="cafe-assistant-field"><small>Cambios preparados</small><strong>{assistantBatch.length} cafeterías listas para actualizar</strong><span>Solo se llenan campos faltantes; los datos existentes no se sobrescriben.</span></div>
+                <div className="cafe-assistant-batch-list">
+                  {assistantBatch.slice(0, 12).map(({ cafe, patch }) => (
+                    <span key={cafe.id}>{cafe.nombre} · {Object.keys(patch).filter((key) => !key.endsWith('_source') && !key.endsWith('_attribution') && !key.endsWith('_license') && !key.endsWith('_verified_at')).join(', ')}</span>
                   ))}
+                  {assistantBatch.length > 12 && <small>+{assistantBatch.length - 12} cafeterías más</small>}
                 </div>
                 <label className="open-image-confirmation">
                   <input type="checkbox" checked={assistantVerified} onChange={(event) => setAssistantVerified(event.target.checked)} />
-                  Confirmo que revisé ubicación, horario, imagen y licencia antes de guardar.
+                  Confirmo que revisé las fuentes y autorizo guardar estos cambios.
                 </label>
-                <button type="button" className="cafe-assistant-save" disabled={!assistantVerified || Boolean(actionLoading)} onClick={applyCafeAssistant}>
-                  {actionLoading === `assistant:${assistantCafe.id}` ? 'Guardando…' : 'Guardar sugerencias revisadas'}
+                <button type="button" className="cafe-assistant-save" disabled={!assistantVerified || Boolean(actionLoading)} onClick={applyAssistantBatch}>
+                  {actionLoading === 'assistant-batch' ? 'Guardando…' : 'Guardar cambios en la web'}
                 </button>
               </div>
             )}

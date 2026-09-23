@@ -480,6 +480,7 @@ html.is-app-mode .map-scan-control {
 .cafe-assistant-message { max-width: 88%; margin: 0; padding: 9px 11px; border-radius: 13px; font-size: 10px; line-height: 1.4; }
 .cafe-assistant-message.is-assistant { align-self: flex-start; color: rgba(238,229,210,.78); background: #342a22; border-bottom-left-radius: 4px; }
 .cafe-assistant-message.is-user { align-self: flex-end; color: #2d241d; background: #e6dac1; border-bottom-right-radius: 4px; }
+.cafe-assistant-progress { margin: 0; color: #cdb58f; font-size: 9px; font-style: italic; }
 .cafe-assistant-composer { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; }
 .cafe-assistant-composer input { min-width: 0; min-height: 39px; padding: 9px 11px; color: #eee5d2; background: #1d1915; border: 1px solid rgba(238,229,210,.12); border-radius: 11px; outline: 0; font: 10px "Inria Serif", Georgia, serif; }
 .cafe-assistant-composer input:focus { border-color: rgba(230,218,193,.45); }
@@ -496,6 +497,9 @@ html.is-app-mode .map-scan-control {
 .cafe-assistant-sources { display: flex; flex-wrap: wrap; gap: 8px; }
 .cafe-assistant-sources a { display: inline-flex; align-items: center; gap: 4px; padding: 7px 9px; color: #d5bd96; background: #342a22; border-radius: 999px; font-size: 8px; }
 .cafe-assistant-suggestion .open-image-confirmation { margin: 0; }
+.cafe-assistant-batch-list { display: flex; flex-direction: column; gap: 5px; max-height: 150px; overflow-y: auto; padding: 2px; scrollbar-width: thin; }
+.cafe-assistant-batch-list span, .cafe-assistant-batch-list small { padding: 7px 9px; color: rgba(238,229,210,.68); background: #342a22; border-radius: 9px; font-size: 9px; line-height: 1.35; }
+.cafe-assistant-batch-list small { color: #bca47f; background: transparent; }
 .cafe-assistant-save { min-height: 42px; color: #2d241d; background: #e6dac1; border: 0; border-radius: 11px; font: 800 10px "Inria Serif", Georgia, serif; cursor: pointer; }
 .cafe-assistant-save:disabled { opacity: .45; cursor: wait; }
 .admin-assistant-launcher { position: fixed; right: 22px; bottom: calc(22px + env(safe-area-inset-bottom, 0px)); z-index: 4600; display: inline-flex; align-items: center; gap: 8px; min-height: 42px; padding: 0 16px; color: #30271f; background: #e6dac1; border: 1px solid rgba(48,39,31,.12); border-radius: 999px; box-shadow: 0 12px 28px rgba(0,0,0,.35); font: 800 10px "Inria Serif", Georgia, serif; cursor: pointer; }
