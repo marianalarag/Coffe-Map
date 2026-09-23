@@ -360,7 +360,7 @@ html.is-app-mode .map-scan-control {
 .admin-tabs::-webkit-scrollbar { display: none; }
 .admin-tabs button { min-width: max-content; display: flex; align-items: center; gap: 6px; padding: 7px 10px; color: rgba(238,229,210,.58); background: #27211b; border: 1px solid transparent; border-radius: 12px; font: 10px "Inria Serif", Georgia, serif; }
 .admin-tabs button.is-active { color: #2d241d; background: #e6dac1; }
-.admin-content { width: min(100%, 1120px); margin: 0 auto; }
+.admin-content { width: min(100%, 1120px); margin: 0 auto; padding-top: clamp(52px, 9vh, 104px); }
 .admin-notice { width: min(100%, 1120px); margin: 0 auto 14px; padding: 11px 13px; color: #decaaa; background: #34291f; border: 1px solid rgba(222,202,170,.18); border-radius: 12px; font-size: 10px; line-height: 1.4; }
 .admin-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .admin-metric-card { min-height: 112px; display: grid; grid-template-columns: 1fr auto; grid-template-rows: 1fr auto; padding: 15px; background: linear-gradient(140deg, #30271f, #241e19); border: 1px solid rgba(238,229,210,.08); border-radius: 19px; }
@@ -521,6 +521,7 @@ html.is-app-mode .map-scan-control {
   .admin-assistant-launcher { right: 14px; bottom: calc(82px + env(safe-area-inset-bottom, 0px)); }
   .admin-assistant-drawer { top: max(8px, env(safe-area-inset-top, 0px)); right: 8px; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); width: calc(100vw - 16px); }
   .admin-assistant-drawer > .cafe-assistant-modal { border-radius: 20px; }
+  .admin-content { padding-top: 28px; }
 }
 
 @media (min-width: 720px) {
