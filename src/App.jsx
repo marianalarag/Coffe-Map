@@ -178,6 +178,13 @@ function App() {
       .map(([name, count]) => ({ name, count }))
   }, [cafes])
 
+  const handleNeighborhoodWheel = useCallback((event) => {
+    const container = event.currentTarget;
+    if (container.scrollWidth <= container.clientWidth) return;
+    event.preventDefault();
+    container.scrollLeft += event.deltaX || event.deltaY;
+  }, [])
+
   const filteredCafes = useMemo(() => (
     selectedNeighborhood === 'Todas'
       ? cafes
@@ -829,7 +836,7 @@ function App() {
         <span className="text-white/75 text-[12px] font-semibold">Buscar cafeterías</span>
       </div>
 
-      <div className="map-neighborhood-filters absolute left-1/2 -translate-x-1/2 z-[1000]" role="toolbar" aria-label="Filtrar por colonia">
+      <div className="map-neighborhood-filters absolute left-1/2 -translate-x-1/2 z-[1000]" role="toolbar" aria-label="Filtrar por colonia" onWheel={handleNeighborhoodWheel}>
         <button
           type="button"
           className={selectedNeighborhood === 'Todas' ? 'is-active' : ''}

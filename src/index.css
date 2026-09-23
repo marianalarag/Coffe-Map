@@ -272,7 +272,7 @@ html.is-app-mode #root {
   flex-wrap: nowrap;
   align-items: center;
   justify-content: flex-start;
-  width: calc(100% - 24px);
+  width: calc(100% - clamp(24px, 12vw, 232px));
   max-width: none;
   max-height: 52px;
   gap: 8px;
@@ -281,7 +281,10 @@ html.is-app-mode #root {
   padding: 2px 4px 7px;
   scrollbar-width: none;
   touch-action: pan-x;
+  overscroll-behavior-x: contain;
+  cursor: grab;
 }
+.map-neighborhood-filters:active { cursor: grabbing; }
 .map-neighborhood-filters::-webkit-scrollbar { display: none; }
 .map-neighborhood-filters button {
   flex: 0 0 auto;
