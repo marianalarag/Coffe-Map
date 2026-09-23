@@ -348,17 +348,17 @@ html.is-app-mode .map-scan-control {
 
 /* Admin control center */
 .admin-page { --admin-page-gutter: 16px; --admin-top-inset: max(18px, env(safe-area-inset-top, 0px)); width: 100%; height: 100%; overflow-y: auto; padding: var(--admin-top-inset) var(--admin-page-gutter) calc(34px + env(safe-area-inset-bottom, 0px)); color: #eee5d2; background: #181511; font-family: "Inria Serif", Georgia, serif; }
-.admin-topbar { position: sticky; top: 0; z-index: 20; margin: calc(-1 * var(--admin-top-inset)) calc(-1 * var(--admin-page-gutter)) 18px; background: rgba(24,21,17,.96); border-bottom: 1px solid rgba(238,229,210,.08); box-shadow: 0 8px 22px rgba(0,0,0,.12); backdrop-filter: blur(18px); }
-.admin-header { display: grid; grid-template-columns: 42px 1fr 42px; align-items: center; min-height: 68px; padding: var(--admin-top-inset) var(--admin-page-gutter) 10px; }
-.admin-header button { width: 36px; height: 36px; display: grid; place-items: center; padding: 0; color: #eee5d2; background: #2d261f; border: 0; border-radius: 12px; }
+.admin-topbar { position: sticky; top: 0; z-index: 20; margin: calc(-1 * var(--admin-top-inset)) calc(-1 * var(--admin-page-gutter)) 10px; background: rgba(24,21,17,.96); border-bottom: 1px solid rgba(238,229,210,.08); box-shadow: 0 8px 22px rgba(0,0,0,.12); backdrop-filter: blur(18px); }
+.admin-header { display: grid; grid-template-columns: 38px 1fr 38px; align-items: center; min-height: 54px; padding: var(--admin-top-inset) var(--admin-page-gutter) 6px; }
+.admin-header button { width: 32px; height: 32px; display: grid; place-items: center; padding: 0; color: #eee5d2; background: #2d261f; border: 0; border-radius: 10px; }
 .admin-header button:last-child { justify-self: end; }
 .admin-header small { color: #ae9876; font-size: 8px; letter-spacing: .14em; }
-.admin-header h1 { margin: 2px 0 0; font: 400 23px "Lancelot", Georgia, serif; }
+.admin-header h1 { margin: 2px 0 0; font: 400 21px "Lancelot", Georgia, serif; }
 .admin-spin { animation: admin-spin .8s linear infinite; }
 @keyframes admin-spin { to { transform: rotate(360deg); } }
-.admin-tabs { display: flex; gap: 6px; margin: 0; padding: 9px var(--admin-page-gutter) 12px; overflow-x: auto; scrollbar-width: none; }
+.admin-tabs { display: flex; gap: 6px; margin: 0; padding: 5px var(--admin-page-gutter) 8px; overflow-x: auto; scrollbar-width: none; }
 .admin-tabs::-webkit-scrollbar { display: none; }
-.admin-tabs button { min-width: max-content; display: flex; align-items: center; gap: 6px; padding: 9px 11px; color: rgba(238,229,210,.58); background: #27211b; border: 1px solid transparent; border-radius: 12px; font: 10px "Inria Serif", Georgia, serif; }
+.admin-tabs button { min-width: max-content; display: flex; align-items: center; gap: 6px; padding: 7px 10px; color: rgba(238,229,210,.58); background: #27211b; border: 1px solid transparent; border-radius: 12px; font: 10px "Inria Serif", Georgia, serif; }
 .admin-tabs button.is-active { color: #2d241d; background: #e6dac1; }
 .admin-content { width: min(100%, 1120px); margin: 0 auto; }
 .admin-notice { width: min(100%, 1120px); margin: 0 auto 14px; padding: 11px 13px; color: #decaaa; background: #34291f; border: 1px solid rgba(222,202,170,.18); border-radius: 12px; font-size: 10px; line-height: 1.4; }
@@ -504,7 +504,9 @@ html.is-app-mode .map-scan-control {
 .admin-assistant-drawer > .cafe-assistant-modal { box-sizing: border-box; width: 100%; height: 100%; max-height: none; display: flex; flex-direction: column; overflow: hidden; pointer-events: auto; border-radius: 24px; box-shadow: 0 24px 70px rgba(0,0,0,.6); }
 .admin-assistant-drawer > .cafe-assistant-modal > header { flex: 0 0 auto; }
 .admin-assistant-drawer .open-image-warning { flex: 0 0 auto; }
-.admin-assistant-drawer .cafe-assistant-chat { flex: 0 0 auto; }
+.admin-assistant-drawer .cafe-assistant-chat { flex: 1 1 auto; min-height: 0; overflow: hidden; }
+.admin-assistant-drawer .cafe-assistant-messages { flex: 1 1 auto; min-height: 0; max-height: none; overflow-y: auto; padding-top: 4px; }
+.admin-assistant-drawer .cafe-assistant-composer { flex: 0 0 auto; padding: 10px 0 16px; background: #27201a; }
 .admin-assistant-drawer .cafe-assistant-suggestion { min-height: 0; overflow-y: auto; padding-bottom: 22px; scrollbar-width: thin; }
 .admin-assistant-header-actions { display: flex; align-items: center; gap: 4px; }
 .admin-assistant-header-actions button { width: 30px; height: 30px; display: grid; place-items: center; padding: 0; color: #eee5d2; background: #3a3027; border: 0; border-radius: 50%; cursor: pointer; }
