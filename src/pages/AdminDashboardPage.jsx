@@ -492,6 +492,11 @@ function AdminDashboardPage() {
     }
     return candidates;
   }, [cafes]);
+  const pendingCafeRequests = useMemo(() => (
+    cafes
+      .filter((cafe) => cafe.source === 'community' && cafe.status === 'needs_review')
+      .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+  ), [cafes]);
 
   const loadDashboard = useCallback(async () => {
     setLoading(true);
@@ -503,7 +508,7 @@ function AdminDashboardPage() {
         supabase.from('posts').select('id', { count: 'exact', head: true }),
         supabase.from('cafe_photos').select('id', { count: 'exact', head: true }),
         supabase.from('user_cafes').select('id', { count: 'exact', head: true }).not('review_text', 'eq', ''),
-        supabase.from('cafes').select('id,nombre,lat,lng,address,neighborhood,image_url,image_source_url,image_attribution,image_license,opening_hours,opening_hours_source,opening_hours_source_url,opening_hours_verified_at,source,source_id,status,last_verified_at').order('nombre').limit(1000),
+        supabase.from('cafes').select('id,nombre,lat,lng,address,neighborhood,image_url,image_source_url,image_attribution,image_license,opening_hours,opening_hours_source,opening_hours_source_url,opening_hours_verified_at,source,source_id,status,submitted_by,created_at,last_verified_at').order('nombre').limit(1000),
         supabase.from('cafe_photos').select('id,cafe_id,user_id,storage_path,public_url,status,is_cover,rights_confirmed,rights_basis,rights_note,created_at').order('created_at', { ascending: false }).limit(100),
         supabase.from('posts').select('id,user_id,cafe_id,content,image_url,status,created_at').order('created_at', { ascending: false }).limit(100),
         supabase.from('profiles').select('id,username,avatar_url,role,updated_at').order('updated_at', { ascending: false }).limit(250),
@@ -681,6 +686,16 @@ function AdminDashboardPage() {
     }, 'Cafetería agregada.');
   };
 
+  const moderateCafeRequest = (cafe, nextStatus) => runAction(`request:${cafe.id}:${nextStatus}`, async () => {
+    const { error } = await supabase
+      .from('cafes')
+      .update({ status: nextStatus, last_verified_at: new Date().toISOString() })
+      .eq('id', cafe.id)
+      .eq('source', 'community')
+      .eq('status', 'needs_review');
+    if (error) throw error;
+  }, nextStatus === 'active' ? `Solicitud aceptada: ${cafe.nombre}.` : `Solicitud rechazada: ${cafe.nombre}.`);
+
   const uploadCafeCover = (cafe, file) => {
     if (!file) return undefined;
     if (!window.confirm('Confirma que esta foto es tuya o que tienes permiso para publicarla en Coffee Map.')) return undefined;
@@ -851,6 +866,29 @@ function AdminDashboardPage() {
                 </label>
               </div>
             </article>
+            {pendingCafeRequests.length > 0 && (
+              <article className="admin-panel admin-request-panel">
+                <div className="admin-request-heading">
+                  <div><h2>Solicitudes pendientes</h2><p>Estas cafeterías fueron propuestas por usuarios y todavía no aparecen como activas en el mapa.</p></div>
+                  <strong>{pendingCafeRequests.length}</strong>
+                </div>
+                <div className="admin-request-list">
+                  {pendingCafeRequests.map((cafe) => (
+                    <div className="admin-request-row" key={cafe.id}>
+                      <div className="admin-row-copy">
+                        <strong>{cafe.nombre}</strong>
+                        <span>{cafe.address || 'Dirección por confirmar'}</span>
+                        <small>{cafe.created_at ? new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium' }).format(new Date(cafe.created_at)) : 'Solicitud reciente'}</small>
+                      </div>
+                      <div className="admin-request-actions">
+                        <button type="button" onClick={() => moderateCafeRequest(cafe, 'active')} disabled={Boolean(actionLoading)}>Aceptar</button>
+                        <button type="button" className="danger" onClick={() => moderateCafeRequest(cafe, 'closed')} disabled={Boolean(actionLoading)}>Rechazar</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </article>
+            )}
             <form className="admin-panel admin-manual-form" onSubmit={addManualCafe}>
               <h2><MapPinned size={19} /> Agregar cafetería faltante</h2>
               <input placeholder="Nombre" value={manualCafe.nombre} onChange={(event) => setManualCafe({ ...manualCafe, nombre: event.target.value })} />

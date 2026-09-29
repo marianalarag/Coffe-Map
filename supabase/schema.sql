@@ -121,6 +121,19 @@ to authenticated
 using (true);
 
 drop policy if exists "cafes_insert_authenticated" on public.cafes;
+drop policy if exists "cafes_insert_admin" on public.cafes;
+drop policy if exists "cafes_insert_admin_or_community" on public.cafes;
+create policy "cafes_insert_admin_or_community"
+on public.cafes for insert
+to authenticated
+with check (
+  exists (select 1 from public.profiles where id = auth.uid() and role = 'administrador')
+  or (
+    source = 'community'
+    and status = 'needs_review'
+    and submitted_by = auth.uid()
+  )
+);
 
 drop policy if exists "user_cafes_select_own" on public.user_cafes;
 create policy "user_cafes_select_own"
