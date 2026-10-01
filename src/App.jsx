@@ -7,7 +7,7 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import BottomNav from './components/BottomNav'
 import { useAuth } from './context/AuthContext'
 import { useCoffeeData } from './context/CoffeeDataContext'
-import { getCafeNeighborhood } from './utils/cafeAddress'
+import { getCafeZone } from './utils/cafeAddress'
 
 const MERIDA_CENTER = { lat: 20.9753, lng: -89.6178 };
 const MERIDA_BOUNDS = [[20.86, -89.75], [21.08, -89.52]];
@@ -165,18 +165,31 @@ function App() {
     window.matchMedia?.('(hover: none), (pointer: coarse)').matches ?? false
   ), [])
 
-  const neighborhoods = useMemo(() => {
+  const zoneCounts = useMemo(() => {
     const counts = new Map()
     cafes.forEach((cafe) => {
-      const neighborhood = getCafeNeighborhood(cafe)
-      if (neighborhood && neighborhood !== 'Colonia por confirmar') {
-        counts.set(neighborhood, (counts.get(neighborhood) || 0) + 1)
+      const zone = getCafeZone(cafe)
+      if (zone && zone !== 'Colonia por confirmar') {
+        counts.set(zone, (counts.get(zone) || 0) + 1)
       }
     })
-    return [...counts.entries()]
+    return counts
+  }, [cafes])
+
+  const neighborhoods = useMemo(() => {
+    const entries = [...zoneCounts.entries()]
+    const otherCount = entries
+      .filter(([, count]) => count === 1)
+      .reduce((total, [, count]) => total + count, 0)
+
+    const largeZones = entries
+      .filter(([, count]) => count > 1)
       .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'es'))
       .map(([name, count]) => ({ name, count }))
-  }, [cafes])
+
+    if (otherCount > 0) largeZones.push({ name: 'Otras zonas', count: otherCount })
+    return largeZones
+  }, [zoneCounts])
 
   const handleNeighborhoodWheel = useCallback((event) => {
     const container = event.currentTarget;
@@ -188,8 +201,10 @@ function App() {
   const filteredCafes = useMemo(() => (
     selectedNeighborhood === 'Todas'
       ? cafes
-      : cafes.filter((cafe) => getCafeNeighborhood(cafe) === selectedNeighborhood)
-  ), [cafes, selectedNeighborhood])
+      : selectedNeighborhood === 'Otras zonas'
+        ? cafes.filter((cafe) => zoneCounts.get(getCafeZone(cafe)) === 1)
+        : cafes.filter((cafe) => getCafeZone(cafe) === selectedNeighborhood)
+  ), [cafes, selectedNeighborhood, zoneCounts])
 
   const visitedCafeIds = useMemo(() => {
     return new Set(
@@ -836,7 +851,7 @@ function App() {
         <span className="text-white/75 text-[12px] font-semibold">Buscar cafeterías</span>
       </div>
 
-      <div className="map-neighborhood-filters absolute left-1/2 -translate-x-1/2 z-[1000]" role="toolbar" aria-label="Filtrar por colonia" onWheel={handleNeighborhoodWheel}>
+      <div className="map-neighborhood-filters absolute left-1/2 -translate-x-1/2 z-[1000]" role="toolbar" aria-label="Filtrar por zona" onWheel={handleNeighborhoodWheel}>
         <button
           type="button"
           className={selectedNeighborhood === 'Todas' ? 'is-active' : ''}

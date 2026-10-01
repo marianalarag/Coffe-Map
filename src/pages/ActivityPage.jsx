@@ -52,7 +52,7 @@ function PostImageCarousel({ images, cafeName }) {
   );
 }
 
-export function ActivityFeed({ userIdFilter = null, compact = false }) {
+export function ActivityFeed({ userIdFilter = null, userIdsFilter = null, compact = false }) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [posts, setPosts] = useState([]);
@@ -64,7 +64,7 @@ export function ActivityFeed({ userIdFilter = null, compact = false }) {
   ));
 
   const loadPosts = useCallback(async () => {
-    const cacheKey = userIdFilter || 'all';
+    const cacheKey = userIdFilter || (Array.isArray(userIdsFilter) ? `users:${userIdsFilter.slice().sort().join(',')}` : 'all');
     const cached = activityCache.get(cacheKey);
     const hasFreshCache = cached && Date.now() - cached.savedAt < ACTIVITY_CACHE_TTL_MS;
     if (hasFreshCache) {
@@ -74,6 +74,13 @@ export function ActivityFeed({ userIdFilter = null, compact = false }) {
     setLoading(!hasFreshCache);
     setError('');
     try {
+      if (Array.isArray(userIdsFilter) && userIdsFilter.length === 0) {
+        setPosts([]);
+        setSocialByPost({});
+        setLoading(false);
+        return;
+      }
+
       let postsQuery = supabase
         .from('posts')
         .select('id,user_id,cafe_id,content,image_url,kind,rating,visited_on,created_at,updated_at')
@@ -83,6 +90,7 @@ export function ActivityFeed({ userIdFilter = null, compact = false }) {
         .limit(60);
 
       if (userIdFilter) postsQuery = postsQuery.eq('user_id', userIdFilter);
+      if (Array.isArray(userIdsFilter)) postsQuery = postsQuery.in('user_id', userIdsFilter);
 
       const { data: postRows, error: postError } = await postsQuery;
       if (postError) throw postError;
@@ -133,7 +141,7 @@ export function ActivityFeed({ userIdFilter = null, compact = false }) {
     } finally {
       setLoading(false);
     }
-  }, [user.id, userIdFilter]);
+  }, [user.id, userIdFilter, userIdsFilter]);
 
   useEffect(() => { loadPosts(); }, [loadPosts]);
 

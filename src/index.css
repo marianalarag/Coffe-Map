@@ -274,7 +274,7 @@ html.is-app-mode #root {
   justify-content: flex-start;
   width: calc(100% - clamp(24px, 12vw, 232px));
   max-width: none;
-  max-height: 52px;
+  max-height: 72px;
   gap: 8px;
   overflow-x: auto;
   overflow-y: hidden;
@@ -289,7 +289,7 @@ html.is-app-mode #root {
 .map-neighborhood-filters button {
   flex: 0 0 auto;
   width: max-content;
-  max-width: calc(100vw - 32px);
+  max-width: min(78vw, 260px);
   display: inline-flex;
   align-items: center;
   justify-content: flex-start;
@@ -302,12 +302,12 @@ html.is-app-mode #root {
   border-radius: 999px;
   box-shadow: 0 5px 14px rgba(0,0,0,.16);
   backdrop-filter: blur(10px);
-  font: 700 10px/1 "Inria Serif", Georgia, serif;
+  font: 700 10px/1.15 "Inria Serif", Georgia, serif;
   cursor: pointer;
-  white-space: nowrap;
-  overflow: hidden;
+  white-space: normal;
+  overflow: visible;
   text-align: left;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 .map-neighborhood-filters button span { flex: 0 0 auto; color: rgba(56,43,34,.52); font-size: 9px; }
 .map-neighborhood-filters button.is-active { color: #fff8e9; background: #4b2c20; border-color: #4b2c20; }
@@ -317,13 +317,13 @@ html.is-app-mode #root {
   .map-neighborhood-filters {
     top: max(64px, calc(env(safe-area-inset-top, 0px) + 56px));
     width: calc(100% - 20px);
-    max-height: 48px;
+    max-height: 72px;
     gap: 6px;
     padding-inline: 2px;
   }
   .map-neighborhood-filters button {
     min-height: 32px;
-    max-width: calc(100vw - 28px);
+    max-width: min(78vw, 260px);
     padding: 7px 10px;
     font-size: clamp(9px, 2.6vw, 10px);
   }
@@ -735,8 +735,8 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 .profile-cafe-placeholder { display: grid; place-items: center; color: #493a33; background: #d7c9af; }
 .profile-cafe-copy { position: relative; display: grid; grid-template-columns: 1fr auto; grid-template-rows: 15px 13px; column-gap: 3px; padding: 4px 6px 3px; background: #eee5d2; }
 .profile-cafe-copy strong { grid-column: 1 / -1; overflow: hidden; font: 11px/1.1 "Lancelot", Georgia, serif; text-overflow: ellipsis; white-space: nowrap; }
-.profile-cafe-copy span { display: flex; align-items: center; gap: 2px; font: 8px/1 "Inria Serif", Georgia, serif; }
-.profile-cafe-copy span:last-child { justify-self: end; }
+.profile-cafe-copy span { min-width: 0; display: flex; align-items: flex-start; gap: 2px; font: 8px/1.1 "Inria Serif", Georgia, serif; }
+.profile-cafe-copy span:last-child { justify-self: end; max-width: 100%; text-align: right; white-space: normal; overflow-wrap: anywhere; }
 .profile-empty-recent { grid-column: 1 / -1; min-height: 113px; display: grid; place-items: center; padding: 15px; text-align: center; background: #372821; border-radius: 14px; }
 .profile-shortcuts-section { padding: 0 20px; margin-top: 28px; }
 .profile-shortcuts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
@@ -1111,6 +1111,9 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 .profile-activity-panel { width: 100%; max-width: 860px; margin-inline: auto; }
 .profile-activity-panel .activity-feed { display: flex; flex-direction: column; gap: 16px; width: 100%; }
 .profile-activity-panel .activity-post { box-sizing: border-box; width: 100%; max-width: none; margin: 0; }
+.activity-section-switcher { display: flex; gap: 8px; margin: 0 0 18px; padding: 4px; background: #271D18; border: 1px solid rgba(230,218,193,.1); border-radius: 14px; }
+.activity-section-switcher button { flex: 1; min-height: 34px; padding: 7px 12px; color: rgba(230,218,193,.55); background: transparent; border: 0; border-radius: 10px; font: 700 10px "Inria Serif", Georgia, serif; cursor: pointer; }
+.activity-section-switcher button.is-active { color: #302820; background: #E6DAC1; }
 
 @media (min-width: 900px) {
   .profile-activity-panel { max-width: none; }
@@ -1129,7 +1132,7 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 .profile-visited-grid img, .profile-visited-grid .profile-cafe-placeholder { width: 100%; height: 125px; object-fit: cover; }
 .profile-visited-grid strong { display: block; overflow: hidden; padding: 7px 9px 3px; font: 16px/1.05 "Lancelot", serif; text-overflow: ellipsis; white-space: nowrap; }
 .profile-visited-grid span { display: flex; align-items: flex-start; gap: 3px; padding: 0 9px; font-size: 9px; }
-.profile-visited-grid span > b { min-width: 0; display: flex; align-items: flex-start; gap: 2px; margin-left: auto; font-weight: 400; text-align: right; line-height: 1.15; }
+.profile-visited-grid span > b { min-width: 0; max-width: 62%; display: flex; align-items: flex-start; gap: 2px; margin-left: auto; font-weight: 400; text-align: right; line-height: 1.1; white-space: normal; overflow-wrap: anywhere; }
 .profile-tab-empty, .friends-empty { min-height: 180px; display: grid; place-items: center; align-content: center; gap: 8px; color: rgba(230,218,193,.52); text-align: center; }
 .profile-tab-empty p, .friends-empty p { margin: 0; font-size: 10px; }
 .friends-search { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; padding: 9px 9px 9px 12px; background: #271D18; border: 1px solid rgba(230,218,193,.1); border-radius: 15px; }
@@ -1158,7 +1161,7 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 .home-cafe-details span:last-child { width: 100%; max-width: none; min-width: 0; justify-content: flex-end; align-items: flex-start; text-align: right; white-space: normal; line-height: 1.2; }
 .home-cafe-details span:last-child svg { margin-top: .05em; }
 .profile-cafe-copy { grid-template-rows: 15px auto; }
-.profile-cafe-copy span:last-child { max-width: 68px; align-items: flex-start; text-align: right; white-space: normal; line-height: 1.1; }
+.profile-cafe-copy span:last-child { max-width: 100%; align-items: flex-start; text-align: right; white-space: normal; line-height: 1.1; }
 .collection-cafe-copy { min-height: 45px; grid-template-rows: 17px auto; }
 .collection-cafe-copy span:last-child { max-width: 68px; align-items: flex-start; text-align: right; white-space: normal; line-height: 1.1; }
 

@@ -576,7 +576,7 @@ function ProfilePage() {
         )}
         </div>}
 
-        {activeTab === 'activity' && <section className="profile-tab-panel profile-activity-panel"><ActivityFeed userIdFilter={user.id} compact /></section>}
+        {activeTab === 'activity' && <ProfileActivityPanel userId={user.id} />}
 
         {activeTab === 'visited' && (
           <section className="profile-tab-panel">
@@ -654,6 +654,63 @@ function ProfilePage() {
         }
       `}</style>
     </main>
+  );
+}
+
+function ProfileActivityPanel({ userId }) {
+  const [activeSection, setActiveSection] = useState('mine');
+  const [friendIds, setFriendIds] = useState([]);
+  const [friendsLoading, setFriendsLoading] = useState(true);
+
+  const loadFriendIds = useCallback(async () => {
+    setFriendsLoading(true);
+    const { data, error } = await supabase
+      .from('friendships')
+      .select('requester_id,addressee_id')
+      .eq('status', 'accepted');
+
+    if (error) {
+      setFriendIds([]);
+    } else {
+      setFriendIds([
+        ...new Set((data || []).map((row) => (
+          row.requester_id === userId ? row.addressee_id : row.requester_id
+        )).filter(Boolean)),
+      ]);
+    }
+    setFriendsLoading(false);
+  }, [userId]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(loadFriendIds, 0);
+    return () => window.clearTimeout(timer);
+  }, [loadFriendIds]);
+
+  return (
+    <section className="profile-tab-panel profile-activity-panel">
+      <div className="activity-section-switcher" role="tablist" aria-label="Actividad del perfil">
+        <button type="button" className={activeSection === 'mine' ? 'is-active' : ''} onClick={() => setActiveSection('mine')} role="tab" aria-selected={activeSection === 'mine'}>
+          Mi actividad
+        </button>
+        <button type="button" className={activeSection === 'friends' ? 'is-active' : ''} onClick={() => setActiveSection('friends')} role="tab" aria-selected={activeSection === 'friends'}>
+          Amigos
+        </button>
+      </div>
+
+      {activeSection === 'mine' && <ActivityFeed userIdFilter={userId} compact />}
+      {activeSection === 'friends' && friendsLoading && (
+        <div className="activity-empty"><Coffee size={28} /><p>Cargando actividad de tus amigos…</p></div>
+      )}
+      {activeSection === 'friends' && !friendsLoading && friendIds.length === 0 && (
+        <div className="activity-empty"><Users size={30} /><p>Agrega amigos para ver aquí sus visitas, reseñas y publicaciones.</p></div>
+      )}
+      {activeSection === 'friends' && !friendsLoading && friendIds.length > 0 && (
+        <ActivityFeed
+          userIdsFilter={friendIds}
+          compact
+        />
+      )}
+    </section>
   );
 }
 
