@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Coffee, Heart, Image as ImageIcon, MessageCircle, MoreHorizontal, Send } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Coffee, Heart, Image as ImageIcon, MessageCircle, MoreHorizontal, Send, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import BottomNav from '../components/BottomNav';
 import HalfStarRating from '../components/HalfStarRating';
@@ -52,7 +52,7 @@ function PostImageCarousel({ images, cafeName }) {
   );
 }
 
-export function ActivityFeed({ userIdFilter = null, userIdsFilter = null, compact = false }) {
+export function ActivityFeed({ userIdFilter = null, userIdsFilter = null, kindFilter = null, compact = false }) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [posts, setPosts] = useState([]);
@@ -62,9 +62,14 @@ export function ActivityFeed({ userIdFilter = null, userIdsFilter = null, compac
   const [isDesktop, setIsDesktop] = useState(() => (
     typeof window !== 'undefined' && window.matchMedia('(min-width: 900px)').matches
   ));
+  const [commentPost, setCommentPost] = useState(null);
+  const [commentRows, setCommentRows] = useState([]);
+  const [commentProfiles, setCommentProfiles] = useState({});
+  const [commentText, setCommentText] = useState('');
+  const [commentsLoading, setCommentsLoading] = useState(false);
 
   const loadPosts = useCallback(async () => {
-    const cacheKey = userIdFilter || (Array.isArray(userIdsFilter) ? `users:${userIdsFilter.slice().sort().join(',')}` : 'all');
+    const cacheKey = `${kindFilter || 'all'}:${userIdFilter || (Array.isArray(userIdsFilter) ? `users:${userIdsFilter.slice().sort().join(',')}` : 'all')}`;
     const cached = activityCache.get(cacheKey);
     const hasFreshCache = cached && Date.now() - cached.savedAt < ACTIVITY_CACHE_TTL_MS;
     if (hasFreshCache) {
@@ -91,6 +96,7 @@ export function ActivityFeed({ userIdFilter = null, userIdsFilter = null, compac
 
       if (userIdFilter) postsQuery = postsQuery.eq('user_id', userIdFilter);
       if (Array.isArray(userIdsFilter)) postsQuery = postsQuery.in('user_id', userIdsFilter);
+      if (kindFilter) postsQuery = postsQuery.eq('kind', kindFilter);
 
       const { data: postRows, error: postError } = await postsQuery;
       if (postError) throw postError;
@@ -141,7 +147,7 @@ export function ActivityFeed({ userIdFilter = null, userIdsFilter = null, compac
     } finally {
       setLoading(false);
     }
-  }, [user.id, userIdFilter, userIdsFilter]);
+  }, [kindFilter, user.id, userIdFilter, userIdsFilter]);
 
   useEffect(() => { loadPosts(); }, [loadPosts]);
 
@@ -169,11 +175,36 @@ export function ActivityFeed({ userIdFilter = null, userIdsFilter = null, compac
     }
   };
 
-  const addComment = async (postId) => {
-    const content = window.prompt('Escribe tu comentario:')?.trim();
-    if (!content) return;
+  const openComments = async (post) => {
+    setCommentPost(post);
+    setCommentRows([]);
+    setCommentProfiles({});
+    setCommentText('');
+    setCommentsLoading(true);
+    const { data, error } = await supabase
+      .from('post_comments')
+      .select('id,post_id,user_id,content,created_at')
+      .eq('post_id', post.id)
+      .order('created_at', { ascending: true });
+    if (!error) {
+      setCommentRows(data || []);
+      const ids = [...new Set((data || []).map((row) => row.user_id))];
+      if (ids.length) {
+        const { data: profiles } = await supabase.from('profiles').select('id,username,avatar_url').in('id', ids);
+        setCommentProfiles(Object.fromEntries((profiles || []).map((profile) => [profile.id, profile])));
+      } else {
+        setCommentProfiles({});
+      }
+    }
+    setCommentsLoading(false);
+  };
+
+  const addComment = async (event) => {
+    event?.preventDefault();
+    const content = commentText.trim();
+    if (!content || !commentPost) return;
     const { error: commentError } = await supabase.from('post_comments').insert({
-      post_id: postId,
+      post_id: commentPost.id,
       user_id: user.id,
       content: content.slice(0, 500),
     });
@@ -181,9 +212,12 @@ export function ActivityFeed({ userIdFilter = null, userIdsFilter = null, compac
       window.alert('No se pudo publicar el comentario. Verifica que la migración social esté aplicada.');
       return;
     }
+    setCommentRows((rows) => [...rows, { id: `local:${Date.now()}`, post_id: commentPost.id, user_id: user.id, content, created_at: new Date().toISOString() }]);
+    setCommentProfiles((profiles) => ({ ...profiles, [user.id]: { id: user.id, username: user.user_metadata?.username || 'Tú' } }));
+    setCommentText('');
     setSocialByPost((social) => ({
       ...social,
-      [postId]: { ...(social[postId] || { likes: 0, liked: false }), comments: (social[postId]?.comments || 0) + 1 },
+      [commentPost.id]: { ...(social[commentPost.id] || { likes: 0, liked: false }), comments: (social[commentPost.id]?.comments || 0) + 1 },
     }));
   };
 
@@ -213,7 +247,7 @@ export function ActivityFeed({ userIdFilter = null, userIdsFilter = null, compac
         {post.images.length > 0 && <PostImageCarousel images={post.images} cafeName={post.cafe?.nombre} />}
         <div className="activity-post-actions">
           <button type="button" className={social.liked ? 'is-active' : ''} onClick={() => toggleLike(post.id)} aria-label={social.liked ? 'Quitar me gusta' : 'Me gusta'}><Heart size={18} fill={social.liked ? 'currentColor' : 'none'} />{social.likes > 0 && <span>{social.likes}</span>}</button>
-          <button type="button" onClick={() => addComment(post.id)} aria-label="Comentar"><MessageCircle size={18} />{social.comments > 0 && <span>{social.comments}</span>}</button>
+          <button type="button" onClick={() => openComments(post)} aria-label="Comentar"><MessageCircle size={18} />{social.comments > 0 && <span>{social.comments}</span>}</button>
           <button type="button" onClick={() => sharePost(post)} aria-label="Compartir"><Send size={17} /></button>
         </div>
       </article>
@@ -234,6 +268,25 @@ export function ActivityFeed({ userIdFilter = null, userIdsFilter = null, compac
           </>
         ) : posts.map(renderPost))}
       </div>
+      {commentPost && (
+        <div className="comments-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setCommentPost(null); }}>
+          <section className="comments-sheet" role="dialog" aria-modal="true" aria-label="Comentarios">
+            <div className="comments-sheet-handle" />
+            <header><h2>Comentarios</h2><button type="button" onClick={() => setCommentPost(null)} aria-label="Cerrar comentarios"><X size={19} /></button></header>
+            <div className="comments-list">
+              {commentsLoading && <div className="comments-empty">Cargando comentarios…</div>}
+              {!commentsLoading && commentRows.length === 0 && <div className="comments-empty"><strong>Aún no hay comentarios</strong><span>Inicia la conversación.</span></div>}
+              {!commentsLoading && commentRows.map((comment) => {
+                const profile = commentProfiles[comment.user_id];
+                const avatar = profile?.avatar_url || fallbackAvatar(profile?.username || 'coffee-user');
+                return <article key={comment.id}><img src={avatar} alt="" /><div><strong>{comment.user_id === user.id ? 'Tú' : profile?.username || 'Coffee lover'}</strong><p>{comment.content}</p></div></article>;
+              })}
+            </div>
+            <div className="comments-reactions" aria-label="Reacciones rápidas"><button type="button" onClick={() => setCommentText((text) => `${text} ❤️`)}>❤️</button><button type="button" onClick={() => setCommentText((text) => `${text} 🔥`)}>🔥</button><button type="button" onClick={() => setCommentText((text) => `${text} ✨`)}>✨</button><button type="button" onClick={() => setCommentText((text) => `${text} 😍`)}>😍</button><button type="button" onClick={() => setCommentText((text) => `${text} 😂`)}>😂</button></div>
+            <form className="comments-composer" onSubmit={addComment}><img src={fallbackAvatar(user.user_metadata?.username || user.email)} alt="" /><input value={commentText} onChange={(event) => setCommentText(event.target.value)} placeholder="Escribe un comentario…" maxLength={500} autoFocus /><button type="submit" disabled={!commentText.trim()} aria-label="Publicar comentario"><Send size={18} /></button></form>
+          </section>
+        </div>
+      )}
     </>
   );
 }

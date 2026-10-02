@@ -88,7 +88,7 @@ create table if not exists public.user_cafes (
   review_text text not null default '',
   visited_on date,
   updated_at timestamptz not null default now(),
-  unique (user_id, cafe_id)
+  unique (user_id, cafe_id, visited_on)
 );
 
 alter table public.profiles enable row level security;
@@ -96,10 +96,11 @@ alter table public.cafes enable row level security;
 alter table public.user_cafes enable row level security;
 
 drop policy if exists "profiles_select_own" on public.profiles;
-create policy "profiles_select_own"
+drop policy if exists "profiles_select_authenticated" on public.profiles;
+create policy "profiles_select_authenticated"
 on public.profiles for select
 to authenticated
-using ((select auth.uid()) = id);
+using (true);
 
 drop policy if exists "profiles_insert_own" on public.profiles;
 create policy "profiles_insert_own"

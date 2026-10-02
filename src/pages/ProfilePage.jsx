@@ -658,63 +658,16 @@ function ProfilePage() {
 }
 
 function ProfileActivityPanel({ userId }) {
-  const [activeSection, setActiveSection] = useState('mine');
-  const [friendIds, setFriendIds] = useState([]);
-  const [friendsLoading, setFriendsLoading] = useState(true);
-
-  const loadFriendIds = useCallback(async () => {
-    setFriendsLoading(true);
-    const { data, error } = await supabase
-      .from('friendships')
-      .select('requester_id,addressee_id')
-      .eq('status', 'accepted');
-
-    if (error) {
-      setFriendIds([]);
-    } else {
-      setFriendIds([
-        ...new Set((data || []).map((row) => (
-          row.requester_id === userId ? row.addressee_id : row.requester_id
-        )).filter(Boolean)),
-      ]);
-    }
-    setFriendsLoading(false);
-  }, [userId]);
-
-  useEffect(() => {
-    const timer = window.setTimeout(loadFriendIds, 0);
-    return () => window.clearTimeout(timer);
-  }, [loadFriendIds]);
-
   return (
     <section className="profile-tab-panel profile-activity-panel">
-      <div className="activity-section-switcher" role="tablist" aria-label="Actividad del perfil">
-        <button type="button" className={activeSection === 'mine' ? 'is-active' : ''} onClick={() => setActiveSection('mine')} role="tab" aria-selected={activeSection === 'mine'}>
-          Mi actividad
-        </button>
-        <button type="button" className={activeSection === 'friends' ? 'is-active' : ''} onClick={() => setActiveSection('friends')} role="tab" aria-selected={activeSection === 'friends'}>
-          Amigos
-        </button>
-      </div>
-
-      {activeSection === 'mine' && <ActivityFeed userIdFilter={userId} compact />}
-      {activeSection === 'friends' && friendsLoading && (
-        <div className="activity-empty"><Coffee size={28} /><p>Cargando actividad de tus amigos…</p></div>
-      )}
-      {activeSection === 'friends' && !friendsLoading && friendIds.length === 0 && (
-        <div className="activity-empty"><Users size={30} /><p>Agrega amigos para ver aquí sus visitas, reseñas y publicaciones.</p></div>
-      )}
-      {activeSection === 'friends' && !friendsLoading && friendIds.length > 0 && (
-        <ActivityFeed
-          userIdsFilter={friendIds}
-          compact
-        />
-      )}
+      <div className="profile-activity-heading"><small>SOLO TÚ</small><h2>Mi actividad</h2><p>Aquí aparecen únicamente tus visitas, reseñas y publicaciones.</p></div>
+      <ActivityFeed userIdFilter={userId} compact />
     </section>
   );
 }
 
 function FriendsPanel({ userId }) {
+  const navigate = useNavigate();
   const [friendships, setFriendships] = useState([]);
   const [profiles, setProfiles] = useState(new Map());
   const [query, setQuery] = useState('');
@@ -786,11 +739,11 @@ function FriendsPanel({ userId }) {
       <form className="friends-search" onSubmit={searchUsers}><Search size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar por nombre de usuario" /><button type="submit">Buscar</button></form>
       {notice && <p className="friends-notice">{notice}</p>}
 
-      {incoming.length > 0 && <div className="friends-section"><h3>Solicitudes</h3>{incoming.map((row) => { const person = profiles.get(row.requester_id); return <article key={row.id}><FriendAvatar person={person} /><div><strong>{person?.username || 'Usuario'}</strong><small>Quiere agregarte</small></div><button onClick={() => acceptRequest(row.id)}>Aceptar</button><button className="is-secondary" onClick={() => removeFriendship(row.id)}>Quitar</button></article>; })}</div>}
+      {incoming.length > 0 && <div className="friends-section"><h3>Solicitudes</h3>{incoming.map((row) => { const person = profiles.get(row.requester_id); return <article key={row.id} className="friends-person-row" onClick={(event) => { if (!event.target.closest('button') && person?.id) navigate(`/profile/${person.id}`); }}><FriendAvatar person={person} /><div><strong>{person?.username || 'Usuario'}</strong><small>Quiere agregarte</small></div><button onClick={() => acceptRequest(row.id)}>Aceptar</button><button className="is-secondary" onClick={() => removeFriendship(row.id)}>Quitar</button></article>; })}</div>}
 
-      {results.length > 0 && <div className="friends-section"><h3>Resultados</h3>{results.map((person) => { const relationship = relationshipFor(person.id); const received = relationship?.status === 'pending' && relationship.addressee_id === userId; return <article key={person.id}><FriendAvatar person={person} /><div><strong>{person.username || 'Usuario'}</strong><small>{relationship?.status === 'accepted' ? 'Ya son amigos' : relationship ? 'Solicitud pendiente' : 'Coffee lover'}</small></div>{received ? <button onClick={() => acceptRequest(relationship.id)}>Aceptar</button> : <button disabled={Boolean(relationship)} onClick={() => sendRequest(person.id)}><UserPlus size={14} /> {relationship ? 'Enviada' : 'Agregar'}</button>}</article>; })}</div>}
+      {results.length > 0 && <div className="friends-section"><h3>Resultados</h3>{results.map((person) => { const relationship = relationshipFor(person.id); const received = relationship?.status === 'pending' && relationship.addressee_id === userId; return <article key={person.id} className="friends-person-row" onClick={(event) => { if (!event.target.closest('button')) navigate(`/profile/${person.id}`); }}><FriendAvatar person={person} /><div><strong>{person.username || 'Usuario'}</strong><small>{relationship?.status === 'accepted' ? 'Ya son amigos' : relationship ? 'Solicitud pendiente' : 'Coffee lover'}</small></div>{received ? <button onClick={() => acceptRequest(relationship.id)}>Aceptar</button> : <button disabled={Boolean(relationship)} onClick={() => sendRequest(person.id)}><UserPlus size={14} /> {relationship ? 'Enviada' : 'Agregar'}</button>}</article>; })}</div>}
 
-      <div className="friends-section"><h3>Mis amigos</h3>{loading && <p className="friends-empty">Cargando…</p>}{!loading && accepted.length === 0 && <div className="friends-empty"><Users size={25} /><p>Busca usuarios para empezar tu círculo cafetero.</p></div>}{accepted.map((row) => { const person = profiles.get(getOtherId(row)); return <article key={row.id}><FriendAvatar person={person} /><div><strong>{person?.username || 'Usuario'}</strong><small>Amigo</small></div><button className="is-secondary" onClick={() => removeFriendship(row.id)}>Quitar</button></article>; })}</div>
+      <div className="friends-section"><h3>Mis amigos</h3>{loading && <p className="friends-empty">Cargando…</p>}{!loading && accepted.length === 0 && <div className="friends-empty"><Users size={25} /><p>Busca usuarios para empezar tu círculo cafetero.</p></div>}{accepted.map((row) => { const person = profiles.get(getOtherId(row)); return <article key={row.id} className="friends-person-row" onClick={(event) => { if (!event.target.closest('button') && person?.id) navigate(`/profile/${person.id}`); }}><FriendAvatar person={person} /><div><strong>{person?.username || 'Usuario'}</strong><small>Amigo · Ver perfil</small></div><button className="is-secondary" onClick={() => removeFriendship(row.id)}>Quitar</button></article>; })}</div>
     </section>
   );
 }

@@ -12,6 +12,7 @@ export default function PublicProfilePage({ profileId }) {
   const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('activity');
 
   useEffect(() => {
     let active = true;
@@ -32,8 +33,12 @@ export default function PublicProfilePage({ profileId }) {
           <h1>{profile?.username || 'Coffee lover'}</h1>
         </header>
         <section className="public-profile-activity">
-          <h2>Publicaciones</h2>
-          <ActivityFeed userIdFilter={profileId} compact />
+          <nav className="public-profile-tabs" aria-label="Secciones del perfil">
+            <button type="button" className={activeTab === 'activity' ? 'is-active' : ''} onClick={() => setActiveTab('activity')}>Actividad</button>
+            <button type="button" className={activeTab === 'reviews' ? 'is-active' : ''} onClick={() => setActiveTab('reviews')}>Reviews</button>
+          </nav>
+          <h2>{activeTab === 'reviews' ? 'Reviews' : 'Actividad'}</h2>
+          <ActivityFeed userIdFilter={profileId} kindFilter={activeTab === 'reviews' ? 'review' : null} compact />
         </section>
       </div>
       <BottomNav />

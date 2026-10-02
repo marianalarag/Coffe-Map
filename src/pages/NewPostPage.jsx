@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Heart, ImagePlus, Link2, MapPin, Star, X } from 'lucide-react';
+import { CalendarDays, Eye, Heart, ImagePlus, Link2, MapPin, RefreshCw, Star, X } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import BottomNav from '../components/BottomNav';
 import HalfStarRating from '../components/HalfStarRating';
@@ -10,6 +10,11 @@ import { supabase } from '../supabase';
 const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
 const NEW_POST_DRAFT_KEY = 'coffee-map:new-post-draft';
 const getAvatar = (user, profile) => profile?.avatar_url || `https://api.dicebear.com/7.x/miniavs/svg?seed=${encodeURIComponent(user?.email || 'coffee-user')}`;
+const getLocalDate = () => {
+  const today = new Date();
+  const offset = today.getTimezoneOffset() * 60000;
+  return new Date(today.getTime() - offset).toISOString().slice(0, 10);
+};
 
 function NewPostPage() {
   const navigate = useNavigate();
@@ -19,11 +24,13 @@ function NewPostPage() {
   const draftHydratedRef = useRef(false);
   const draftRef = useRef(null);
   const { user, userProfile } = useAuth();
-  const { cafes, interactionsByCafeId, interactionsLoaded, loadCafes, saveCafeInteraction } = useCoffeeData();
+  const { cafes, interactions, interactionsByCafeId, interactionsLoaded, loadCafes, saveCafeInteraction } = useCoffeeData();
   const requestedCafeId = new URLSearchParams(location.search).get('cafe') || '';
   const [text, setText] = useState('');
   const [cafeId, setCafeId] = useState(requestedCafeId);
   const [rating, setRating] = useState(0);
+  const [visitMode, setVisitMode] = useState('first');
+  const [visitedOn, setVisitedOn] = useState(getLocalDate);
   const [isFavorite, setIsFavorite] = useState(false);
   const [photos, setPhotos] = useState([]);
   const [photoPreviews, setPhotoPreviews] = useState([]);
@@ -48,6 +55,8 @@ function NewPostPage() {
         setCafeId(requestedCafeId || savedDraft.cafeId || '');
         setRating(Number(savedDraft.rating) || 0);
         setIsFavorite(Boolean(savedDraft.isFavorite));
+        setVisitMode(savedDraft.visitMode || 'first');
+        setVisitedOn(savedDraft.visitedOn || getLocalDate());
       } else if (requestedCafeId) {
         setCafeId(requestedCafeId);
       }
@@ -72,8 +81,11 @@ function NewPostPage() {
     setText(currentInteraction?.review_text || '');
     setRating(Number(currentInteraction?.rating) || 0);
     setIsFavorite(Boolean(currentInteraction?.is_favorite));
+    const hasPreviousVisit = interactions.some((item) => item.cafe_id === cafeId && (item.is_visited || item.review_text?.trim()));
+    setVisitMode(hasPreviousVisit ? 'returning' : 'first');
+    setVisitedOn(currentInteraction?.visited_on || getLocalDate());
     hydratedComposerRef.current = hydrationKey;
-  }, [cafeId, interactionsByCafeId, interactionsLoaded, location.key, location.pathname]);
+  }, [cafeId, interactions, interactionsByCafeId, interactionsLoaded, location.key, location.pathname]);
 
   useEffect(() => {
     if (!user?.id || !draftHydratedRef.current) return;
@@ -84,11 +96,11 @@ function NewPostPage() {
       setDraftSaved(false);
       return;
     }
-    const draft = { text, cafeId, rating, isFavorite, savedAt: Date.now() };
+    const draft = { text, cafeId, rating, isFavorite, visitMode, visitedOn, savedAt: Date.now() };
     draftRef.current = draft;
     window.localStorage.setItem(storageKey, JSON.stringify(draft));
     setDraftSaved(true);
-  }, [cafeId, isFavorite, photos.length, rating, text, user?.id]);
+  }, [cafeId, isFavorite, photos.length, rating, text, user?.id, visitMode, visitedOn]);
 
   const choosePhotos = (event) => {
     const files = [...(event.target.files || [])].slice(0, 6);
@@ -133,7 +145,8 @@ function NewPostPage() {
           is_favorite: isFavorite || currentInteraction?.is_favorite || false,
           rating: rating || null,
           review_text: content,
-        });
+          visited_on: visitedOn || getLocalDate(),
+        }, { createNewVisit: visitMode === 'returning' });
       }
 
       const postPayload = {
@@ -142,7 +155,7 @@ function NewPostPage() {
         content,
         kind: cafeId ? 'review' : 'post',
         rating: cafeId && rating ? rating : null,
-        visited_on: null,
+        visited_on: interaction?.visited_on || visitedOn || null,
         interaction_id: interaction?.id || null,
         status: 'published',
         updated_at: new Date().toISOString(),
@@ -216,6 +229,8 @@ function NewPostPage() {
       setText('');
       setCafeId('');
       setRating(0);
+      setVisitMode('first');
+      setVisitedOn(getLocalDate());
       setIsFavorite(false);
       clearPhotos();
       draftRef.current = null;
@@ -247,6 +262,22 @@ function NewPostPage() {
             <div className="new-post-review-options">
               <label className="new-post-rating"><Star size={17} /><span>Calificación</span><HalfStarRating value={rating} onChange={setRating} size={23} /></label>
               <label className="new-post-favorite"><input type="checkbox" checked={isFavorite} onChange={(event) => setIsFavorite(event.target.checked)} /><Heart size={18} fill={isFavorite ? 'currentColor' : 'none'} /> Agregar a favoritos</label>
+            </div>
+          )}
+          {selectedCafe && (
+            <div className="new-post-visit-picker" aria-label="Tipo de visita">
+              <p><CalendarDays size={15} /> ¿Qué tipo de visita es?</p>
+              <div className="new-post-visit-options">
+                <button type="button" className={visitMode === 'first' ? 'is-active' : ''} onClick={() => setVisitMode('first')}>
+                  <Eye size={22} />
+                  <span><strong>Primera vez</strong><small>Mi primera visita a este lugar</small></span>
+                </button>
+                <button type="button" className={visitMode === 'returning' ? 'is-active' : ''} onClick={() => setVisitMode('returning')}>
+                  <RefreshCw size={22} />
+                  <span><strong>Ya fui antes</strong><small>Nueva reseña de otra visita</small></span>
+                </button>
+              </div>
+              <label className="new-post-visit-date"><span>Fecha de visita</span><input type="date" value={visitedOn} onChange={(event) => setVisitedOn(event.target.value)} /></label>
             </div>
           )}
           <div className="new-post-toolbar"><button type="button" aria-label="Elegir imágenes de la galería" onClick={() => fileInputRef.current?.click()}><ImagePlus size={19} /></button><MapPin size={18} aria-hidden="true" /><Link2 size={18} aria-hidden="true" /><span>{text.length}/1000</span></div>

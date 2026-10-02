@@ -292,10 +292,13 @@ export function CoffeeDataProvider({ children }) {
     ]);
   }, [loadCafes, refreshUserInteractions]);
 
-  const saveCafeInteraction = useCallback(async (cafeId, updates) => {
+  const saveCafeInteraction = useCallback(async (cafeId, updates, options = {}) => {
     if (!userId || !cafeId) return null;
 
-    const currentInteraction = interactions.find((interaction) => interaction.cafe_id === cafeId);
+    const currentInteraction = interactions
+      .filter((interaction) => interaction.cafe_id === cafeId)
+      .sort((first, second) => String(second.updated_at || '').localeCompare(String(first.updated_at || '')))[0];
+    const createNewVisit = Boolean(options.createNewVisit);
     const allowedFields = ['is_visited', 'is_favorite', 'in_waitlist', 'rating', 'review_text', 'visited_on'];
     const patch = Object.fromEntries(
       allowedFields
@@ -309,7 +312,7 @@ export function CoffeeDataProvider({ children }) {
       updated_at: new Date().toISOString(),
     };
     const optimisticInteraction = {
-      id: currentInteraction?.id || `optimistic:${cafeId}`,
+      id: createNewVisit ? `optimistic:${cafeId}:${Date.now()}` : (currentInteraction?.id || `optimistic:${cafeId}`),
       is_visited: false,
       is_favorite: false,
       in_waitlist: false,
@@ -321,21 +324,25 @@ export function CoffeeDataProvider({ children }) {
     };
 
     setInteractions((current) => {
-      const exists = current.some((interaction) => interaction.cafe_id === cafeId);
-      return exists
-        ? current.map((interaction) => (interaction.cafe_id === cafeId ? optimisticInteraction : interaction))
-        : [...current, optimisticInteraction];
+      if (createNewVisit) return [optimisticInteraction, ...current];
+      const interactionIndex = current.findIndex((item) => item.id === currentInteraction?.id);
+      if (interactionIndex >= 0) {
+        return current.map((item, index) => (index === interactionIndex ? optimisticInteraction : item));
+      }
+      return [optimisticInteraction, ...current];
     });
 
-    const { data, error } = await supabase
-      .from('user_cafes')
-      .upsert([payload], { onConflict: 'user_id,cafe_id' })
+    const interactionRequest = createNewVisit || !currentInteraction?.id
+      ? supabase.from('user_cafes').insert([payload])
+      : supabase.from('user_cafes').update(payload).eq('id', currentInteraction.id);
+    const { data, error } = await interactionRequest
       .select(INTERACTION_WITH_CAFE_COLUMNS)
       .single();
     if (error) {
-      setInteractions((current) => currentInteraction
-        ? current.map((interaction) => (interaction.cafe_id === cafeId ? currentInteraction : interaction))
-        : current.filter((interaction) => interaction.cafe_id !== cafeId));
+      setInteractions((current) => {
+        if (createNewVisit || !currentInteraction?.id) return current.filter((item) => item.id !== optimisticInteraction.id);
+        return current.map((item) => item.id === optimisticInteraction.id ? currentInteraction : item);
+      });
       throw error;
     }
 
@@ -360,11 +367,10 @@ export function CoffeeDataProvider({ children }) {
     }
 
     setInteractions((current) => {
-      const exists = current.some((interaction) => interaction.cafe_id === cafeId);
-      if (exists) {
-        return current.map((interaction) => (interaction.cafe_id === cafeId ? normalizedInteraction : interaction));
-      }
-      return [...current, normalizedInteraction];
+      const exists = current.some((interaction) => interaction.id === normalizedInteraction.id);
+      return exists
+        ? current.map((interaction) => (interaction.id === normalizedInteraction.id ? normalizedInteraction : interaction))
+        : [normalizedInteraction, ...current];
     });
     setInteractionsLoaded(true);
 
@@ -393,7 +399,11 @@ export function CoffeeDataProvider({ children }) {
   }, [cafesState.cafes]);
 
   const interactionsByCafeId = useMemo(() => {
-    return new Map(interactions.map((interaction) => [interaction.cafe_id, interaction]));
+    const latestByCafe = new Map();
+    interactions.forEach((interaction) => {
+      if (!latestByCafe.has(interaction.cafe_id)) latestByCafe.set(interaction.cafe_id, interaction);
+    });
+    return latestByCafe;
   }, [interactions]);
 
   const value = useMemo(() => ({

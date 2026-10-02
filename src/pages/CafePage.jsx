@@ -24,6 +24,7 @@ function CafePage({ cafeId }) {
     cafesLoaded,
     cafesLoading,
     loadCafes,
+    interactions,
     interactionsByCafeId,
     interactionsLoading,
     saveCafeInteraction,
@@ -31,6 +32,9 @@ function CafePage({ cafeId }) {
 
   const cafe = cafeById.get(id) || null;
   const interaction = interactionsByCafeId.get(id);
+  const personalReviews = interactions
+    .filter((item) => item.cafe_id === id && item.review_text?.trim())
+    .sort((first, second) => String(second.visited_on || second.updated_at || '').localeCompare(String(first.visited_on || first.updated_at || '')));
 
   const [isVisited, setIsVisited] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
@@ -262,32 +266,24 @@ function CafePage({ cafeId }) {
 
         <div className="bg-[#27201A] rounded-4xl p-6 shadow-xl w-full border border-white/5 mb-6">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="font-bold text-[#E6DAC1] text-lg">Mi reseña</h3>
+            <h3 className="font-bold text-[#E6DAC1] text-lg">Mis reseñas</h3>
             <button onClick={openReviewComposer} className="text-[#E6DAC1]/50 hover:text-[#E6DAC1]" aria-label="Editar reseña">
               <Edit3 size={18} />
             </button>
           </div>
 
-          <div className="flex flex-col">
-            {rating > 0 ? (
-              <div className="flex gap-1 mb-3 justify-center">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <Star
-                    key={star}
-                    size={20}
-                    className={star <= rating ? 'text-yellow-400 fill-yellow-400' : 'text-[#372821] fill-[#372821]'}
-                  />
-                ))}
-              </div>
-            ) : (
-              <p className="text-center text-[#E6DAC1]/30 text-sm mb-4">Aún no has calificado este lugar</p>
-            )}
-
-            {reviewText ? (
-              <p className="text-[#E6DAC1] text-sm bg-[#1D1A15] p-4 rounded-2xl border border-white/5 italic text-center">
-                “{reviewText}”
-              </p>
-            ) : (
+          <div className="flex flex-col gap-3">
+            {personalReviews.length > 0 ? personalReviews.map((review) => (
+              <article key={review.id} className="cafe-personal-review">
+                <div className="cafe-personal-review-meta">
+                  <div className="flex gap-1">
+                    {[1, 2, 3, 4, 5].map((star) => <Star key={star} size={16} className={star <= Number(review.rating || 0) ? 'text-yellow-400 fill-yellow-400' : 'text-[#372821] fill-[#372821]'} />)}
+                  </div>
+                  <span>{review.visited_on ? new Date(`${review.visited_on}T12:00:00`).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Visita sin fecha'}</span>
+                </div>
+                <p>“{review.review_text}”</p>
+              </article>
+            )) : (
               <button onClick={openReviewComposer} className="w-full py-4 border-2 border-dashed border-[#372821] hover:border-[#372821]/80 rounded-2xl text-[#E6DAC1]/55 font-bold text-sm transition-colors">
                 Escribir reseña...
               </button>
