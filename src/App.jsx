@@ -578,8 +578,10 @@ function App() {
     if (!target) return;
 
     const cafe = cafes.find((currentCafe) => currentCafe.id === target.id);
-    const lat = Number(cafe?.lat ?? target.lat);
-    const lng = Number(cafe?.lng ?? target.lng);
+    // The target is calculated from the address/link at the moment the user
+    // opens the map. Prefer it over a stale cached cafe row.
+    const lat = Number(target.lat ?? cafe?.lat);
+    const lng = Number(target.lng ?? cafe?.lng);
 
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
 

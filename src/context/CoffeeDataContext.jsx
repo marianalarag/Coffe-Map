@@ -3,7 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { supabase } from '../supabase';
 import { useAuth } from './AuthContext';
 import { areDuplicateCafes, deduplicateCafes, repairCafeText } from '../utils/cafeDeduplication';
-import { getCafeCoordinates } from '../utils/cafeLocation';
+import { geocodeCafeAddress, getCafeCoordinates } from '../utils/cafeLocation';
 
 const CoffeeDataContext = createContext(null);
 
@@ -16,6 +16,8 @@ const INTERACTION_WITH_CAFE_COLUMNS = `${INTERACTION_COLUMNS},cafe:cafes(${CAFE_
 // Change this version whenever a validated source scan is published so the next
 // administrator session synchronizes only the newly discovered, unique cafes.
 const ADMIN_SCAN_SYNC_KEY = 'coffee-map:admin-scan:2026-09-04-v2';
+const COMMUNITY_LOCATION_CACHE_KEY = 'coffee-map:community-location:v1:';
+const MERIDA_BOUNDS = { south: 20.86, west: -89.75, north: 21.08, east: -89.52 };
 
 const withRequestTimeout = (request, timeoutMs, message) => {
   let timeoutId;
@@ -92,6 +94,61 @@ const writeCachedCafes = (cafes) => {
   }
 };
 
+const isMeridaCoordinate = ({ lat, lng }) => (
+  lat >= MERIDA_BOUNDS.south
+  && lat <= MERIDA_BOUNDS.north
+  && lng >= MERIDA_BOUNDS.west
+  && lng <= MERIDA_BOUNDS.east
+);
+
+const readCommunityLocation = (address) => {
+  try {
+    const value = window.sessionStorage.getItem(`${COMMUNITY_LOCATION_CACHE_KEY}${address}`);
+    const parsed = value ? JSON.parse(value) : null;
+    return parsed && Number.isFinite(Number(parsed.lat)) && Number.isFinite(Number(parsed.lng))
+      ? { lat: Number(parsed.lat), lng: Number(parsed.lng), neighborhood: parsed.neighborhood || null }
+      : null;
+  } catch {
+    return null;
+  }
+};
+
+const writeCommunityLocation = (address, location) => {
+  try {
+    window.sessionStorage.setItem(`${COMMUNITY_LOCATION_CACHE_KEY}${address}`, JSON.stringify(location));
+  } catch {
+    // Location repair is best effort; the saved cafe remains usable without it.
+  }
+};
+
+const repairCommunityLocations = async (cafes) => {
+  const candidates = cafes.filter((cafe) => cafe.source === 'community' && cafe.address?.trim());
+  if (!candidates.length) return cafes;
+
+  const repaired = new Map();
+  for (const cafe of candidates) {
+    const address = cafe.address.trim();
+    let location = readCommunityLocation(address);
+    if (!location) {
+      try {
+        location = await geocodeCafeAddress(address);
+        if (location && isMeridaCoordinate(location)) writeCommunityLocation(address, location);
+      } catch {
+        location = null;
+      }
+    }
+    if (location && isMeridaCoordinate(location)) repaired.set(cafe.id, location);
+  }
+
+  if (!repaired.size) return cafes;
+  return cafes.map((cafe) => {
+    const location = repaired.get(cafe.id);
+    return location
+      ? normalizeCafe({ ...cafe, lat: location.lat, lng: location.lng, neighborhood: cafe.neighborhood || location.neighborhood })
+      : cafe;
+  });
+};
+
 export function CoffeeDataProvider({ children }) {
   const { user, userProfile } = useAuth();
   const userId = user?.id;
@@ -152,6 +209,12 @@ export function CoffeeDataProvider({ children }) {
           cafesError: '',
         });
         writeCachedCafes(normalizedCafes);
+        repairCommunityLocations(normalizedCafes).then((repairedCafes) => {
+          if (repairedCafes === normalizedCafes) return;
+          cafesRef.current = repairedCafes;
+          setCafesState((current) => ({ ...current, cafes: repairedCafes }));
+          writeCachedCafes(repairedCafes);
+        }).catch(() => {});
         return normalizedCafes;
       } catch (error) {
         console.warn('Supabase no respondió a tiempo; usando el respaldo local de cafeterías.', error);

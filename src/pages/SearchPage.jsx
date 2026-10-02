@@ -6,7 +6,7 @@ import { useCoffeeData } from '../context/CoffeeDataContext';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../supabase';
 import { areDuplicateCafes, normalizeCafeName } from '../utils/cafeDeduplication';
-import { extractGoogleMapsCoordinates } from '../utils/cafeLocation';
+import { extractGoogleMapsCoordinates, geocodeCafeAddress } from '../utils/cafeLocation';
 
 const calculateDistance = (lat1, lon1, lat2, lon2) => {
   const radiusKm = 6371;
@@ -20,29 +20,6 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
       Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return radiusKm * c;
-};
-
-const geocodeCafeAddress = async (address) => {
-  const params = new URLSearchParams({
-    q: `${address}, Mérida, Yucatán, México`,
-    format: 'jsonv2',
-    addressdetails: '1',
-    limit: '1',
-    countrycodes: 'mx',
-  });
-  const response = await fetch(`https://nominatim.openstreetmap.org/search?${params}`);
-  if (!response.ok) throw new Error('No se pudo geocodificar la dirección.');
-  const [result] = await response.json();
-  if (!result || !Number.isFinite(Number(result.lat)) || !Number.isFinite(Number(result.lon))) return null;
-  return {
-    lat: Number(result.lat),
-    lng: Number(result.lon),
-    neighborhood: result.address?.suburb
-      || result.address?.neighbourhood
-      || result.address?.quarter
-      || result.address?.city_district
-      || null,
-  };
 };
 
 const getCafeStatus = (interaction) => {
@@ -182,7 +159,7 @@ function SearchPage() {
     let lat = mapCoordinates?.lat ?? Number(newCafe.lat);
     let lng = mapCoordinates?.lng ?? Number(newCafe.lng);
     let resolvedLocation = null;
-    if (!mapCoordinates && newCafe.address.trim()) {
+    if (newCafe.address.trim()) {
       setAddingCafe(true);
       setAddCafeFeedback('Ubicando la dirección exacta…');
       try {

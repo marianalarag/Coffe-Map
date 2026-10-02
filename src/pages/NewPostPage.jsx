@@ -31,6 +31,7 @@ function NewPostPage() {
   const hydratedComposerRef = useRef('');
   const draftHydratedRef = useRef(false);
   const draftRef = useRef(null);
+  const visitModeTouchedRef = useRef(false);
   const composerRouteRef = useRef(`${location.pathname}:${location.search}`);
   const { user, userProfile } = useAuth();
   const { cafes, interactions, interactionsByCafeId, interactionsLoaded, loadCafes, saveCafeInteraction } = useCoffeeData();
@@ -93,6 +94,7 @@ function NewPostPage() {
     draftHydratedRef.current = false;
     draftRef.current = null;
     hydratedComposerRef.current = '';
+    visitModeTouchedRef.current = false;
     setText('');
     setCafeId(requestedCafeId);
     setRating(0);
@@ -111,7 +113,10 @@ function NewPostPage() {
 
     const currentInteraction = interactionsByCafeId.get(cafeId);
     const hasPreviousVisit = interactions.some((item) => item.cafe_id === cafeId && (item.is_visited || item.review_text?.trim()));
-    setVisitMode(hasPreviousVisit ? 'returning' : 'first');
+    const draftHasVisitMode = Object.prototype.hasOwnProperty.call(draftRef.current || {}, 'visitMode');
+    if (!visitModeTouchedRef.current && !draftHasVisitMode) {
+      setVisitMode(hasPreviousVisit ? 'returning' : 'first');
+    }
     hydratedComposerRef.current = hydrationKey;
     if (draftRef.current?.text?.trim() || draftRef.current?.cafeId) return;
     setText(currentInteraction?.review_text || '');
@@ -128,11 +133,11 @@ function NewPostPage() {
       setDraftSaved(false);
       return;
     }
-    const draft = { text, cafeId, rating, isFavorite, savedAt: Date.now() };
+    const draft = { text, cafeId, rating, isFavorite, visitMode, savedAt: Date.now() };
     draftRef.current = draft;
     window.localStorage.setItem(storageKey, JSON.stringify(draft));
     setDraftSaved(true);
-  }, [cafeId, draftMode, isFavorite, photos.length, rating, text, user?.id]);
+  }, [cafeId, draftMode, isFavorite, photos.length, rating, text, user?.id, visitMode]);
 
   const storedDraft = readStoredDraft(user?.id);
   const storedDraftCafe = storedDraft?.cafeId ? cafes.find((cafe) => cafe.id === storedDraft.cafeId) : null;
@@ -148,6 +153,7 @@ function NewPostPage() {
       cafeId,
       rating,
       isFavorite,
+      visitMode,
       savedAt: Date.now(),
     }));
     setDraftSaved(true);
@@ -192,6 +198,11 @@ function NewPostPage() {
   const deleteStoredDraft = () => {
     window.localStorage.removeItem(`${NEW_POST_DRAFT_KEY}:${user?.id}`);
     setDraftSaved(false);
+  };
+
+  const toggleVisitMode = () => {
+    visitModeTouchedRef.current = true;
+    setVisitMode((current) => current === 'returning' ? 'first' : 'returning');
   };
 
   const choosePhotos = (event) => {
@@ -356,13 +367,16 @@ function NewPostPage() {
             </div>
           )}
           {selectedCafe && (
-            <div className="new-post-visit-picker" aria-label="Tipo de visita">
-              <p><Eye size={15} /> Visita registrada automáticamente</p>
-              <div className="new-post-visit-status">
-                {visitMode === 'returning' ? <RefreshCw size={22} /> : <Eye size={22} />}
-                <span><strong>{visitMode === 'returning' ? 'Ya fuiste antes' : 'Primera visita'}</strong><small>La fecha se registra al publicar esta reseña.</small></span>
-              </div>
-            </div>
+            <button
+              type="button"
+              className={`new-post-visit-button ${visitMode === 'returning' ? 'is-returning' : 'is-first'}`}
+              onClick={toggleVisitMode}
+              aria-label="Cambiar tipo de visita"
+              aria-pressed={visitMode === 'returning'}
+            >
+              {visitMode === 'returning' ? <RefreshCw size={22} /> : <Eye size={22} />}
+              <span><strong>{visitMode === 'returning' ? 'Ya fuiste antes' : 'Primera visita'}</strong><small>Toca para cambiar este estado antes de publicar.</small></span>
+            </button>
           )}
           <div className="new-post-toolbar"><button type="button" aria-label="Elegir imágenes de la galería" onClick={() => fileInputRef.current?.click()}><ImagePlus size={19} /></button><MapPin size={18} aria-hidden="true" /><Link2 size={18} aria-hidden="true" /><span>{text.length}/1000</span></div>
           <input ref={fileInputRef} hidden type="file" accept="image/*" multiple onChange={choosePhotos} />
