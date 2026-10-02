@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Eye, Heart, ImagePlus, Link2, MapPin, RefreshCw, Star, X } from 'lucide-react';
+import { Eye, FileText, Heart, ImagePlus, Link2, MapPin, RefreshCw, Star, Trash2, X } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import BottomNav from '../components/BottomNav';
 import HalfStarRating from '../components/HalfStarRating';
@@ -10,6 +10,14 @@ import { supabase } from '../supabase';
 const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
 const NEW_POST_DRAFT_KEY = 'coffee-map:new-post-draft';
 const getAvatar = (user, profile) => profile?.avatar_url || `https://api.dicebear.com/7.x/miniavs/svg?seed=${encodeURIComponent(user?.email || 'coffee-user')}`;
+const readStoredDraft = (userId) => {
+  if (!userId || typeof window === 'undefined') return null;
+  try {
+    return JSON.parse(window.localStorage.getItem(`${NEW_POST_DRAFT_KEY}:${userId}`) || 'null');
+  } catch {
+    return null;
+  }
+};
 const getLocalDate = () => {
   const today = new Date();
   const offset = today.getTimezoneOffset() * 60000;
@@ -40,6 +48,8 @@ function NewPostPage() {
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState({ type: '', message: '' });
   const [draftSaved, setDraftSaved] = useState(false);
+  const [showCloseDialog, setShowCloseDialog] = useState(false);
+  const [showDraftsPanel, setShowDraftsPanel] = useState(false);
   const avatar = useMemo(() => getAvatar(user, userProfile), [user, userProfile]);
   const username = userProfile?.username || user?.email?.split('@')[0] || 'coffee lover';
   const selectedCafe = useMemo(() => (
@@ -55,6 +65,7 @@ function NewPostPage() {
         : null;
       if (savedDraft) {
         draftRef.current = savedDraft;
+        setDraftSaved(true);
         setText(savedDraft.text || '');
         setCafeId(requestedCafeId || savedDraft.cafeId || '');
         setRating(Number(savedDraft.rating) || 0);
@@ -123,6 +134,10 @@ function NewPostPage() {
     setDraftSaved(true);
   }, [cafeId, draftMode, isFavorite, photos.length, rating, text, user?.id]);
 
+  const storedDraft = readStoredDraft(user?.id);
+  const storedDraftCafe = storedDraft?.cafeId ? cafes.find((cafe) => cafe.id === storedDraft.cafeId) : null;
+  const hasComposerContent = Boolean(text.trim() || cafeId || rating || isFavorite || photos.length);
+
   const saveCurrentDraft = () => {
     if (!user?.id) return;
     const storageKey = `${NEW_POST_DRAFT_KEY}:${user.id}`;
@@ -135,11 +150,48 @@ function NewPostPage() {
       isFavorite,
       savedAt: Date.now(),
     }));
+    setDraftSaved(true);
   };
 
-  const closeComposer = () => {
+  const leaveComposer = () => {
+    setShowCloseDialog(false);
+    navigate(-1);
+  };
+
+  const requestCloseComposer = () => {
+    if (!hasComposerContent) {
+      leaveComposer();
+      return;
+    }
+    setShowCloseDialog(true);
+  };
+
+  const saveAndCloseComposer = () => {
     saveCurrentDraft();
-    navigate('/profile?tab=drafts');
+    leaveComposer();
+  };
+
+  const discardAndCloseComposer = () => {
+    if (draftMode || hasComposerContent) {
+      window.localStorage.removeItem(`${NEW_POST_DRAFT_KEY}:${user?.id}`);
+      setDraftSaved(false);
+    }
+    leaveComposer();
+  };
+
+  const openStoredDraft = () => {
+    setShowDraftsPanel(false);
+    navigate('/new-post?draft=1');
+  };
+
+  const startNewPost = () => {
+    setShowDraftsPanel(false);
+    navigate('/new-post?new=1');
+  };
+
+  const deleteStoredDraft = () => {
+    window.localStorage.removeItem(`${NEW_POST_DRAFT_KEY}:${user?.id}`);
+    setDraftSaved(false);
   };
 
   const choosePhotos = (event) => {
@@ -288,10 +340,10 @@ function NewPostPage() {
   return (
     <main className="social-page new-post-page">
       <div className="social-shell new-post-shell">
-        <header className="social-topbar"><button type="button" aria-label="Cerrar" onClick={closeComposer}><X size={19} /></button><span>Nueva publicación</span><button type="button" className="social-post-button" disabled={(!text.trim() && photos.length === 0) || submitting} onClick={publishPost}>{submitting ? 'Subiendo…' : 'Publicar'}</button></header>
+        <header className="social-topbar"><button type="button" aria-label="Cerrar" onClick={requestCloseComposer}><X size={19} /></button><button type="button" className="new-post-drafts-link" onClick={() => setShowDraftsPanel(true)}><FileText size={15} /> Borradores</button><button type="button" className="social-post-button" disabled={(!text.trim() && photos.length === 0) || submitting} onClick={publishPost}>{submitting ? 'Subiendo…' : 'Publicar'}</button></header>
         {feedback.message && <p className={`post-feedback post-feedback-${feedback.type}`}>{feedback.message}</p>}
         <section className="new-post-composer">
-          <div className="new-post-actions"><button type="button" onClick={closeComposer}>Cerrar y guardar</button><span>{draftSaved ? 'Borrador guardado' : 'Comunidad Mérida'}</span></div>
+          <div className="new-post-actions"><button type="button" onClick={requestCloseComposer}>Cerrar</button><span>{draftSaved ? 'Borrador guardado' : 'Comunidad Mérida'}</span></div>
           <div className="new-post-author"><img src={avatar} alt="" /><strong>{username}</strong></div>
           <textarea value={text} onChange={(event) => setText(event.target.value)} placeholder="¿Qué cafetería visitaste hoy?" maxLength={1000} autoFocus />
           {photoPreviews.length > 0 && <div className="new-post-photo-preview new-post-photo-gallery">{photoPreviews.map((preview, index) => <img src={preview} alt={`Vista previa ${index + 1}`} key={preview} />)}<button type="button" onClick={clearPhotos} aria-label="Quitar fotos"><X size={16} /></button></div>}
@@ -315,6 +367,33 @@ function NewPostPage() {
           <div className="new-post-toolbar"><button type="button" aria-label="Elegir imágenes de la galería" onClick={() => fileInputRef.current?.click()}><ImagePlus size={19} /></button><MapPin size={18} aria-hidden="true" /><Link2 size={18} aria-hidden="true" /><span>{text.length}/1000</span></div>
           <input ref={fileInputRef} hidden type="file" accept="image/*" multiple onChange={choosePhotos} />
         </section>
+        {showCloseDialog && (
+          <div className="post-close-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowCloseDialog(false); }}>
+            <section className="post-close-sheet" role="dialog" aria-modal="true" aria-labelledby="post-close-title">
+              <div className="post-close-handle" />
+              <h2 id="post-close-title">¿Qué quieres hacer con tu publicación?</h2>
+              <button type="button" className="post-close-save" onClick={saveAndCloseComposer}>Guardar en borradores</button>
+              <button type="button" className="post-close-discard" onClick={discardAndCloseComposer}>Descartar</button>
+              <button type="button" className="post-close-continue" onClick={() => setShowCloseDialog(false)}>Seguir editando</button>
+            </section>
+          </div>
+        )}
+        {showDraftsPanel && (
+          <div className="post-drafts-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowDraftsPanel(false); }}>
+            <section className="post-drafts-sheet" role="dialog" aria-modal="true" aria-labelledby="post-drafts-title">
+              <header><div><small>GUARDADOS</small><h2 id="post-drafts-title">Borradores</h2></div><button type="button" onClick={() => setShowDraftsPanel(false)} aria-label="Cerrar borradores"><X size={18} /></button></header>
+              {storedDraft ? (
+                <article className="post-draft-row">
+                  <div className="post-draft-icon"><FileText size={20} /></div>
+                  <div><strong>{storedDraftCafe?.nombre || 'Nueva publicación'}</strong><p>{storedDraft.text?.trim() || 'Publicación sin texto todavía.'}</p><small>{storedDraft.savedAt ? new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(storedDraft.savedAt)) : 'Guardado recientemente'}</small></div>
+                  <button type="button" className="post-draft-delete" onClick={deleteStoredDraft} aria-label="Eliminar borrador"><Trash2 size={15} /></button>
+                  <button type="button" className="post-draft-open" onClick={openStoredDraft}>Editar</button>
+                </article>
+              ) : <div className="post-drafts-empty"><FileText size={28} /><p>No tienes borradores guardados.</p></div>}
+              <button type="button" className="post-drafts-new" onClick={startNewPost}>+ Nueva publicación</button>
+            </section>
+          </div>
+        )}
       </div>
       <BottomNav />
     </main>

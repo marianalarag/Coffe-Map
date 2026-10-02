@@ -6,6 +6,7 @@ import { useCoffeeData } from '../context/CoffeeDataContext';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../supabase';
 import { areDuplicateCafes, normalizeCafeName } from '../utils/cafeDeduplication';
+import { extractGoogleMapsCoordinates } from '../utils/cafeLocation';
 
 const calculateDistance = (lat1, lon1, lat2, lon2) => {
   const radiusKm = 6371;
@@ -177,10 +178,11 @@ function SearchPage() {
     event.preventDefault();
     if (!user) return;
 
-    let lat = Number(newCafe.lat);
-    let lng = Number(newCafe.lng);
+    const mapCoordinates = extractGoogleMapsCoordinates(newCafe.link.trim());
+    let lat = mapCoordinates?.lat ?? Number(newCafe.lat);
+    let lng = mapCoordinates?.lng ?? Number(newCafe.lng);
     let resolvedLocation = null;
-    if (newCafe.address.trim()) {
+    if (!mapCoordinates && newCafe.address.trim()) {
       setAddingCafe(true);
       setAddCafeFeedback('Ubicando la dirección exacta…');
       try {

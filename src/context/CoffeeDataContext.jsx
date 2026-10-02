@@ -3,10 +3,11 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { supabase } from '../supabase';
 import { useAuth } from './AuthContext';
 import { areDuplicateCafes, deduplicateCafes, repairCafeText } from '../utils/cafeDeduplication';
+import { getCafeCoordinates } from '../utils/cafeLocation';
 
 const CoffeeDataContext = createContext(null);
 
-const CAFES_CACHE_KEY = 'coffee-map:cafes:v10';
+const CAFES_CACHE_KEY = 'coffee-map:cafes:v11';
 const CAFES_CACHE_TTL_MS = 15 * 60 * 1000;
 const CAFE_REQUEST_TIMEOUT_MS = 8 * 1000;
 const CAFE_COLUMNS = 'id,nombre,lat,lng,rating,reviews,link,address,neighborhood,category,image_url,image_source_url,image_attribution,image_license,opening_hours,opening_hours_source,opening_hours_source_url,opening_hours_verified_at,source,source_id,source_url';
@@ -37,27 +38,31 @@ const toReviewPost = (interaction) => ({
   updated_at: interaction.updated_at || new Date().toISOString(),
 });
 
-const normalizeCafe = (cafe) => ({
-  ...cafe,
-  nombre: repairCafeText(cafe.nombre),
-  lat: Number(cafe.lat),
-  lng: Number(cafe.lng),
-  pos: { lat: Number(cafe.lat), lng: Number(cafe.lng) },
-  imageUrl: cafe.image_url || cafe.imageUrl || null,
-  imageSourceUrl: cafe.image_source_url || cafe.imageSourceUrl || null,
-  imageAttribution: cafe.image_attribution || cafe.imageAttribution || null,
-  imageLicense: cafe.image_license || cafe.imageLicense || null,
-  openingHours: cafe.opening_hours || cafe.openingHours || null,
-  openingHoursSource: cafe.opening_hours_source || cafe.openingHoursSource || null,
-  openingHoursSourceUrl: cafe.opening_hours_source_url || cafe.openingHoursSourceUrl || null,
-  openingHoursVerifiedAt: cafe.opening_hours_verified_at || cafe.openingHoursVerifiedAt || null,
-  source: cafe.source || 'manual',
-  sourceId: cafe.source_id || cafe.sourceId || null,
-  sourceUrl: cafe.source_url || cafe.sourceUrl || null,
-  address: cafe.address ? repairCafeText(cafe.address) : null,
-  neighborhood: cafe.neighborhood ? repairCafeText(cafe.neighborhood) : null,
-  category: cafe.category === 'panaderia' ? 'panaderia' : 'cafeteria',
-});
+const normalizeCafe = (cafe) => {
+  const coordinates = getCafeCoordinates(cafe) || { lat: Number(cafe.lat), lng: Number(cafe.lng) };
+
+  return {
+    ...cafe,
+    nombre: repairCafeText(cafe.nombre),
+    lat: coordinates.lat,
+    lng: coordinates.lng,
+    pos: { lat: coordinates.lat, lng: coordinates.lng },
+    imageUrl: cafe.image_url || cafe.imageUrl || null,
+    imageSourceUrl: cafe.image_source_url || cafe.imageSourceUrl || null,
+    imageAttribution: cafe.image_attribution || cafe.imageAttribution || null,
+    imageLicense: cafe.image_license || cafe.imageLicense || null,
+    openingHours: cafe.opening_hours || cafe.openingHours || null,
+    openingHoursSource: cafe.opening_hours_source || cafe.openingHoursSource || null,
+    openingHoursSourceUrl: cafe.opening_hours_source_url || cafe.openingHoursSourceUrl || null,
+    openingHoursVerifiedAt: cafe.opening_hours_verified_at || cafe.openingHoursVerifiedAt || null,
+    source: cafe.source || 'manual',
+    sourceId: cafe.source_id || cafe.sourceId || null,
+    sourceUrl: cafe.source_url || cafe.sourceUrl || null,
+    address: cafe.address ? repairCafeText(cafe.address) : null,
+    neighborhood: cafe.neighborhood ? repairCafeText(cafe.neighborhood) : null,
+    category: cafe.category === 'panaderia' ? 'panaderia' : 'cafeteria',
+  };
+};
 
 const readCachedCafes = () => {
   try {

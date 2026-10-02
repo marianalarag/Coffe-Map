@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { useCoffeeData } from '../context/CoffeeDataContext';
 import { supabase } from '../supabase';
 import { getCafeOpenStatus, getCafeScheduleRows } from '../utils/cafeHours';
+import { getCafeCoordinates } from '../utils/cafeLocation';
 
 const MAP_TARGET_STORAGE_KEY = 'coffee-map:focus-cafe';
 const getLocalDate = () => {
@@ -122,12 +123,13 @@ function CafePage({ cafeId }) {
 
   const showInAppMap = () => {
     if (!cafe) return;
+    const coordinates = getCafeCoordinates(cafe);
+    if (!coordinates) return;
 
     window.sessionStorage.setItem(MAP_TARGET_STORAGE_KEY, JSON.stringify({
       id: cafe.id,
       nombre: cafe.nombre,
-      lat: cafe.lat,
-      lng: cafe.lng,
+      ...coordinates,
     }));
 
     navigate('/map');

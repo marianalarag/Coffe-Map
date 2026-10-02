@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useCoffeeData } from '../context/CoffeeDataContext';
 import { supabase } from '../supabase';
 import { areDuplicateCafes, distanceBetweenCafes } from '../utils/cafeDeduplication';
+import { extractGoogleMapsCoordinates } from '../utils/cafeLocation';
 
 const MERIDA_BBOX = { south: 20.86, west: -89.75, north: 21.08, east: -89.52 };
 const OVERPASS_URLS = [
@@ -661,8 +662,9 @@ function AdminDashboardPage() {
   const addManualCafe = (event) => {
     event.preventDefault();
     return runAction('manual', async () => {
-      const lat = Number(manualCafe.lat);
-      const lng = Number(manualCafe.lng);
+      const mapCoordinates = extractGoogleMapsCoordinates(manualCafe.link.trim());
+      const lat = mapCoordinates?.lat ?? Number(manualCafe.lat);
+      const lng = mapCoordinates?.lng ?? Number(manualCafe.lng);
       if (!manualCafe.nombre.trim() || lat < MERIDA_BBOX.south || lat > MERIDA_BBOX.north || lng < MERIDA_BBOX.west || lng > MERIDA_BBOX.east) {
         throw new Error('Nombre y coordenadas válidas dentro de Mérida son obligatorios.');
       }

@@ -5,7 +5,6 @@ import {
   BookOpen,
   Camera,
   Coffee,
-  FileText,
   Heart,
   ListPlus,
   Loader2,
@@ -16,7 +15,6 @@ import {
   Share2,
   SlidersHorizontal,
   Star,
-  Trash2,
   UserPlus,
   Users,
   Search,
@@ -29,16 +27,6 @@ import { supabase } from '../supabase';
 import { ActivityFeed } from './ActivityPage';
 import { getCafeNeighborhood } from '../utils/cafeAddress';
 
-const NEW_POST_DRAFT_KEY = 'coffee-map:new-post-draft';
-
-const readSavedPostDraft = (userId) => {
-  if (!userId || typeof window === 'undefined') return null;
-  try {
-    return JSON.parse(window.localStorage.getItem(`${NEW_POST_DRAFT_KEY}:${userId}`) || 'null');
-  } catch {
-    return null;
-  }
-};
 
 const getOptimizedProfileImageUrl = (url, width) => {
   if (!url || typeof window === 'undefined' || !window.location.hostname.endsWith('.vercel.app')) return url;
@@ -487,7 +475,6 @@ function ProfilePage() {
         <nav className="profile-navigation" aria-label="Secciones del perfil">
           <button type="button" className={activeTab === 'profile' ? 'is-active' : ''} onClick={() => openProfileTab('profile')}>Perfil</button>
           <button type="button" className={activeTab === 'activity' ? 'is-active' : ''} onClick={() => openProfileTab('activity')}>Actividad</button>
-          <button type="button" className={activeTab === 'drafts' ? 'is-active' : ''} onClick={() => openProfileTab('drafts')}>Borradores</button>
           <button type="button" className={activeTab === 'visited' ? 'is-active' : ''} onClick={() => openProfileTab('visited')}>Visitadas</button>
           <button type="button" className={activeTab === 'friends' ? 'is-active' : ''} onClick={() => openProfileTab('friends')}>Amigos</button>
           <button type="button" onClick={() => navigate('/reviews')}>Reviews</button>
@@ -592,8 +579,6 @@ function ProfilePage() {
 
         {activeTab === 'activity' && <ProfileActivityPanel userId={user.id} />}
 
-        {activeTab === 'drafts' && <DraftsPanel userId={user.id} cafeById={cafeById} />}
-
         {activeTab === 'visited' && (
           <section className="profile-tab-panel">
             <div className="profile-tab-heading"><div><small>TUS LUGARES</small><h2>Visitadas</h2></div><span>{visitedPlaces.length}</span></div>
@@ -670,48 +655,6 @@ function ProfilePage() {
         }
       `}</style>
     </main>
-  );
-}
-
-function DraftsPanel({ userId, cafeById }) {
-  const navigate = useNavigate();
-  const [draft, setDraft] = useState(() => readSavedPostDraft(userId));
-  const draftCafe = draft?.cafeId ? cafeById.get(draft.cafeId) : null;
-  const draftDate = draft?.savedAt
-    ? new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(draft.savedAt))
-    : '';
-
-  const deleteDraft = () => {
-    window.localStorage.removeItem(`${NEW_POST_DRAFT_KEY}:${userId}`);
-    setDraft(null);
-  };
-
-  return (
-    <section className="profile-tab-panel drafts-panel">
-      <div className="profile-tab-heading"><div><small>GUARDADOS</small><h2>Borradores</h2></div><span>{draft ? 1 : 0}</span></div>
-      {draft ? (
-        <article className="draft-card">
-          <div className="draft-card-icon"><FileText size={22} /></div>
-          <div className="draft-card-copy">
-            <strong>{draftCafe?.nombre || 'Nueva publicación'}</strong>
-            <p>{draft.text?.trim() || 'Publicación sin texto todavía.'}</p>
-            <small>{draftDate}</small>
-          </div>
-          <div className="draft-card-actions">
-            <button type="button" onClick={() => navigate('/new-post?draft=1')}>Continuar editando</button>
-            <button type="button" className="is-secondary" onClick={deleteDraft} aria-label="Eliminar borrador"><Trash2 size={15} /></button>
-          </div>
-        </article>
-      ) : (
-        <div className="profile-tab-empty drafts-empty">
-          <FileText size={30} />
-          <p>No tienes borradores guardados.</p>
-        </div>
-      )}
-      <button type="button" className="draft-new-button" onClick={() => navigate('/new-post?new=1')}>
-        <Plus size={16} /> Nueva publicación
-      </button>
-    </section>
   );
 }
 
