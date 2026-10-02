@@ -7,7 +7,7 @@ import { geocodeCafeAddress, getCafeCoordinates } from '../utils/cafeLocation';
 
 const CoffeeDataContext = createContext(null);
 
-const CAFES_CACHE_KEY = 'coffee-map:cafes:v11';
+const CAFES_CACHE_KEY = 'coffee-map:cafes:v12';
 const CAFES_CACHE_TTL_MS = 15 * 60 * 1000;
 const CAFE_REQUEST_TIMEOUT_MS = 8 * 1000;
 const CAFE_COLUMNS = 'id,nombre,lat,lng,rating,reviews,link,address,neighborhood,category,image_url,image_source_url,image_attribution,image_license,opening_hours,opening_hours_source,opening_hours_source_url,opening_hours_verified_at,source,source_id,source_url';
@@ -141,12 +141,16 @@ const repairCommunityLocations = async (cafes) => {
   }
 
   if (!repaired.size) return cafes;
-  return cafes.map((cafe) => {
+  const repairedCafes = cafes.map((cafe) => {
     const location = repaired.get(cafe.id);
     return location
       ? normalizeCafe({ ...cafe, lat: location.lat, lng: location.lng, neighborhood: cafe.neighborhood || location.neighborhood })
       : cafe;
   });
+
+  // A stale row and its corrected row can be far apart before geocoding, so
+  // they only become duplicates after both use the address coordinates.
+  return deduplicateCafes(repairedCafes);
 };
 
 export function CoffeeDataProvider({ children }) {
