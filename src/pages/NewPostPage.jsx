@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CalendarDays, Eye, Heart, ImagePlus, Link2, MapPin, RefreshCw, Star, X } from 'lucide-react';
+import { Eye, Heart, ImagePlus, Link2, MapPin, RefreshCw, Star, X } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import BottomNav from '../components/BottomNav';
 import HalfStarRating from '../components/HalfStarRating';
@@ -23,14 +23,16 @@ function NewPostPage() {
   const hydratedComposerRef = useRef('');
   const draftHydratedRef = useRef(false);
   const draftRef = useRef(null);
+  const composerRouteRef = useRef(`${location.pathname}:${location.search}`);
   const { user, userProfile } = useAuth();
   const { cafes, interactions, interactionsByCafeId, interactionsLoaded, loadCafes, saveCafeInteraction } = useCoffeeData();
-  const requestedCafeId = new URLSearchParams(location.search).get('cafe') || '';
+  const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const requestedCafeId = searchParams.get('cafe') || '';
+  const draftMode = searchParams.get('draft') === '1';
   const [text, setText] = useState('');
   const [cafeId, setCafeId] = useState(requestedCafeId);
   const [rating, setRating] = useState(0);
   const [visitMode, setVisitMode] = useState('first');
-  const [visitedOn, setVisitedOn] = useState(getLocalDate);
   const [isFavorite, setIsFavorite] = useState(false);
   const [photos, setPhotos] = useState([]);
   const [photoPreviews, setPhotoPreviews] = useState([]);
@@ -48,7 +50,9 @@ function NewPostPage() {
   useEffect(() => {
     if (!user?.id || draftHydratedRef.current) return;
     try {
-      const savedDraft = JSON.parse(window.localStorage.getItem(`${NEW_POST_DRAFT_KEY}:${user.id}`) || 'null');
+      const savedDraft = draftMode
+        ? JSON.parse(window.localStorage.getItem(`${NEW_POST_DRAFT_KEY}:${user.id}`) || 'null')
+        : null;
       if (savedDraft) {
         draftRef.current = savedDraft;
         setText(savedDraft.text || '');
@@ -56,7 +60,6 @@ function NewPostPage() {
         setRating(Number(savedDraft.rating) || 0);
         setIsFavorite(Boolean(savedDraft.isFavorite));
         setVisitMode(savedDraft.visitMode || 'first');
-        setVisitedOn(savedDraft.visitedOn || getLocalDate());
       } else if (requestedCafeId) {
         setCafeId(requestedCafeId);
       }
@@ -64,7 +67,7 @@ function NewPostPage() {
       if (requestedCafeId) setCafeId(requestedCafeId);
     }
     draftHydratedRef.current = true;
-  }, [requestedCafeId, user?.id]);
+  }, [draftMode, requestedCafeId, user?.id]);
 
   useEffect(() => {
     if (location.pathname !== '/new-post') return;
@@ -72,19 +75,37 @@ function NewPostPage() {
   }, [location.pathname, location.key, requestedCafeId]);
 
   useEffect(() => {
+    if (location.pathname !== '/new-post') return;
+    const routeKey = `${location.pathname}:${location.search}`;
+    if (composerRouteRef.current === routeKey) return;
+    composerRouteRef.current = routeKey;
+    draftHydratedRef.current = false;
+    draftRef.current = null;
+    hydratedComposerRef.current = '';
+    setText('');
+    setCafeId(requestedCafeId);
+    setRating(0);
+    setVisitMode('first');
+    setIsFavorite(false);
+    setPhotos([]);
+    setPhotoPreviews([]);
+    setPhotoRightsConfirmed(false);
+    setDraftSaved(false);
+  }, [location.pathname, location.search, requestedCafeId]);
+
+  useEffect(() => {
     if (location.pathname !== '/new-post' || !cafeId || !interactionsLoaded || !draftHydratedRef.current) return;
-    if (draftRef.current?.text?.trim() || draftRef.current?.cafeId) return;
     const hydrationKey = `${location.key}:${cafeId}`;
     if (hydratedComposerRef.current === hydrationKey) return;
 
     const currentInteraction = interactionsByCafeId.get(cafeId);
+    const hasPreviousVisit = interactions.some((item) => item.cafe_id === cafeId && (item.is_visited || item.review_text?.trim()));
+    setVisitMode(hasPreviousVisit ? 'returning' : 'first');
+    hydratedComposerRef.current = hydrationKey;
+    if (draftRef.current?.text?.trim() || draftRef.current?.cafeId) return;
     setText(currentInteraction?.review_text || '');
     setRating(Number(currentInteraction?.rating) || 0);
     setIsFavorite(Boolean(currentInteraction?.is_favorite));
-    const hasPreviousVisit = interactions.some((item) => item.cafe_id === cafeId && (item.is_visited || item.review_text?.trim()));
-    setVisitMode(hasPreviousVisit ? 'returning' : 'first');
-    setVisitedOn(currentInteraction?.visited_on || getLocalDate());
-    hydratedComposerRef.current = hydrationKey;
   }, [cafeId, interactions, interactionsByCafeId, interactionsLoaded, location.key, location.pathname]);
 
   useEffect(() => {
@@ -92,15 +113,34 @@ function NewPostPage() {
     const hasDraft = Boolean(text.trim() || cafeId || rating || isFavorite || photos.length);
     const storageKey = `${NEW_POST_DRAFT_KEY}:${user.id}`;
     if (!hasDraft) {
-      window.localStorage.removeItem(storageKey);
+      if (draftMode) window.localStorage.removeItem(storageKey);
       setDraftSaved(false);
       return;
     }
-    const draft = { text, cafeId, rating, isFavorite, visitMode, visitedOn, savedAt: Date.now() };
+    const draft = { text, cafeId, rating, isFavorite, savedAt: Date.now() };
     draftRef.current = draft;
     window.localStorage.setItem(storageKey, JSON.stringify(draft));
     setDraftSaved(true);
-  }, [cafeId, isFavorite, photos.length, rating, text, user?.id, visitMode, visitedOn]);
+  }, [cafeId, draftMode, isFavorite, photos.length, rating, text, user?.id]);
+
+  const saveCurrentDraft = () => {
+    if (!user?.id) return;
+    const storageKey = `${NEW_POST_DRAFT_KEY}:${user.id}`;
+    const hasDraft = Boolean(text.trim() || cafeId || rating || isFavorite || photos.length);
+    if (!hasDraft) return;
+    window.localStorage.setItem(storageKey, JSON.stringify({
+      text,
+      cafeId,
+      rating,
+      isFavorite,
+      savedAt: Date.now(),
+    }));
+  };
+
+  const closeComposer = () => {
+    saveCurrentDraft();
+    navigate('/profile?tab=drafts');
+  };
 
   const choosePhotos = (event) => {
     const files = [...(event.target.files || [])].slice(0, 6);
@@ -145,7 +185,7 @@ function NewPostPage() {
           is_favorite: isFavorite || currentInteraction?.is_favorite || false,
           rating: rating || null,
           review_text: content,
-          visited_on: visitedOn || getLocalDate(),
+          visited_on: getLocalDate(),
         }, { createNewVisit: visitMode === 'returning' });
       }
 
@@ -155,7 +195,7 @@ function NewPostPage() {
         content,
         kind: cafeId ? 'review' : 'post',
         rating: cafeId && rating ? rating : null,
-        visited_on: interaction?.visited_on || visitedOn || null,
+        visited_on: interaction?.visited_on || getLocalDate(),
         interaction_id: interaction?.id || null,
         status: 'published',
         updated_at: new Date().toISOString(),
@@ -230,7 +270,6 @@ function NewPostPage() {
       setCafeId('');
       setRating(0);
       setVisitMode('first');
-      setVisitedOn(getLocalDate());
       setIsFavorite(false);
       clearPhotos();
       draftRef.current = null;
@@ -249,10 +288,10 @@ function NewPostPage() {
   return (
     <main className="social-page new-post-page">
       <div className="social-shell new-post-shell">
-        <header className="social-topbar"><button type="button" aria-label="Cerrar" onClick={() => navigate(-1)}><X size={19} /></button><span>Nueva publicación</span><button type="button" className="social-post-button" disabled={(!text.trim() && photos.length === 0) || submitting} onClick={publishPost}>{submitting ? 'Subiendo…' : 'Publicar'}</button></header>
+        <header className="social-topbar"><button type="button" aria-label="Cerrar" onClick={closeComposer}><X size={19} /></button><span>Nueva publicación</span><button type="button" className="social-post-button" disabled={(!text.trim() && photos.length === 0) || submitting} onClick={publishPost}>{submitting ? 'Subiendo…' : 'Publicar'}</button></header>
         {feedback.message && <p className={`post-feedback post-feedback-${feedback.type}`}>{feedback.message}</p>}
         <section className="new-post-composer">
-          <div className="new-post-actions"><button type="button" onClick={() => navigate(-1)}>Cancelar</button><span>{draftSaved ? 'Borrador guardado' : 'Comunidad Mérida'}</span></div>
+          <div className="new-post-actions"><button type="button" onClick={closeComposer}>Cerrar y guardar</button><span>{draftSaved ? 'Borrador guardado' : 'Comunidad Mérida'}</span></div>
           <div className="new-post-author"><img src={avatar} alt="" /><strong>{username}</strong></div>
           <textarea value={text} onChange={(event) => setText(event.target.value)} placeholder="¿Qué cafetería visitaste hoy?" maxLength={1000} autoFocus />
           {photoPreviews.length > 0 && <div className="new-post-photo-preview new-post-photo-gallery">{photoPreviews.map((preview, index) => <img src={preview} alt={`Vista previa ${index + 1}`} key={preview} />)}<button type="button" onClick={clearPhotos} aria-label="Quitar fotos"><X size={16} /></button></div>}
@@ -266,18 +305,11 @@ function NewPostPage() {
           )}
           {selectedCafe && (
             <div className="new-post-visit-picker" aria-label="Tipo de visita">
-              <p><CalendarDays size={15} /> ¿Qué tipo de visita es?</p>
-              <div className="new-post-visit-options">
-                <button type="button" className={visitMode === 'first' ? 'is-active' : ''} onClick={() => setVisitMode('first')}>
-                  <Eye size={22} />
-                  <span><strong>Primera vez</strong><small>Mi primera visita a este lugar</small></span>
-                </button>
-                <button type="button" className={visitMode === 'returning' ? 'is-active' : ''} onClick={() => setVisitMode('returning')}>
-                  <RefreshCw size={22} />
-                  <span><strong>Ya fui antes</strong><small>Nueva reseña de otra visita</small></span>
-                </button>
+              <p><Eye size={15} /> Visita registrada automáticamente</p>
+              <div className="new-post-visit-status">
+                {visitMode === 'returning' ? <RefreshCw size={22} /> : <Eye size={22} />}
+                <span><strong>{visitMode === 'returning' ? 'Ya fuiste antes' : 'Primera visita'}</strong><small>La fecha se registra al publicar esta reseña.</small></span>
               </div>
-              <label className="new-post-visit-date"><span>Fecha de visita</span><input type="date" value={visitedOn} onChange={(event) => setVisitedOn(event.target.value)} /></label>
             </div>
           )}
           <div className="new-post-toolbar"><button type="button" aria-label="Elegir imágenes de la galería" onClick={() => fileInputRef.current?.click()}><ImagePlus size={19} /></button><MapPin size={18} aria-hidden="true" /><Link2 size={18} aria-hidden="true" /><span>{text.length}/1000</span></div>

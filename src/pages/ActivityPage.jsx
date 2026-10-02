@@ -291,8 +291,82 @@ export function ActivityFeed({ userIdFilter = null, userIdsFilter = null, kindFi
   );
 }
 
+function IncomingRequestsPanel() {
+  const { user } = useAuth();
+  const userId = user?.id;
+  const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [notice, setNotice] = useState('');
+
+  const loadRequests = useCallback(async () => {
+    if (!userId) return;
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('friendships')
+      .select('id,requester_id,created_at')
+      .eq('addressee_id', userId)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false });
+    if (error) {
+      setNotice('No se pudieron cargar las solicitudes.');
+      setLoading(false);
+      return;
+    }
+    const requesterIds = (data || []).map((row) => row.requester_id);
+    const { data: profiles } = requesterIds.length
+      ? await supabase.from('profiles').select('id,username,avatar_url').in('id', requesterIds)
+      : { data: [] };
+    const profileMap = new Map((profiles || []).map((profile) => [profile.id, profile]));
+    setRequests((data || []).map((row) => ({ ...row, profile: profileMap.get(row.requester_id) })));
+    setLoading(false);
+  }, [userId]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(loadRequests, 0);
+    return () => window.clearTimeout(timer);
+  }, [loadRequests]);
+
+  const acceptRequest = async (id) => {
+    const { error } = await supabase.from('friendships').update({ status: 'accepted', updated_at: new Date().toISOString() }).eq('id', id);
+    setNotice(error ? 'No se pudo aceptar la solicitud.' : 'Ahora son amigos.');
+    if (!error) loadRequests();
+  };
+
+  return (
+    <section className="activity-incoming-panel">
+      {notice && <p className="friends-notice">{notice}</p>}
+      {loading && <div className="activity-empty"><p>Cargando solicitudes…</p></div>}
+      {!loading && requests.length === 0 && <div className="activity-empty"><p>No tienes solicitudes nuevas.</p></div>}
+      {!loading && requests.map((request) => (
+        <article className="activity-incoming-row" key={request.id}>
+          <img src={request.profile?.avatar_url || fallbackAvatar(request.profile?.username)} alt="" />
+          <span><strong>{request.profile?.username || 'Coffee lover'}</strong><small>Quiere seguir tu actividad</small></span>
+          <button type="button" onClick={() => acceptRequest(request.id)}>Aceptar</button>
+        </article>
+      ))}
+    </section>
+  );
+}
+
 function ActivityPage() {
-  return <main className="social-page activity-page"><div className="social-shell activity-shell"><ActivityFeed /></div><BottomNav /></main>;
+  const { user } = useAuth();
+  const [activeSection, setActiveSection] = useState('friends');
+
+  return (
+    <main className="social-page activity-page">
+      <div className="social-shell activity-shell">
+        <nav className="activity-section-switcher" aria-label="Secciones de actividad">
+          <button type="button" className={activeSection === 'friends' ? 'is-active' : ''} onClick={() => setActiveSection('friends')}>Amigos</button>
+          <button type="button" className={activeSection === 'you' ? 'is-active' : ''} onClick={() => setActiveSection('you')}>Tú</button>
+          <button type="button" className={activeSection === 'incoming' ? 'is-active' : ''} onClick={() => setActiveSection('incoming')}>Solicitudes</button>
+        </nav>
+        {activeSection === 'friends' && <><p className="activity-community-note">Reviews de toda la comunidad mientras crece tu círculo de amigos.</p><ActivityFeed /></>}
+        {activeSection === 'you' && <ActivityFeed userIdFilter={user?.id} />}
+        {activeSection === 'incoming' && <IncomingRequestsPanel />}
+      </div>
+      <BottomNav />
+    </main>
+  );
 }
 
 function PostHeader({ avatar, name, date, onOpenProfile }) {

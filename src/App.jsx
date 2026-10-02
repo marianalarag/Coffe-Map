@@ -177,18 +177,14 @@ function App() {
   }, [cafes])
 
   const neighborhoods = useMemo(() => {
-    const entries = [...zoneCounts.entries()]
-    const otherCount = entries
-      .filter(([, count]) => count === 1)
-      .reduce((total, [, count]) => total + count, 0)
-
-    const largeZones = entries
-      .filter(([, count]) => count > 1)
-      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'es'))
+    const zoneOrder = ['Centro', 'Paseo de Montejo', 'Colonia México', 'García Ginerés', 'Itzimná', 'Temozón', 'Cholul', 'Altabrisa', 'Chuburná', 'Poniente', 'Otras zonas']
+    return [...zoneCounts.entries()]
+      .sort(([firstName, firstCount], [secondName, secondCount]) => (
+        (zoneOrder.indexOf(firstName) - zoneOrder.indexOf(secondName))
+        || secondCount - firstCount
+        || firstName.localeCompare(secondName, 'es')
+      ))
       .map(([name, count]) => ({ name, count }))
-
-    if (otherCount > 0) largeZones.push({ name: 'Otras zonas', count: otherCount })
-    return largeZones
   }, [zoneCounts])
 
   const handleNeighborhoodWheel = useCallback((event) => {
@@ -201,10 +197,8 @@ function App() {
   const filteredCafes = useMemo(() => (
     selectedNeighborhood === 'Todas'
       ? cafes
-      : selectedNeighborhood === 'Otras zonas'
-        ? cafes.filter((cafe) => zoneCounts.get(getCafeZone(cafe)) === 1)
-        : cafes.filter((cafe) => getCafeZone(cafe) === selectedNeighborhood)
-  ), [cafes, selectedNeighborhood, zoneCounts])
+      : cafes.filter((cafe) => getCafeZone(cafe) === selectedNeighborhood)
+  ), [cafes, selectedNeighborhood])
 
   const visitedCafeIds = useMemo(() => {
     return new Set(
@@ -556,12 +550,10 @@ function App() {
       icon: L.divIcon({
         className: 'coffee-map-leaflet-marker',
         html: `
-          <span class="coffee-map-leaflet-pin coffee-map-leaflet-pin--user">
-            <span class="coffee-map-leaflet-dot"></span>
-          </span>
+          <span class="coffee-map-user-location" aria-label="Tu ubicación"></span>
         `,
-        iconSize: [28, 36],
-        iconAnchor: [14, 34],
+        iconSize: [30, 30],
+        iconAnchor: [15, 15],
       }),
     }).addTo(map);
 
@@ -665,6 +657,23 @@ function App() {
         }
         .coffee-map-leaflet-pin--user {
           --marker-color: #3B82F6;
+        }
+        .coffee-map-user-location {
+          position: relative;
+          display: block;
+          width: 18px;
+          height: 18px;
+          background: #2563EB;
+          border: 3px solid #fff;
+          border-radius: 50%;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, .34), 0 0 0 7px rgba(37, 99, 235, .18);
+        }
+        .coffee-map-user-location::after {
+          content: '';
+          position: absolute;
+          inset: 4px;
+          background: #fff;
+          border-radius: 50%;
         }
         .coffee-map-leaflet-dot {
           position: absolute;

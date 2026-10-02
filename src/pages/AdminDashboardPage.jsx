@@ -485,7 +485,7 @@ function AdminDashboardPage() {
         const first = cafes[index];
         const second = cafes[nextIndex];
         const distance = distanceBetweenCafes(first, second);
-        if (distance <= 8 && normalizeName(first.nombre) !== normalizeName(second.nombre)) {
+        if (areDuplicateCafes(first, second)) {
           candidates.push({ first, second, distance: Math.round(distance) });
         }
       }
@@ -899,8 +899,8 @@ function AdminDashboardPage() {
             </form>
             {exactLocationCandidates.length > 0 && (
               <article className="admin-panel admin-duplicate-warning">
-                <strong>Posibles duplicados en el mismo punto</strong>
-                <p>Revisa estos registros antes de seguir importando. No se combinan automáticamente porque podrían ser negocios distintos dentro de la misma plaza.</p>
+                <strong>Posibles duplicados por nombre y ubicación</strong>
+                <p>Revisa estos registros antes de seguir importando. La comparación usa el nombre normalizado y la distancia entre coordenadas.</p>
                 {exactLocationCandidates.slice(0, 4).map(({ first, second, distance }) => (
                   <span key={`${first.id}:${second.id}`}>{first.nombre} · {second.nombre} <small>{distance} m</small></span>
                 ))}

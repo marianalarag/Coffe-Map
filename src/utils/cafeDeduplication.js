@@ -83,7 +83,7 @@ export const distanceBetweenCafes = (a, b) => {
   return 6371000 * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
 };
 
-export const areDuplicateCafes = (a, b, maximumDistanceMeters = 120) => {
+export const areDuplicateCafes = (a, b, maximumDistanceMeters = 100) => {
   if (!a || !b || a.id === b.id) return false;
   const aSourceId = a.sourceId || a.source_id;
   const bSourceId = b.sourceId || b.source_id;
@@ -100,7 +100,7 @@ export const areDuplicateCafes = (a, b, maximumDistanceMeters = 120) => {
   // as the same place even if the names differ.
   const aAddress = compactCafeAddress(a.address);
   const bAddress = compactCafeAddress(b.address);
-  if (distance <= 8 && aAddress && bAddress && aAddress === bAddress) return true;
+  if (distance <= 25 && aAddress && bAddress && aAddress === bAddress) return true;
 
   // Open-data providers often add generic words or minor spelling variants
   // (for example, "Italian Coffee" / "The Italian Coffe Company"). Nearby
@@ -139,17 +139,26 @@ export const deduplicateCafes = (cafes) => {
   const uniqueCafes = [];
 
   cafes.forEach((candidate) => {
-    const duplicateIndex = uniqueCafes.findIndex((current) => areDuplicateCafes(current, candidate));
-    if (duplicateIndex < 0) {
+    const duplicateIndexes = uniqueCafes
+      .map((current, index) => (areDuplicateCafes(current, candidate) ? index : -1))
+      .filter((index) => index >= 0);
+    if (duplicateIndexes.length === 0) {
       uniqueCafes.push(candidate);
       return;
     }
 
-    const current = uniqueCafes[duplicateIndex];
-    const candidateWins = getCafeQualityScore(candidate) > getCafeQualityScore(current);
-    uniqueCafes[duplicateIndex] = candidateWins
-      ? mergeCafeMetadata(candidate, current)
-      : mergeCafeMetadata(current, candidate);
+    const records = [candidate, ...duplicateIndexes.map((index) => uniqueCafes[index])];
+    const primary = records.reduce((best, record) => (
+      getCafeQualityScore(record) > getCafeQualityScore(best) ? record : best
+    ));
+    const merged = records
+      .filter((record) => record !== primary)
+      .reduce((current, record) => mergeCafeMetadata(current, record), primary);
+    const firstIndex = duplicateIndexes[0];
+    const duplicateIndexSet = new Set(duplicateIndexes);
+    const remaining = uniqueCafes.filter((_, index) => !duplicateIndexSet.has(index));
+    remaining.splice(firstIndex, 0, merged);
+    uniqueCafes.splice(0, uniqueCafes.length, ...remaining);
   });
 
   return uniqueCafes;

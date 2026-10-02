@@ -21,6 +21,29 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
   return radiusKm * c;
 };
 
+const geocodeCafeAddress = async (address) => {
+  const params = new URLSearchParams({
+    q: `${address}, Mérida, Yucatán, México`,
+    format: 'jsonv2',
+    addressdetails: '1',
+    limit: '1',
+    countrycodes: 'mx',
+  });
+  const response = await fetch(`https://nominatim.openstreetmap.org/search?${params}`);
+  if (!response.ok) throw new Error('No se pudo geocodificar la dirección.');
+  const [result] = await response.json();
+  if (!result || !Number.isFinite(Number(result.lat)) || !Number.isFinite(Number(result.lon))) return null;
+  return {
+    lat: Number(result.lat),
+    lng: Number(result.lon),
+    neighborhood: result.address?.suburb
+      || result.address?.neighbourhood
+      || result.address?.quarter
+      || result.address?.city_district
+      || null,
+  };
+};
+
 const getCafeStatus = (interaction) => {
   if (interaction?.is_visited) {
     return {
@@ -125,8 +148,6 @@ function SearchPage() {
     setNewCafe((current) => ({
       ...current,
       nombre: current.nombre || searchQuery.trim(),
-      lat: current.lat || (userLocation ? userLocation.lat.toFixed(6) : ''),
-      lng: current.lng || (userLocation ? userLocation.lng.toFixed(6) : ''),
     }));
     setShowAddCafe(true);
   };
@@ -156,8 +177,24 @@ function SearchPage() {
     event.preventDefault();
     if (!user) return;
 
-    const lat = Number(newCafe.lat);
-    const lng = Number(newCafe.lng);
+    let lat = Number(newCafe.lat);
+    let lng = Number(newCafe.lng);
+    let resolvedLocation = null;
+    if (newCafe.address.trim()) {
+      setAddingCafe(true);
+      setAddCafeFeedback('Ubicando la dirección exacta…');
+      try {
+        resolvedLocation = await geocodeCafeAddress(newCafe.address.trim());
+        if (resolvedLocation) {
+          lat = resolvedLocation.lat;
+          lng = resolvedLocation.lng;
+        }
+      } catch {
+        resolvedLocation = null;
+      } finally {
+        setAddingCafe(false);
+      }
+    }
     const candidate = { nombre: newCafe.nombre.trim(), lat, lng };
     if (!candidate.nombre || !Number.isFinite(lat) || !Number.isFinite(lng)) {
       setAddCafeFeedback('Escribe el nombre y agrega una ubicación válida.');
@@ -182,6 +219,7 @@ function SearchPage() {
         lat,
         lng,
         address: newCafe.address.trim() || null,
+        neighborhood: resolvedLocation?.neighborhood || null,
         link: newCafe.link.trim() || null,
         source: 'community',
         source_id: sourceId,
@@ -339,11 +377,11 @@ function SearchPage() {
                 <Navigation size={16} /> Usar mi ubicación actual
               </button>
               <div className="missing-cafe-coordinates">
-                <label>Latitud<input inputMode="decimal" value={newCafe.lat} onChange={(event) => setNewCafe({ ...newCafe, lat: event.target.value })} required /></label>
-                <label>Longitud<input inputMode="decimal" value={newCafe.lng} onChange={(event) => setNewCafe({ ...newCafe, lng: event.target.value })} required /></label>
+                <label>Latitud<input inputMode="decimal" value={newCafe.lat} onChange={(event) => setNewCafe({ ...newCafe, lat: event.target.value })} /></label>
+                <label>Longitud<input inputMode="decimal" value={newCafe.lng} onChange={(event) => setNewCafe({ ...newCafe, lng: event.target.value })} /></label>
               </div>
 
-              <p className="missing-cafe-note">La revisaremos antes de publicarla para evitar lugares repetidos.</p>
+              <p className="missing-cafe-note">Si escribes la dirección, la usamos para colocar el punto exacto. Las coordenadas solo son respaldo.</p>
               {addCafeFeedback && <p className="missing-cafe-feedback" role="status">{addCafeFeedback}</p>}
               <button className="missing-cafe-submit" type="submit" disabled={addingCafe}>{addingCafe ? 'Enviando...' : 'Enviar cafetería'}</button>
             </form>
