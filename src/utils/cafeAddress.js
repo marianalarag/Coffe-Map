@@ -64,12 +64,19 @@ export const getCafeZone = (cafe) => {
   if (/poligono\s+108/.test(value)) return 'Polígono 108';
   if (/poniente/.test(value)) return 'Poniente';
 
-  // Recover Centro only when the provider omitted the neighborhood. Avoid
-  // guessing a cardinal zone for every other record.
+  // A provider will often return only "Mérida" for the neighborhood. In that
+  // case, use small, recognizable map areas instead of assigning every cafe
+  // in the city to Centro. These envelopes intentionally overlap a little;
+  // the explicit address/neighborhood rules above always win first.
   const lat = Number(cafe?.lat);
   const lng = Number(cafe?.lng);
   if (Number.isFinite(lat) && Number.isFinite(lng)
-    && lat >= 20.96 && lat <= 20.995 && lng >= -89.65 && lng <= -89.59) {
+    && lat >= 20.988 && lat <= 21.025 && lng >= -89.642 && lng <= -89.590) {
+    return 'Colonia México';
+  }
+
+  if (Number.isFinite(lat) && Number.isFinite(lng)
+    && lat >= 20.952 && lat <= 20.985 && lng >= -89.638 && lng <= -89.606) {
     return 'Centro';
   }
 

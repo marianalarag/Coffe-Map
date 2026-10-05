@@ -41,6 +41,17 @@ const minutes = (time) => {
   return hour * 60 + minute;
 };
 
+export const getCafeOpenDays = (expression) => {
+  const schedule = parseHours(expression);
+  if (!schedule) return [];
+  return DAY_KEYS.filter((day) => schedule[day]?.length > 0);
+};
+
+export const isCafeOpenOnDay = (expression, day) => {
+  if (!day || day === 'any') return true;
+  return getCafeOpenDays(expression).includes(day);
+};
+
 export const getCafeOpenStatus = (expression, date = new Date()) => {
   if (!expression) return { state: 'unknown', label: 'Horario por confirmar' };
   const schedule = parseHours(expression);

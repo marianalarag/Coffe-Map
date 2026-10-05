@@ -1,6 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Search, ScanSearch, LocateFixed, AlertCircle, CheckCircle2, MapPin, Sparkles, Coffee } from 'lucide-react'
+import {
+  Search,
+  ScanSearch,
+  LocateFixed,
+  AlertCircle,
+  CheckCircle2,
+  MapPin,
+  Sparkles,
+  Coffee,
+  SlidersHorizontal,
+  ChevronDown,
+  X,
+  Clock3,
+  Star,
+  List,
+  Map as MapIcon,
+} from 'lucide-react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import 'maplibre-gl/dist/maplibre-gl.css'
@@ -9,6 +25,7 @@ import { useAuth } from './context/AuthContext'
 import { useCoffeeData } from './context/CoffeeDataContext'
 import { getCafeZone } from './utils/cafeAddress'
 import { normalizeCafeName } from './utils/cafeDeduplication'
+import { getCafeOpenStatus, isCafeOpenOnDay } from './utils/cafeHours'
 
 const MERIDA_CENTER = { lat: 20.9753, lng: -89.6178 };
 const MERIDA_BOUNDS = [[20.86, -89.75], [21.08, -89.52]];
@@ -20,6 +37,37 @@ const MAP_TILE_ATTRIBUTION = import.meta.env.VITE_MAP_TILE_ATTRIBUTION
 const MAP_TARGET_STORAGE_KEY = 'coffee-map:focus-cafe';
 const MARKER_RENDER_PADDING = 0.18;
 const MAX_RENDERED_MARKERS = 140;
+const MAP_DAY_OPTIONS = [
+  ['any', 'Cualquier día'],
+  ['Mo', 'Lunes'],
+  ['Tu', 'Martes'],
+  ['We', 'Miércoles'],
+  ['Th', 'Jueves'],
+  ['Fr', 'Viernes'],
+  ['Sa', 'Sábado'],
+  ['Su', 'Domingo'],
+];
+
+const getBoundsSnapshot = (bounds) => ({
+  south: bounds.getSouth(),
+  west: bounds.getWest(),
+  north: bounds.getNorth(),
+  east: bounds.getEast(),
+});
+
+const cafeIsInBounds = (cafe, bounds) => {
+  if (!bounds) return true;
+  const lat = Number(cafe.lat);
+  const lng = Number(cafe.lng);
+  return Number.isFinite(lat)
+    && Number.isFinite(lng)
+    && lat >= bounds.south
+    && lat <= bounds.north
+    && lng >= bounds.west
+    && lng <= bounds.east;
+};
+
+const getCafeStatus = (cafe) => getCafeOpenStatus(cafe.openingHours);
 
 const getToastIcon = (type) => {
   switch(type) {
@@ -152,6 +200,7 @@ function App() {
   const markerRenderFrameRef = useRef(null)
   const userMarkerRef = useRef(null)
   const scanTimerRef = useRef(null)
+  const programmaticMoveUntilRef = useRef(0)
   const [map, setMap] = useState(null)
   const [mapLoading, setMapLoading] = useState(true)
   const [scanning, setScanning] = useState(false)
@@ -163,6 +212,13 @@ function App() {
   const [locating, setLocating] = useState(false)
   const [selectedNeighborhood, setSelectedNeighborhood] = useState('Todas')
   const [selectedPreviewCafeId, setSelectedPreviewCafeId] = useState(null)
+  const [selectedDay, setSelectedDay] = useState('any')
+  const [openNowOnly, setOpenNowOnly] = useState(false)
+  const [selectedRating, setSelectedRating] = useState(0)
+  const [showFilterPanel, setShowFilterPanel] = useState(false)
+  const [areaSearchBounds, setAreaSearchBounds] = useState(null)
+  const [areaSearchPending, setAreaSearchPending] = useState(false)
+  const [resultsPanelOpen, setResultsPanelOpen] = useState(true)
   const isTouchDevice = useMemo(() => (
     window.matchMedia?.('(hover: none), (pointer: coarse)').matches ?? false
   ), [])
@@ -202,25 +258,76 @@ function App() {
     container.scrollLeft += event.deltaX || event.deltaY;
   }, [])
 
+  const focusCafesOnMap = useCallback((items) => {
+    if (!map || !items.length) return;
+    const points = items
+      .map((cafe) => [Number(cafe.lat), Number(cafe.lng)])
+      .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng));
+    if (!points.length) return;
+    programmaticMoveUntilRef.current = Date.now() + 1200;
+    if (points.length === 1) {
+      map.setView(points[0], 16, { animate: true });
+      return;
+    }
+    map.fitBounds(L.latLngBounds(points).pad(0.12), {
+      animate: true,
+      duration: 0.5,
+      maxZoom: 16,
+      paddingTopLeft: [34, 205],
+      paddingBottomRight: [34, 145],
+    });
+  }, [map]);
+
+  const selectNeighborhood = useCallback((name) => {
+    setSelectedNeighborhood(name);
+    setAreaSearchBounds(null);
+    setAreaSearchPending(false);
+    setScanResultCount(null);
+    if (name === 'Todas') {
+      programmaticMoveUntilRef.current = Date.now() + 1200;
+      map?.setView([MERIDA_CENTER.lat, MERIDA_CENTER.lng], 13, { animate: true });
+      return;
+    }
+    focusCafesOnMap(cafes.filter((cafe) => getCafeZone(cafe) === name));
+  }, [cafes, focusCafesOnMap, map]);
+
   const filteredCafes = useMemo(() => (
-    selectedNeighborhood === 'Todas'
-      ? cafes
-      : cafes.filter((cafe) => getCafeZone(cafe) === selectedNeighborhood)
-  ), [cafes, selectedNeighborhood])
+    cafes.filter((cafe) => {
+      const matchesNeighborhood = selectedNeighborhood === 'Todas'
+        || getCafeZone(cafe) === selectedNeighborhood;
+      const matchesDay = isCafeOpenOnDay(cafe.openingHours, selectedDay);
+      const matchesRating = Number(cafe.rating || 0) >= selectedRating;
+      const matchesOpenNow = !openNowOnly || getCafeStatus(cafe).state === 'open';
+      return matchesNeighborhood && matchesDay && matchesRating && matchesOpenNow;
+    })
+  ), [cafes, openNowOnly, selectedDay, selectedNeighborhood, selectedRating])
+
+  const displayedCafes = useMemo(() => {
+    const source = areaSearchBounds
+      ? filteredCafes.filter((cafe) => cafeIsInBounds(cafe, areaSearchBounds))
+      : filteredCafes;
+    return [...source].sort((first, second) => (
+      Number(second.rating || 0) - Number(first.rating || 0)
+      || Number(second.reviews || 0) - Number(first.reviews || 0)
+      || String(first.nombre).localeCompare(String(second.nombre), 'es')
+    ));
+  }, [areaSearchBounds, filteredCafes])
+
+  const activeFilterCount = (selectedDay !== 'any' ? 1 : 0) + (selectedRating > 0 ? 1 : 0) + (openNowOnly ? 1 : 0);
 
   const markerCafes = useMemo(() => {
     if (!mapTarget || !Number.isFinite(Number(mapTarget.lat)) || !Number.isFinite(Number(mapTarget.lng))) {
-      return filteredCafes;
+      return displayedCafes;
     }
 
     const targetCafe = cafes.find((cafe) => cafe.id === mapTarget.id)
       || cafes.find((cafe) => normalizeCafeName(cafe.nombre) === normalizeCafeName(mapTarget.nombre));
-    if (!targetCafe) return filteredCafes;
+    if (!targetCafe) return displayedCafes;
 
-    return filteredCafes.map((cafe) => cafe.id === targetCafe.id
+    return displayedCafes.map((cafe) => cafe.id === targetCafe.id
       ? { ...cafe, lat: Number(mapTarget.lat), lng: Number(mapTarget.lng), pos: { lat: Number(mapTarget.lat), lng: Number(mapTarget.lng) } }
       : cafe);
-  }, [cafes, filteredCafes, mapTarget])
+  }, [cafes, displayedCafes, mapTarget])
 
   const visitedCafeIds = useMemo(() => {
     return new Set(
@@ -237,6 +344,14 @@ function App() {
       setNotifications((prev) => prev.filter((n) => n.id !== id));
     }, 4000);
   }, []);
+
+  const searchThisArea = useCallback(() => {
+    if (!map) return;
+    setAreaSearchBounds(getBoundsSnapshot(map.getBounds()));
+    setAreaSearchPending(false);
+    setResultsPanelOpen(true);
+    showToast('Resultados actualizados para esta zona.', 'location');
+  }, [map, showToast]);
 
   useEffect(() => {
     if (cafesError) {
@@ -512,12 +627,18 @@ function App() {
 
     scheduleMarkerRender();
     const clearPreview = () => setSelectedPreviewCafeId(null);
+    const markAreaAsPending = () => {
+      if (Date.now() < programmaticMoveUntilRef.current) return;
+      setAreaSearchPending(true);
+    };
     map.on('moveend resize', scheduleMarkerRender);
     map.on('click', clearPreview);
+    map.on('moveend', markAreaAsPending);
 
     return () => {
       map.off('moveend resize', scheduleMarkerRender);
       map.off('click', clearPreview);
+      map.off('moveend', markAreaAsPending);
       if (markerRenderFrameRef.current) {
         window.cancelAnimationFrame(markerRenderFrameRef.current);
         markerRenderFrameRef.current = null;
@@ -893,7 +1014,7 @@ function App() {
         <button
           type="button"
           className={selectedNeighborhood === 'Todas' ? 'is-active' : ''}
-          onClick={() => setSelectedNeighborhood('Todas')}
+          onClick={() => selectNeighborhood('Todas')}
         >
           Todas <span>{cafes.length}</span>
         </button>
@@ -902,13 +1023,78 @@ function App() {
             type="button"
             key={name}
             className={selectedNeighborhood === name ? 'is-active' : ''}
-            onClick={() => setSelectedNeighborhood(name)}
+            onClick={() => selectNeighborhood(name)}
             title={`Mostrar cafeterías de ${name}`}
           >
             {name} <span>{count}</span>
           </button>
         ))}
       </div>
+
+      <div className="map-filter-controls absolute left-1/2 -translate-x-1/2 z-[1000]" role="toolbar" aria-label="Filtros del mapa">
+        <button type="button" className={`map-filter-chip ${activeFilterCount ? 'has-filter' : ''}`} onClick={() => setShowFilterPanel((current) => !current)}>
+          <SlidersHorizontal size={16} />
+          <span>Todos los filtros</span>
+          {activeFilterCount > 0 && <b>{activeFilterCount}</b>}
+        </button>
+        <button type="button" className={`map-filter-chip ${selectedRating ? 'has-filter' : ''}`} onClick={() => setSelectedRating((current) => current ? 0 : 4)}>
+          <Star size={16} fill={selectedRating ? 'currentColor' : 'none'} />
+          <span>{selectedRating ? `${selectedRating.toFixed(1)}+` : 'Calificación'}</span>
+          <ChevronDown size={14} />
+        </button>
+        <button type="button" className={`map-filter-chip ${selectedDay !== 'any' ? 'has-filter' : ''}`} onClick={() => setShowFilterPanel(true)}>
+          <Clock3 size={16} />
+          <span>{selectedDay === 'any' ? 'Horario' : MAP_DAY_OPTIONS.find(([value]) => value === selectedDay)?.[1]}</span>
+          <ChevronDown size={14} />
+        </button>
+        <button type="button" className="map-filter-chip" onClick={() => setResultsPanelOpen((current) => !current)}>
+          {resultsPanelOpen ? <MapIcon size={16} /> : <List size={16} />}
+          <span>{resultsPanelOpen ? 'Mapa' : 'Lista'}</span>
+        </button>
+      </div>
+
+      {showFilterPanel && (
+        <section className="map-filter-panel absolute left-1/2 z-[1050]" aria-label="Filtros avanzados">
+          <div className="map-filter-panel-header">
+            <div><strong>Filtros</strong><small>{filteredCafes.length} cafeterías coinciden</small></div>
+            <button type="button" onClick={() => setShowFilterPanel(false)} aria-label="Cerrar filtros"><X size={18} /></button>
+          </div>
+          <div className="map-filter-section">
+            <span>Abiertas el día elegido</span>
+            <div className="map-day-options">
+              <button type="button" className={openNowOnly ? 'is-selected' : ''} onClick={() => setOpenNowOnly((current) => !current)}>
+                Abierto ahora
+              </button>
+              {MAP_DAY_OPTIONS.map(([value, label]) => (
+                <button key={value} type="button" className={selectedDay === value ? 'is-selected' : ''} onClick={() => setSelectedDay(value)}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="map-filter-section">
+            <span>Calificación mínima</span>
+            <div className="map-rating-options">
+              {[0, 3, 4, 4.5].map((value) => (
+                <button key={value} type="button" className={selectedRating === value ? 'is-selected' : ''} onClick={() => setSelectedRating(value)}>
+                  {value ? `${value}+` : 'Cualquiera'} {value > 0 && <Star size={12} fill="currentColor" />}
+                </button>
+              ))}
+            </div>
+          </div>
+          {(activeFilterCount > 0) && (
+            <button type="button" className="map-filter-clear" onClick={() => { setSelectedDay('any'); setSelectedRating(0); setOpenNowOnly(false); }}>
+              Limpiar filtros
+            </button>
+          )}
+        </section>
+      )}
+
+      {areaSearchPending && (
+        <button type="button" className="map-area-search absolute left-1/2 z-[1040]" onClick={searchThisArea}>
+          <Search size={17} /> Buscar en esta área
+        </button>
+      )}
 
       {/* BotÃ³n de geolocalizaciÃ³n ajustado un poco mÃ¡s arriba para no chocar con la barra inferior */}
       <button 
@@ -936,6 +1122,39 @@ function App() {
           {scanning ? 'Escaneando…' : scanResultCount === null ? 'Escanear zona' : `${scanResultCount} ${scanResultCount === 1 ? 'encontrada' : 'encontradas'}`}
         </span>
       </button>
+
+      {resultsPanelOpen && (
+        <aside className="map-results-panel absolute left-0 z-[980]" aria-label="Cafeterías en esta zona">
+          <div className="map-results-header">
+            <div>
+              <strong>{displayedCafes.length} cafeterías</strong>
+              <span>{selectedNeighborhood === 'Todas' ? 'En Mérida' : selectedNeighborhood}</span>
+            </div>
+            <button type="button" onClick={() => setResultsPanelOpen(false)} aria-label="Ocultar lista"><X size={18} /></button>
+          </div>
+          {areaSearchBounds && <p className="map-results-context">Resultados dentro del área visible</p>}
+          <div className="map-results-list">
+            {displayedCafes.slice(0, 60).map((cafe) => {
+              const status = getCafeStatus(cafe);
+              return (
+                <button type="button" className="map-result-card" key={cafe.id} onClick={() => navigate(`/cafe/${cafe.id}`)}>
+                  <div className="map-result-image" style={{ backgroundImage: cafe.imageUrl ? `url("${cafe.imageUrl}")` : undefined }}>
+                    {!cafe.imageUrl && <Coffee size={22} />}
+                  </div>
+                  <div className="map-result-copy">
+                    <strong>{cafe.nombre}</strong>
+                    <span className="map-result-meta"><Star size={12} fill="currentColor" /> {Number(cafe.rating || 0).toFixed(1)} · {getCafeZone(cafe)}</span>
+                    <span className={`map-result-status ${status.state === 'open' ? 'is-open' : ''}`}>
+                      {status.state === 'open' ? status.label : status.state === 'closed' ? 'Cerrado ahora' : 'Horario por confirmar'}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+            {!displayedCafes.length && <div className="map-results-empty"><Search size={24} /><strong>No hay cafeterías con estos filtros</strong><span>Prueba con otra zona, día o mueve el mapa.</span></div>}
+          </div>
+        </aside>
+      )}
 
       <BottomNav />
 
