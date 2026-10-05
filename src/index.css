@@ -1151,6 +1151,10 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 .activity-section-switcher { display: flex; gap: 8px; margin: 0 0 18px; padding: 4px; background: #271D18; border: 1px solid rgba(230,218,193,.1); border-radius: 14px; }
 .activity-section-switcher button { flex: 1; min-height: 34px; padding: 7px 12px; color: rgba(230,218,193,.55); background: transparent; border: 0; border-radius: 10px; font: 700 10px "Inria Serif", Georgia, serif; cursor: pointer; }
 .activity-section-switcher button.is-active { color: #302820; background: #E6DAC1; }
+.activity-friends-empty { min-height: 280px; }
+.activity-friends-empty > div { display: grid; gap: 5px; }
+.activity-friends-empty strong { color: #e6dac1; font-size: 14px; }
+.activity-friends-empty button { display: inline-flex; align-items: center; gap: 7px; padding: 10px 15px; color: #302820; background: #e6dac1; border: 0; border-radius: 999px; font-size: 10px; font-weight: 700; cursor: pointer; }
 .activity-community-note { margin: -7px 0 14px; color: rgba(230,218,193,.48); font-size: 10px; text-align: center; }
 .activity-incoming-panel { display: flex; flex-direction: column; gap: 9px; }
 .activity-incoming-row { display: flex; align-items: center; gap: 10px; padding: 12px; color: #e6dac1; background: #28221c; border: 1px solid rgba(201,173,132,.2); border-radius: 16px; }

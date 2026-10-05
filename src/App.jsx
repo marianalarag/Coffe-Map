@@ -179,7 +179,13 @@ function App() {
   }, [cafes])
 
   const neighborhoods = useMemo(() => {
-    const zoneOrder = ['Centro', 'Paseo de Montejo', 'Colonia México', 'García Ginerés', 'Itzimná', 'Temozón', 'Cholul', 'Altabrisa', 'Chuburná', 'Poniente', 'Otras zonas']
+    const zoneOrder = [
+      'Centro', 'Paseo de Montejo', 'Colonia México', 'García Ginerés', 'Itzimná',
+      'Temozón', 'Santa Gertrudis Copó', 'Montebello', 'Montes de Amé', 'San Ramón Norte',
+      'San Ramón Sur', 'Cholul', 'Altabrisa', 'Campestre', 'Chuburná', 'Las Américas',
+      'Francisco de Montejo', 'Dzityá', 'Xcumpich', 'Caucel', 'Yucatán Country', 'Mulsay',
+      'Los Pinos / Brisas', 'Polígono 108', 'San Pedro Cholul', 'Poniente', 'Otras zonas',
+    ]
     return [...zoneCounts.entries()]
       .sort(([firstName, firstCount], [secondName, secondCount]) => (
         (zoneOrder.indexOf(firstName) - zoneOrder.indexOf(secondName))

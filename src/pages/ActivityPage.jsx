@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Coffee, Heart, Image as ImageIcon, MessageCircle, MoreHorizontal, Send, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Coffee, Heart, Image as ImageIcon, MessageCircle, MoreHorizontal, Send, UserPlus, Users, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import BottomNav from '../components/BottomNav';
 import HalfStarRating from '../components/HalfStarRating';
@@ -293,6 +293,7 @@ export function ActivityFeed({ userIdFilter = null, userIdsFilter = null, kindFi
 
 function FriendsActivityPanel() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [friendIds, setFriendIds] = useState(null);
 
   useEffect(() => {
@@ -317,7 +318,16 @@ function FriendsActivityPanel() {
   }, [user.id]);
 
   if (friendIds === null) return <div className="activity-empty"><p>Cargando amigos…</p></div>;
-  if (friendIds.length === 0) return <div className="activity-empty"><p>Aún no tienes amigos agregados para mostrar su actividad.</p></div>;
+  if (friendIds.length === 0) return (
+    <div className="activity-empty activity-friends-empty">
+      <Users size={30} />
+      <div>
+        <strong>Aún no tienes amigos agregados</strong>
+        <p>Agrega amigos para ver sus visitas, reseñas y publicaciones aquí.</p>
+      </div>
+      <button type="button" onClick={() => navigate('/profile?tab=friends')}><UserPlus size={16} /> Agregar amigos</button>
+    </div>
+  );
   return <ActivityFeed userIdsFilter={friendIds} />;
 }
 
@@ -329,8 +339,8 @@ function ActivityPage() {
     <main className="social-page activity-page">
       <div className="social-shell activity-shell">
         <nav className="activity-section-switcher" aria-label="Secciones de actividad">
-          <button type="button" className={activeSection === 'friends' ? 'is-active' : ''} onClick={() => setActiveSection('friends')}>Amigos</button>
           <button type="button" className={activeSection === 'you' ? 'is-active' : ''} onClick={() => setActiveSection('you')}>Tú</button>
+          <button type="button" className={activeSection === 'friends' ? 'is-active' : ''} onClick={() => setActiveSection('friends')}>Amigos</button>
         </nav>
         {activeSection === 'friends' && <FriendsActivityPanel />}
         {activeSection === 'you' && <ActivityFeed userIdFilter={user?.id} />}

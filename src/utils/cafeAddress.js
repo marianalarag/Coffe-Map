@@ -17,25 +17,52 @@ export const getCafeNeighborhood = (cafe) => {
   return cleanNeighborhood(locality) || 'Colonia por confirmar';
 };
 
-// Map filters stay broad and recognizable. They should not reproduce every
-// small subdivision returned by OpenStreetMap or Overture.
+const ZONE_ADDRESS_PARTS = (cafe) => String(cafe?.address || '')
+  .split(',')
+  .map((part) => part.trim())
+  .filter((part) => part && !CITY_PATTERN.test(part));
+
+// Map filters use recognizable areas instead of every subdivision returned by
+// OpenStreetMap or Overture. Only neighborhood/address segments are searched;
+// this deliberately excludes the country name "México" from the full address.
 export const getCafeZone = (cafe) => {
   const neighborhood = getCafeNeighborhood(cafe);
-  const value = `${neighborhood} ${cafe?.address || ''}`
+  const normalizedNeighborhood = neighborhood
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+  const value = `${neighborhood} ${ZONE_ADDRESS_PARTS(cafe).join(' ')}`
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase();
 
-  if (/paseo\s+de\s+montejo|paseo\s+montejo|montejo/.test(value)) return 'Paseo de Montejo';
+  if (/paseo\s+de\s+montejo|paseo\s+montejo|\bmontejo\b/.test(value)) return 'Paseo de Montejo';
   if (/garcia\s+gineres/.test(value)) return 'García Ginerés';
-  if (/colonia\s+mexico|col\.?\s+mexico|\bmexico\b/.test(value)) return 'Colonia México';
+  if (normalizedNeighborhood === 'mexico' || /colonia\s+mexico|col\.?\s+mexico/.test(value)) return 'Colonia México';
   if (/itzimna/.test(value)) return 'Itzimná';
-  if (/temozon/.test(value)) return 'Temozón';
+  if (/temozon\s+norte|temozon/.test(value)) return 'Temozón';
+  if (/san\s+pedro\s+cholul/.test(value)) return 'San Pedro Cholul';
   if (/cholul/.test(value)) return 'Cholul';
-  if (/altabrisa|montebello|san\s+antonio\s+cucul/.test(value)) return 'Altabrisa';
+  if (/santa\s+gertrudis\s+cop[oó]/.test(value)) return 'Santa Gertrudis Copó';
+  if (/montebello/.test(value)) return 'Montebello';
+  if (/montes\s+de\s+ame/.test(value)) return 'Montes de Amé';
+  if (/san\s+ramon\s+norte/.test(value)) return 'San Ramón Norte';
+  if (/san\s+ramon\s+sur/.test(value)) return 'San Ramón Sur';
+  if (/altabrisa|san\s+antonio\s+cucul/.test(value)) return 'Altabrisa';
   if (/centro|santiago|san\s+juan|mejorada|ermita|san\s+sebastian/.test(value)) return 'Centro';
-  if (/chuburna|campestre/.test(value)) return 'Chuburná';
-  if (/francisco\s+de\s+montejo|caucel|dzitya|xcumpich/.test(value)) return 'Poniente';
+  if (/campestre/.test(value)) return 'Campestre';
+  if (/chuburna/.test(value)) return 'Chuburná';
+  if (/las\s+americas/.test(value)) return 'Las Américas';
+  if (/francisco\s+de\s+montejo/.test(value)) return 'Francisco de Montejo';
+  if (/dzitya/.test(value)) return 'Dzityá';
+  if (/xcumpich/.test(value)) return 'Xcumpich';
+  if (/caucel|ciudad\s+caucel/.test(value)) return 'Caucel';
+  if (/yucatan\s+country/.test(value)) return 'Yucatán Country';
+  if (/mulsay/.test(value)) return 'Mulsay';
+  if (/los\s+pinos|brisas/.test(value)) return 'Los Pinos / Brisas';
+  if (/poligono\s+108/.test(value)) return 'Polígono 108';
+  if (/poniente/.test(value)) return 'Poniente';
 
   // Recover Centro only when the provider omitted the neighborhood. Avoid
   // guessing a cardinal zone for every other record.

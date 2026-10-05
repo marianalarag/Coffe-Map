@@ -661,7 +661,6 @@ function ProfilePage() {
 function ProfileActivityPanel({ userId }) {
   return (
     <section className="profile-tab-panel profile-activity-panel">
-      <div className="profile-activity-heading"><small>ACTIVIDAD</small><h2>Actividad</h2><p>Tus visitas, reseñas y publicaciones.</p></div>
       <ActivityFeed userIdFilter={userId} compact />
     </section>
   );
