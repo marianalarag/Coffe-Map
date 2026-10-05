@@ -15,6 +15,16 @@ import AdminRoute from './AdminRoute.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 
 const routeCacheByUser = new Map();
+const AUTH_REQUIRED_ROUTE_TYPES = new Set([
+  'search',
+  'new-post',
+  'activity',
+  'profile',
+  'public-profile',
+  'settings',
+  'collection',
+  'admin',
+]);
 
 const getRouteEntry = (pathname) => {
   if (pathname === '/') {
@@ -123,6 +133,11 @@ function CachedProtectedRoutes() {
 
   if (!activeEntry) {
     return <Navigate to="/" replace />;
+  }
+
+  if (!user && AUTH_REQUIRED_ROUTE_TYPES.has(activeEntry.type)) {
+    const requestedPath = `${location.pathname}${location.search}${location.hash}`;
+    return <Navigate to={`/login?redirectTo=${encodeURIComponent(requestedPath)}`} replace />;
   }
 
   const cachedEntries = routeCacheByUser.get(cacheKey) || [];

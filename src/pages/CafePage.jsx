@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useLocation, useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Star, MapPin, Coffee, Heart, CheckCircle2, Clock, Edit3 } from 'lucide-react';
 import PageLoading from '../components/PageLoading';
 import { useAuth } from '../context/AuthContext';
@@ -19,6 +19,7 @@ function CafePage({ cafeId }) {
   const { id: routeCafeId } = useParams();
   const id = cafeId ?? routeCafeId;
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const {
     cafeById,
@@ -73,8 +74,15 @@ function CafePage({ cafeId }) {
     setReviewText(interaction?.review_text || '');
   }, [interaction, id]);
 
+  const requireAuth = () => {
+    if (user) return true;
+    const requestedPath = `${location.pathname}${location.search}${location.hash}`;
+    navigate(`/login?redirectTo=${encodeURIComponent(requestedPath)}`);
+    return false;
+  };
+
   const saveInteraction = async (updates) => {
-    if (!user || !cafe) return;
+    if (!requireAuth() || !cafe) return;
 
     const hasUpdate = (key) => Object.prototype.hasOwnProperty.call(updates, key);
     setSavingInteraction(true);
@@ -99,25 +107,28 @@ function CafePage({ cafeId }) {
   };
 
   const toggleVisited = () => {
+    if (!requireAuth()) return;
     const nextValue = !isVisited;
     setIsVisited(nextValue);
     saveInteraction({ is_visited: nextValue, ...(nextValue ? { visited_on: getLocalDate() } : {}) });
   };
 
   const toggleFavorite = () => {
+    if (!requireAuth()) return;
     const nextValue = !isFavorite;
     setIsFavorite(nextValue);
     saveInteraction({ is_favorite: nextValue });
   };
 
   const toggleWaitlist = () => {
+    if (!requireAuth()) return;
     const nextValue = !inWaitlist;
     setInWaitlist(nextValue);
     saveInteraction({ in_waitlist: nextValue });
   };
 
   const openReviewComposer = () => {
-    if (!cafe) return;
+    if (!requireAuth() || !cafe) return;
     navigate(`/new-post?cafe=${encodeURIComponent(cafe.id)}`);
   };
 

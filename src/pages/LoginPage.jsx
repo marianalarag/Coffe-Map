@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCoffeeData } from '../context/CoffeeDataContext';
 import PageLoading from '../components/PageLoading';
@@ -7,6 +7,7 @@ import PageLoading from '../components/PageLoading';
 function LoginPage() {
   const { user, loading, authError, login, register, resetPassword, restartSession } = useAuth();
   const { preloadInitialData } = useCoffeeData();
+  const location = useLocation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
@@ -24,6 +25,10 @@ function LoginPage() {
   const isLoginMode = authMode === 'login';
   const isForgotMode = authMode === 'forgot';
   const isLoginSectionOpen = isLoginMode || isForgotMode;
+  const postAuthPath = (() => {
+    const requestedPath = new URLSearchParams(location.search).get('redirectTo');
+    return requestedPath?.startsWith('/') ? requestedPath : '/';
+  })();
   const visibleError = error || authError;
   const canRestartSession = /conectar con el servidor|tardó demasiado|timeout|failed to fetch/i.test(visibleError);
 
@@ -147,7 +152,7 @@ function LoginPage() {
   }
 
   if (user && (!loginTransition || loginTransition.complete)) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={postAuthPath} replace />;
   }
 
   return (

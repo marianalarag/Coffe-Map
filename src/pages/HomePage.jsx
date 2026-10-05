@@ -158,6 +158,10 @@ function HomePage() {
 
   const updateFeaturedInteraction = async (field, value) => {
     if (!featuredCafe || savingAction) return;
+    if (!user) {
+      navigate('/login?redirectTo=%2F');
+      return;
+    }
     setSavingAction(field);
     setActionError('');
     try {

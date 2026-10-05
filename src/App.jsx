@@ -193,7 +193,7 @@ function App() {
   const navigate = useNavigate();
   const location = useLocation();
   const { logout } = useAuth();
-  const { cafes, cafesLoading, cafesError, interactions } = useCoffeeData();
+  const { cafes, cafesLoading, cafesLoaded, cafesError, loadCafes, interactions } = useCoffeeData();
   const mapRef = useRef(null)
   const markerLayerRef = useRef(null)
   const cafeMarkerEntriesRef = useRef(new Map())
@@ -222,6 +222,10 @@ function App() {
   const isTouchDevice = useMemo(() => (
     window.matchMedia?.('(hover: none), (pointer: coarse)').matches ?? false
   ), [])
+
+  useEffect(() => {
+    if (!cafesLoaded) loadCafes().catch(() => {});
+  }, [cafesLoaded, loadCafes]);
 
   const zoneCounts = useMemo(() => {
     const counts = new Map()

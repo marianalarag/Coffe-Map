@@ -4,7 +4,6 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import './index.css'
 import { AuthProvider } from './context/AuthContext'
 import { CoffeeDataProvider } from './context/CoffeeDataContext'
-import ProtectedRoute from './components/ProtectedRoute'
 import CachedProtectedRoutes from './components/CachedProtectedRoutes'
 import LoginPage from './pages/LoginPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
@@ -57,11 +56,7 @@ createRoot(document.getElementById('root')).render(
               <Route path="/reset-password" element={<ResetPasswordPage />} />
               <Route
                 path="/*"
-                element={
-                  <ProtectedRoute>
-                    <CachedProtectedRoutes />
-                  </ProtectedRoute>
-                }
+                element={<CachedProtectedRoutes />}
               />
             </Routes>
           </BrowserRouter>
