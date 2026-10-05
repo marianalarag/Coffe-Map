@@ -8,6 +8,7 @@ import BottomNav from './components/BottomNav'
 import { useAuth } from './context/AuthContext'
 import { useCoffeeData } from './context/CoffeeDataContext'
 import { getCafeZone } from './utils/cafeAddress'
+import { normalizeCafeName } from './utils/cafeDeduplication'
 
 const MERIDA_CENTER = { lat: 20.9753, lng: -89.6178 };
 const MERIDA_BOUNDS = [[20.86, -89.75], [21.08, -89.52]];
@@ -158,6 +159,7 @@ function App() {
   const [notifications, setNotifications] = useState([])
   const [loggingOut, setLoggingOut] = useState(false)
   const [userLocation, setUserLocation] = useState(null)
+  const [mapTarget, setMapTarget] = useState(null)
   const [locating, setLocating] = useState(false)
   const [selectedNeighborhood, setSelectedNeighborhood] = useState('Todas')
   const [selectedPreviewCafeId, setSelectedPreviewCafeId] = useState(null)
@@ -199,6 +201,20 @@ function App() {
       ? cafes
       : cafes.filter((cafe) => getCafeZone(cafe) === selectedNeighborhood)
   ), [cafes, selectedNeighborhood])
+
+  const markerCafes = useMemo(() => {
+    if (!mapTarget || !Number.isFinite(Number(mapTarget.lat)) || !Number.isFinite(Number(mapTarget.lng))) {
+      return filteredCafes;
+    }
+
+    const targetCafe = cafes.find((cafe) => cafe.id === mapTarget.id)
+      || cafes.find((cafe) => normalizeCafeName(cafe.nombre) === normalizeCafeName(mapTarget.nombre));
+    if (!targetCafe) return filteredCafes;
+
+    return filteredCafes.map((cafe) => cafe.id === targetCafe.id
+      ? { ...cafe, lat: Number(mapTarget.lat), lng: Number(mapTarget.lng), pos: { lat: Number(mapTarget.lat), lng: Number(mapTarget.lng) } }
+      : cafe);
+  }, [cafes, filteredCafes, mapTarget])
 
   const visitedCafeIds = useMemo(() => {
     return new Set(
@@ -393,7 +409,7 @@ function App() {
   const renderVisibleMarkers = useCallback(() => {
     if (!map || !markerLayerRef.current) return;
 
-    const markerGroups = getMarkerGroups(map, filteredCafes);
+    const markerGroups = getMarkerGroups(map, markerCafes);
     const nextKeys = new Set(markerGroups.map((group) => group.key));
     const showMarkerPreviews = !isTouchDevice;
 
@@ -472,7 +488,7 @@ function App() {
       marker.addTo(markerLayerRef.current);
       cafeMarkerEntriesRef.current.set(group.key, { marker, signature });
     });
-  }, [filteredCafes, isTouchDevice, map, navigate, selectedPreviewCafeId, visitedCafeIds]);
+  }, [isTouchDevice, map, markerCafes, navigate, selectedPreviewCafeId, visitedCafeIds]);
 
   useEffect(() => {
     if (!map) return undefined;
@@ -575,9 +591,13 @@ function App() {
       target = null;
     }
 
-    if (!target) return;
+    if (!target) {
+      setMapTarget(null);
+      return;
+    }
 
-    const cafe = cafes.find((currentCafe) => currentCafe.id === target.id);
+    const cafe = cafes.find((currentCafe) => currentCafe.id === target.id)
+      || cafes.find((currentCafe) => normalizeCafeName(currentCafe.nombre) === normalizeCafeName(target.nombre));
     // The target is calculated from the address/link at the moment the user
     // opens the map. Prefer it over a stale cached cafe row.
     const lat = Number(target.lat ?? cafe?.lat);
@@ -585,6 +605,7 @@ function App() {
 
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
 
+    setMapTarget({ ...target, id: cafe?.id || target.id, nombre: cafe?.nombre || target.nombre });
     window.sessionStorage.removeItem(MAP_TARGET_STORAGE_KEY);
     map.setView([lat, lng], 18, { animate: true });
     showToast(`Mostrando ${cafe?.nombre || target.nombre || 'cafeteria'} en el mapa.`, 'location');
