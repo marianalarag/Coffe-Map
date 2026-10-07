@@ -41,6 +41,8 @@ create table if not exists public.cafes (
   address text,
   category text not null default 'cafeteria',
   submitted_by uuid references public.profiles(id) on delete set null,
+  status text not null default 'active',
+  last_verified_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -58,6 +60,11 @@ alter table public.cafes add constraint cafes_opening_hours_source_check
 check (opening_hours_source is null or opening_hours_source in ('osm', 'admin', 'web', 'community'));
 alter table public.cafes add column if not exists category text not null default 'cafeteria';
 alter table public.cafes add column if not exists submitted_by uuid references public.profiles(id) on delete set null;
+alter table public.cafes add column if not exists status text not null default 'active';
+alter table public.cafes add column if not exists last_verified_at timestamptz;
+alter table public.cafes drop constraint if exists cafes_status_check;
+alter table public.cafes add constraint cafes_status_check
+check (status in ('active', 'needs_review', 'closed'));
 alter table public.cafes drop constraint if exists cafes_category_check;
 alter table public.cafes add constraint cafes_category_check
 check (category in ('cafeteria', 'panaderia'));
@@ -116,10 +123,18 @@ using ((select auth.uid()) = id)
 with check ((select auth.uid()) = id and role = 'usuario');
 
 drop policy if exists "cafes_select_authenticated" on public.cafes;
+drop policy if exists "cafes_select_public" on public.cafes;
+create policy "cafes_select_public"
+on public.cafes for select
+to anon
+using (status = 'active');
 create policy "cafes_select_authenticated"
 on public.cafes for select
 to authenticated
-using (true);
+using (status = 'active' or exists (select 1 from public.profiles where id = auth.uid() and role = 'administrador'));
+
+grant select on table public.cafes to anon;
+grant select, insert on table public.cafes to authenticated;
 
 drop policy if exists "cafes_insert_authenticated" on public.cafes;
 drop policy if exists "cafes_insert_admin" on public.cafes;

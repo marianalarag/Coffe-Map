@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Search, Coffee, CheckCircle2, Clock, Heart, X, MapPinned, Navigation, Plus } from 'lucide-react';
 import PageLoading from '../components/PageLoading';
@@ -6,7 +6,7 @@ import { useCoffeeData } from '../context/CoffeeDataContext';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../supabase';
 import { areDuplicateCafes, normalizeCafeName } from '../utils/cafeDeduplication';
-import { extractGoogleMapsCoordinates, geocodeCafeAddress } from '../utils/cafeLocation';
+import { extractGoogleMapsCoordinates, geocodeCafeLocation } from '../utils/cafeLocation';
 
 const calculateDistance = (lat1, lon1, lat2, lon2) => {
   const radiusKm = 6371;
@@ -66,7 +66,9 @@ function SearchPage() {
   const [showAddCafe, setShowAddCafe] = useState(false);
   const [addingCafe, setAddingCafe] = useState(false);
   const [addCafeFeedback, setAddCafeFeedback] = useState('');
+  const [locationStatus, setLocationStatus] = useState('');
   const [newCafe, setNewCafe] = useState({ nombre: '', address: '', link: '', lat: '', lng: '' });
+  const locationLookupRef = useRef(0);
   const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const isCafeSelectionMode = searchParams.get('selectCafe') === '1';
   const returnTo = searchParams.get('returnTo') || '/new-post';
@@ -123,12 +125,59 @@ function SearchPage() {
 
   const openAddCafe = () => {
     setAddCafeFeedback('');
+    setLocationStatus('');
     setNewCafe((current) => ({
       ...current,
       nombre: current.nombre || searchQuery.trim(),
     }));
     setShowAddCafe(true);
   };
+
+  useEffect(() => {
+    if (!showAddCafe) return undefined;
+
+    const link = newCafe.link.trim();
+    const address = newCafe.address.trim();
+    const directCoordinates = extractGoogleMapsCoordinates(link);
+    const lookupId = locationLookupRef.current + 1;
+    locationLookupRef.current = lookupId;
+
+    if (directCoordinates) {
+      setNewCafe((current) => ({
+        ...current,
+        lat: directCoordinates.lat.toFixed(6),
+        lng: directCoordinates.lng.toFixed(6),
+      }));
+      setLocationStatus('Coordenadas tomadas del enlace de Maps.');
+      return undefined;
+    }
+
+    if (!link && !address) {
+      setLocationStatus('');
+      return undefined;
+    }
+
+    const timerId = window.setTimeout(async () => {
+      setLocationStatus('Buscando ubicación…');
+      try {
+        const resolvedLocation = await geocodeCafeLocation({ link, address });
+        if (locationLookupRef.current !== lookupId || !resolvedLocation) {
+          if (locationLookupRef.current === lookupId) setLocationStatus('No encontramos esa ubicación todavía.');
+          return;
+        }
+        setNewCafe((current) => ({
+          ...current,
+          lat: resolvedLocation.lat.toFixed(6),
+          lng: resolvedLocation.lng.toFixed(6),
+        }));
+        setLocationStatus('Ubicación encontrada automáticamente.');
+      } catch {
+        if (locationLookupRef.current === lookupId) setLocationStatus('No encontramos esa ubicación todavía.');
+      }
+    }, 700);
+
+    return () => window.clearTimeout(timerId);
+  }, [newCafe.address, newCafe.link, showAddCafe]);
 
   const useCurrentLocation = () => {
     if (!navigator.geolocation) {
@@ -144,6 +193,7 @@ function SearchPage() {
           lat: position.coords.latitude.toFixed(6),
           lng: position.coords.longitude.toFixed(6),
         }));
+        setLocationStatus('Ubicación tomada del dispositivo.');
         setAddCafeFeedback('Ubicación agregada.');
       },
       () => setAddCafeFeedback('No pudimos obtener tu ubicación.'),
@@ -159,11 +209,11 @@ function SearchPage() {
     let lat = mapCoordinates?.lat ?? Number(newCafe.lat);
     let lng = mapCoordinates?.lng ?? Number(newCafe.lng);
     let resolvedLocation = null;
-    if (newCafe.address.trim()) {
+    if (!mapCoordinates && (newCafe.link.trim() || newCafe.address.trim())) {
       setAddingCafe(true);
       setAddCafeFeedback('Ubicando la dirección exacta…');
       try {
-        resolvedLocation = await geocodeCafeAddress(newCafe.address.trim());
+        resolvedLocation = await geocodeCafeLocation({ link: newCafe.link.trim(), address: newCafe.address.trim() });
         if (resolvedLocation) {
           lat = resolvedLocation.lat;
           lng = resolvedLocation.lng;
@@ -360,7 +410,8 @@ function SearchPage() {
                 <label>Longitud<input inputMode="decimal" value={newCafe.lng} onChange={(event) => setNewCafe({ ...newCafe, lng: event.target.value })} /></label>
               </div>
 
-              <p className="missing-cafe-note">Si escribes la dirección, la usamos para colocar el punto exacto. Las coordenadas solo son respaldo.</p>
+              <p className="missing-cafe-note">Si escribes la dirección o pegas un enlace de Maps, las coordenadas se llenan automáticamente.</p>
+              {locationStatus && <p className="missing-cafe-location-status" role="status">{locationStatus}</p>}
               {addCafeFeedback && <p className="missing-cafe-feedback" role="status">{addCafeFeedback}</p>}
               <button className="missing-cafe-submit" type="submit" disabled={addingCafe}>{addingCafe ? 'Enviando...' : 'Enviar cafetería'}</button>
             </form>

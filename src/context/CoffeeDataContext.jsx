@@ -3,21 +3,22 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { supabase } from '../supabase';
 import { useAuth } from './AuthContext';
 import { areDuplicateCafes, deduplicateCafes, repairCafeText } from '../utils/cafeDeduplication';
-import { geocodeCafeAddress, getCafeCoordinates } from '../utils/cafeLocation';
+import { geocodeCafeLocation, getCafeCoordinates } from '../utils/cafeLocation';
 
 const CoffeeDataContext = createContext(null);
 
 const CAFES_CACHE_KEY = 'coffee-map:cafes:v12';
 const CAFES_CACHE_TTL_MS = 15 * 60 * 1000;
 const CAFE_REQUEST_TIMEOUT_MS = 8 * 1000;
-const CAFE_COLUMNS = 'id,nombre,lat,lng,rating,reviews,link,address,neighborhood,category,image_url,image_source_url,image_attribution,image_license,opening_hours,opening_hours_source,opening_hours_source_url,opening_hours_verified_at,source,source_id,source_url';
+const CAFE_COLUMNS = 'id,nombre,lat,lng,rating,reviews,link,address,neighborhood,category,image_url,image_source_url,image_attribution,image_license,opening_hours,opening_hours_source,opening_hours_source_url,opening_hours_verified_at,source,source_id,source_url,status';
 const INTERACTION_COLUMNS = 'id,user_id,cafe_id,is_visited,is_favorite,in_waitlist,rating,review_text,visited_on,updated_at';
 const INTERACTION_WITH_CAFE_COLUMNS = `${INTERACTION_COLUMNS},cafe:cafes(${CAFE_COLUMNS})`;
 // Change this version whenever a validated source scan is published so the next
 // administrator session synchronizes only the newly discovered, unique cafes.
 const ADMIN_SCAN_SYNC_KEY = 'coffee-map:admin-scan:2026-09-04-v2';
-const COMMUNITY_LOCATION_CACHE_KEY = 'coffee-map:community-location:v1:';
+const COMMUNITY_LOCATION_CACHE_KEY = 'coffee-map:community-location:v2:';
 const MERIDA_BOUNDS = { south: 20.86, west: -89.75, north: 21.08, east: -89.52 };
+const isUuid = (value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ''));
 
 const withRequestTimeout = (request, timeoutMs, message) => {
   let timeoutId;
@@ -63,6 +64,7 @@ const normalizeCafe = (cafe) => {
     address: cafe.address ? repairCafeText(cafe.address) : null,
     neighborhood: cafe.neighborhood ? repairCafeText(cafe.neighborhood) : null,
     category: cafe.category === 'panaderia' ? 'panaderia' : 'cafeteria',
+    status: cafe.status || 'active',
   };
 };
 
@@ -77,7 +79,8 @@ const readCachedCafes = () => {
       return null;
     }
 
-    return Array.isArray(parsed.data) ? deduplicateCafes(parsed.data.map(normalizeCafe)) : null;
+    const cafes = Array.isArray(parsed.data) ? deduplicateCafes(parsed.data.map(normalizeCafe)) : [];
+    return cafes.length ? cafes : null;
   } catch {
     return null;
   }
@@ -122,17 +125,19 @@ const writeCommunityLocation = (address, location) => {
 };
 
 const repairCommunityLocations = async (cafes) => {
-  const candidates = cafes.filter((cafe) => cafe.source === 'community' && cafe.address?.trim());
+  const candidates = cafes.filter((cafe) => (
+    cafe.source === 'community' && (cafe.address?.trim() || cafe.link?.trim() || cafe.source_url?.trim())
+  ));
   if (!candidates.length) return cafes;
 
   const repaired = new Map();
   for (const cafe of candidates) {
-    const address = cafe.address.trim();
-    let location = readCommunityLocation(address);
+    const locationKey = [cafe.link, cafe.source_url, cafe.address].filter(Boolean).join('|');
+    let location = readCommunityLocation(locationKey);
     if (!location) {
       try {
-        location = await geocodeCafeAddress(address);
-        if (location && isMeridaCoordinate(location)) writeCommunityLocation(address, location);
+        location = await geocodeCafeLocation(cafe);
+        if (location && isMeridaCoordinate(location)) writeCommunityLocation(locationKey, location);
       } catch {
         location = null;
       }
@@ -158,6 +163,7 @@ export function CoffeeDataProvider({ children }) {
   const userId = user?.id;
   const cafeRequestRef = useRef(null);
   const adminDataSyncRef = useRef(false);
+  const communityRepairStartedRef = useRef(false);
 
   const [cafesState, setCafesState] = useState(() => {
     const cachedCafes = readCachedCafes();
@@ -180,6 +186,17 @@ export function CoffeeDataProvider({ children }) {
     cafesLoadedRef.current = cafesState.cafesLoaded;
   }, [cafesState.cafes, cafesState.cafesLoaded]);
 
+  useEffect(() => {
+    if (!cafesState.cafesLoaded || !cafesState.cafes.length || communityRepairStartedRef.current) return;
+    communityRepairStartedRef.current = true;
+    repairCommunityLocations(cafesState.cafes).then((repairedCafes) => {
+      if (repairedCafes === cafesState.cafes) return;
+      cafesRef.current = repairedCafes;
+      setCafesState((current) => ({ ...current, cafes: repairedCafes }));
+      writeCachedCafes(repairedCafes);
+    }).catch(() => {});
+  }, [cafesState.cafes, cafesState.cafesLoaded]);
+
   const loadCafes = useCallback(async ({ force = false } = {}) => {
     if (!force && cafesLoadedRef.current) {
       return cafesRef.current;
@@ -197,6 +214,7 @@ export function CoffeeDataProvider({ children }) {
           supabase
             .from('cafes')
             .select(CAFE_COLUMNS)
+            .eq('status', 'active')
             .order('nombre', { ascending: true }),
           CAFE_REQUEST_TIMEOUT_MS,
           'La carga de cafeterías tardó demasiado.',
@@ -204,7 +222,14 @@ export function CoffeeDataProvider({ children }) {
 
         if (error) throw error;
 
-        const normalizedCafes = deduplicateCafes((data || []).map(normalizeCafe));
+        let normalizedCafes = deduplicateCafes((data || []).map(normalizeCafe));
+        // A public Supabase query can legitimately return an empty array while
+        // RLS is being deployed. Keep exploration useful with the bundled scan
+        // until the database policies and data are available.
+        if (!normalizedCafes.length) {
+          const scanModule = await import('../data/openCafeScan.json');
+          normalizedCafes = deduplicateCafes((scanModule.default?.cafes || []).map(normalizeCafe));
+        }
         cafesRef.current = normalizedCafes;
         cafesLoadedRef.current = true;
         setCafesState({
@@ -213,6 +238,7 @@ export function CoffeeDataProvider({ children }) {
           cafesError: '',
         });
         writeCachedCafes(normalizedCafes);
+        communityRepairStartedRef.current = true;
         repairCommunityLocations(normalizedCafes).then((repairedCafes) => {
           if (repairedCafes === normalizedCafes) return;
           cafesRef.current = repairedCafes;
@@ -370,6 +396,7 @@ export function CoffeeDataProvider({ children }) {
     const currentInteraction = interactions
       .filter((interaction) => interaction.cafe_id === cafeId)
       .sort((first, second) => String(second.updated_at || '').localeCompare(String(first.updated_at || '')))[0];
+    const persistedInteraction = isUuid(currentInteraction?.id) ? currentInteraction : null;
     const createNewVisit = Boolean(options.createNewVisit);
     const allowedFields = ['is_visited', 'is_favorite', 'in_waitlist', 'rating', 'review_text', 'visited_on'];
     const patch = Object.fromEntries(
@@ -384,43 +411,43 @@ export function CoffeeDataProvider({ children }) {
       updated_at: new Date().toISOString(),
     };
     const optimisticInteraction = {
-      id: createNewVisit ? `optimistic:${cafeId}:${Date.now()}` : (currentInteraction?.id || `optimistic:${cafeId}`),
+      id: createNewVisit ? `optimistic:${cafeId}:${Date.now()}` : (persistedInteraction?.id || `optimistic:${cafeId}`),
       is_visited: false,
       is_favorite: false,
       in_waitlist: false,
       rating: null,
       review_text: '',
       visited_on: null,
-      ...currentInteraction,
+      ...persistedInteraction,
       ...payload,
     };
 
     setInteractions((current) => {
       if (createNewVisit) return [optimisticInteraction, ...current];
-      const interactionIndex = current.findIndex((item) => item.id === currentInteraction?.id);
+      const interactionIndex = current.findIndex((item) => item.id === persistedInteraction?.id);
       if (interactionIndex >= 0) {
         return current.map((item, index) => (index === interactionIndex ? optimisticInteraction : item));
       }
       return [optimisticInteraction, ...current];
     });
 
-    const interactionRequest = createNewVisit || !currentInteraction?.id
+    const interactionRequest = createNewVisit || !persistedInteraction?.id
       ? supabase.from('user_cafes').insert([payload])
-      : supabase.from('user_cafes').update(payload).eq('id', currentInteraction.id);
+      : supabase.from('user_cafes').update(payload).eq('id', persistedInteraction.id);
     const { data, error } = await interactionRequest
       .select(INTERACTION_WITH_CAFE_COLUMNS)
       .single();
     if (error) {
       setInteractions((current) => {
-        if (createNewVisit || !currentInteraction?.id) return current.filter((item) => item.id !== optimisticInteraction.id);
-        return current.map((item) => item.id === optimisticInteraction.id ? currentInteraction : item);
+        if (createNewVisit || !persistedInteraction?.id) return current.filter((item) => item.id !== optimisticInteraction.id);
+        return current.map((item) => item.id === optimisticInteraction.id ? persistedInteraction : item);
       });
       throw error;
     }
 
     const normalizedInteraction = {
       ...data,
-      cafe: data.cafe ? normalizeCafe(data.cafe) : currentInteraction?.cafe || null,
+      cafe: data.cafe ? normalizeCafe(data.cafe) : persistedInteraction?.cafe || null,
     };
 
     if (Object.prototype.hasOwnProperty.call(patch, 'review_text')) {
@@ -440,9 +467,8 @@ export function CoffeeDataProvider({ children }) {
 
     setInteractions((current) => {
       const exists = current.some((interaction) => interaction.id === normalizedInteraction.id);
-      return exists
-        ? current.map((interaction) => (interaction.id === normalizedInteraction.id ? normalizedInteraction : interaction))
-        : [normalizedInteraction, ...current];
+      if (exists) return current.map((interaction) => (interaction.id === normalizedInteraction.id ? normalizedInteraction : interaction));
+      return [normalizedInteraction, ...current.filter((interaction) => interaction.id !== optimisticInteraction.id)];
     });
     setInteractionsLoaded(true);
 

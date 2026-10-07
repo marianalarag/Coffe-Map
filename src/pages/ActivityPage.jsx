@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Coffee, Heart, Image as ImageIcon, MessageCircle, MoreHorizontal, Send, UserPlus, Users, X } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Coffee, Edit3, Heart, Image as ImageIcon, ImagePlus, MessageCircle, MoreHorizontal, Send, Trash2, UserPlus, Users, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import BottomNav from '../components/BottomNav';
 import HalfStarRating from '../components/HalfStarRating';
@@ -9,6 +9,7 @@ import { repairCafeText } from '../utils/cafeDeduplication';
 
 const fallbackAvatar = (seed) => `https://api.dicebear.com/7.x/miniavs/svg?seed=${encodeURIComponent(seed || 'coffee-user')}`;
 const ACTIVITY_CACHE_TTL_MS = 2 * 60 * 1000;
+const MAX_EDIT_PHOTO_BYTES = 8 * 1024 * 1024;
 const activityCache = new Map();
 
 function PostImageCarousel({ images, cafeName }) {
@@ -67,9 +68,18 @@ export function ActivityFeed({ userIdFilter = null, userIdsFilter = null, kindFi
   const [commentProfiles, setCommentProfiles] = useState({});
   const [commentText, setCommentText] = useState('');
   const [commentsLoading, setCommentsLoading] = useState(false);
+  const [postMenuId, setPostMenuId] = useState(null);
+  const [editingPost, setEditingPost] = useState(null);
+  const [editText, setEditText] = useState('');
+  const [editImages, setEditImages] = useState([]);
+  const [editFiles, setEditFiles] = useState([]);
+  const [editPreviews, setEditPreviews] = useState([]);
+  const [editFeedback, setEditFeedback] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
+  const editFileInputRef = useRef(null);
 
   const loadPosts = useCallback(async () => {
-    const cacheKey = `${kindFilter || 'all'}:${userIdFilter || (Array.isArray(userIdsFilter) ? `users:${userIdsFilter.slice().sort().join(',')}` : 'all')}`;
+    const cacheKey = `${user.id}:${kindFilter || 'all'}:${userIdFilter || (Array.isArray(userIdsFilter) ? `users:${userIdsFilter.slice().sort().join(',')}` : 'all')}`;
     const cached = activityCache.get(cacheKey);
     const hasFreshCache = cached && Date.now() - cached.savedAt < ACTIVITY_CACHE_TTL_MS;
     if (hasFreshCache) {
@@ -88,7 +98,7 @@ export function ActivityFeed({ userIdFilter = null, userIdsFilter = null, kindFi
 
       let postsQuery = supabase
         .from('posts')
-        .select('id,user_id,cafe_id,content,image_url,kind,rating,visited_on,created_at,updated_at')
+        .select('id,user_id,cafe_id,content,image_url,kind,rating,visited_on,interaction_id,created_at,updated_at')
         .eq('status', 'published')
         .order('updated_at', { ascending: false })
         .order('created_at', { ascending: false })
@@ -112,7 +122,7 @@ export function ActivityFeed({ userIdFilter = null, userIdsFilter = null, kindFi
       const [{ data: profiles }, { data: cafes }, { data: imageRows }] = await Promise.all([
         userIds.length ? supabase.from('profiles').select('id,username,avatar_url').in('id', userIds) : { data: [] },
         cafeIds.length ? supabase.from('cafes').select('id,nombre').in('id', cafeIds) : { data: [] },
-        postIds.length ? supabase.from('post_images').select('id,post_id,public_url,position').in('post_id', postIds).order('position') : { data: [] },
+        postIds.length ? supabase.from('post_images').select('id,post_id,public_url,position,storage_path').in('post_id', postIds).order('position') : { data: [] },
       ]);
       const profileMap = new Map((profiles || []).map((profile) => [profile.id, profile]));
       const cafeMap = new Map((cafes || []).map((cafe) => [cafe.id, { ...cafe, nombre: repairCafeText(cafe.nombre) }]));
@@ -120,14 +130,33 @@ export function ActivityFeed({ userIdFilter = null, userIdsFilter = null, kindFi
       (imageRows || []).forEach((image) => imagesByPost.set(image.post_id, [...(imagesByPost.get(image.post_id) || []), image]));
       let nextSocial = {};
       if (postIds.length) {
-        const [{ data: likes }, { data: comments }] = await Promise.all([
+        const [{ data: likes }, { data: comments }, { data: friendshipRows }] = await Promise.all([
           supabase.from('post_likes').select('post_id,user_id').in('post_id', postIds),
           supabase.from('post_comments').select('id,post_id').in('post_id', postIds),
+          supabase.from('friendships').select('requester_id,addressee_id').eq('status', 'accepted'),
         ]);
-        nextSocial = Object.fromEntries(postIds.map((postId) => [postId, { likes: 0, comments: 0, liked: false }]));
+        const friendIds = new Set((friendshipRows || []).map((row) => (
+          row.requester_id === user.id ? row.addressee_id : row.requester_id
+        )).filter(Boolean));
+        const likedFriendIds = [...new Set((likes || []).map((like) => like.user_id))]
+          .filter((userId) => friendIds.has(userId));
+        if (likedFriendIds.length) {
+          const { data: likedFriendProfiles } = await supabase
+            .from('profiles')
+            .select('id,username,avatar_url')
+            .in('id', likedFriendIds);
+          (likedFriendProfiles || []).forEach((profile) => profileMap.set(profile.id, profile));
+        }
+        nextSocial = Object.fromEntries(postIds.map((postId) => [postId, { likes: 0, comments: 0, liked: false, likeProfiles: [] }]));
         (likes || []).forEach((like) => {
           nextSocial[like.post_id].likes += 1;
           if (like.user_id === user.id) nextSocial[like.post_id].liked = true;
+        });
+        postIds.forEach((postId) => {
+          nextSocial[postId].likeProfiles = likedFriendIds
+            .map((likedFriendId) => profileMap.get(likedFriendId))
+            .filter(Boolean)
+            .slice(0, 3);
         });
         (comments || []).forEach((comment) => { nextSocial[comment.post_id].comments += 1; });
         setSocialByPost(nextSocial);
@@ -160,7 +189,7 @@ export function ActivityFeed({ userIdFilter = null, userIdsFilter = null, kindFi
   }, []);
 
   const toggleLike = async (postId) => {
-    const current = socialByPost[postId] || { likes: 0, comments: 0, liked: false };
+    const current = socialByPost[postId] || { likes: 0, comments: 0, liked: false, likeProfiles: [] };
     setSocialByPost((social) => ({
       ...social,
       [postId]: { ...current, liked: !current.liked, likes: Math.max(0, current.likes + (current.liked ? -1 : 1)) },
@@ -234,20 +263,226 @@ export function ActivityFeed({ userIdFilter = null, userIdsFilter = null, kindFi
     }
   };
 
+  const startEditingPost = (post) => {
+    setPostMenuId(null);
+    setEditingPost(post);
+    setEditText(post.content || '');
+    setEditImages(post.images || []);
+    setEditFiles([]);
+    setEditPreviews([]);
+    setEditFeedback('');
+  };
+
+  const closeEditPost = () => {
+    editPreviews.forEach((preview) => URL.revokeObjectURL(preview));
+    setEditingPost(null);
+    setEditFiles([]);
+    setEditPreviews([]);
+    setEditFeedback('');
+  };
+
+  const removeEditImage = (imageId) => {
+    setEditImages((images) => images.filter((image) => image.id !== imageId));
+  };
+
+  const chooseEditPhotos = (event) => {
+    const files = [...(event.target.files || [])];
+    if (!files.length) return;
+    if (files.some((file) => !file.type.startsWith('image/') || file.size > MAX_EDIT_PHOTO_BYTES)) {
+      setEditFeedback('Cada imagen debe pesar máximo 8 MB.');
+      return;
+    }
+    const availableSlots = Math.max(0, 10 - editImages.length - editFiles.length);
+    const nextFiles = files.slice(0, availableSlots);
+    setEditFiles((current) => [...current, ...nextFiles]);
+    setEditPreviews((current) => [...current, ...nextFiles.map((file) => URL.createObjectURL(file))]);
+    setEditFeedback('');
+    event.target.value = '';
+  };
+
+  const saveEditedPost = async () => {
+    if (!editingPost || savingEdit) return;
+    const content = editText.trim();
+    if (editingPost.kind === 'review' && !content) {
+      setEditFeedback('Las reseñas necesitan conservar un texto.');
+      return;
+    }
+    if (!content && editImages.length === 0 && editFiles.length === 0) {
+      setEditFeedback('Agrega texto o al menos una foto.');
+      return;
+    }
+
+    setSavingEdit(true);
+    setEditFeedback('');
+    const updatedAt = new Date().toISOString();
+    try {
+      const existingImages = editingPost.images || [];
+      const keptImageIds = new Set(editImages.map((image) => image.id));
+      const removedImages = existingImages.filter((image) => (
+        !String(image.id).endsWith(':legacy') && !keptImageIds.has(image.id)
+      ));
+      const removedPaths = removedImages.map((image) => image.storage_path).filter(Boolean);
+
+      if (removedImages.length) {
+        const { error: removeRowsError } = await supabase
+          .from('post_images')
+          .delete()
+          .in('id', removedImages.map((image) => image.id))
+          .eq('post_id', editingPost.id);
+        if (removeRowsError) throw removeRowsError;
+        if (removedPaths.length) {
+          await supabase.storage.from('cafe-photos').remove(removedPaths);
+          await supabase
+            .from('cafe_photos')
+            .delete()
+            .in('storage_path', removedPaths)
+            .eq('post_id', editingPost.id)
+            .eq('user_id', user.id);
+        }
+      }
+
+      let uploadedImages = [];
+      for (const [index, photo] of editFiles.entries()) {
+        const extension = photo.name.split('.').pop()?.toLowerCase() || 'jpg';
+        const storagePath = `${user.id}/posts/${editingPost.id}/edit-${Date.now()}-${index}.${extension}`;
+        const { error: uploadError } = await supabase.storage
+          .from('cafe-photos')
+          .upload(storagePath, photo, { contentType: photo.type, upsert: false });
+        if (uploadError) throw uploadError;
+        const { data: publicData } = supabase.storage.from('cafe-photos').getPublicUrl(storagePath);
+        uploadedImages.push({
+          post_id: editingPost.id,
+          user_id: user.id,
+          storage_path: storagePath,
+          public_url: publicData.publicUrl,
+          position: editImages.length + index,
+        });
+      }
+
+      if (uploadedImages.length) {
+        const { data: insertedImages, error: imageError } = await supabase
+          .from('post_images')
+          .insert(uploadedImages)
+          .select('id,post_id,public_url,position,storage_path');
+        if (imageError) throw imageError;
+        uploadedImages = insertedImages || uploadedImages;
+      }
+
+      const nextImages = [...editImages, ...uploadedImages.map((image, index) => ({
+        ...image,
+        id: image.id || `local:${Date.now()}:${index}`,
+      }))];
+      const nextImageUrl = nextImages[0]?.public_url || null;
+
+      if (editingPost.kind === 'review' && editingPost.interaction_id) {
+        const { error: interactionError } = await supabase
+          .from('user_cafes')
+          .update({ review_text: content, updated_at: updatedAt })
+          .eq('id', editingPost.interaction_id)
+          .eq('user_id', user.id);
+        if (interactionError) throw interactionError;
+      }
+
+      const { error: postError } = await supabase
+        .from('posts')
+        .update({ content, image_url: nextImageUrl, updated_at: updatedAt })
+        .eq('id', editingPost.id)
+        .eq('user_id', user.id);
+      if (postError) throw postError;
+
+      setPosts((currentPosts) => currentPosts.map((post) => (
+        post.id === editingPost.id
+          ? { ...post, content, image_url: nextImageUrl, updated_at: updatedAt, images: nextImages }
+          : post
+      )));
+      activityCache.clear();
+      closeEditPost();
+    } catch (saveError) {
+      setEditFeedback(saveError.message || 'No se pudo guardar la publicación.');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const deletePost = async (post) => {
+    setPostMenuId(null);
+    if (!window.confirm('¿Eliminar esta publicación? Esta acción no se puede deshacer.')) return;
+    try {
+      if (post.kind === 'review' && post.interaction_id) {
+        const { error: interactionError } = await supabase
+          .from('user_cafes')
+          .update({ review_text: '', updated_at: new Date().toISOString() })
+          .eq('id', post.interaction_id)
+          .eq('user_id', user.id);
+        if (interactionError) throw interactionError;
+      }
+      const imagePaths = (post.images || []).map((image) => image.storage_path).filter(Boolean);
+      if (imagePaths.length) {
+        await supabase.storage.from('cafe-photos').remove(imagePaths);
+        await supabase
+          .from('cafe_photos')
+          .delete()
+          .in('storage_path', imagePaths)
+          .eq('post_id', post.id)
+          .eq('user_id', user.id);
+      }
+      const { error: deleteError } = await supabase
+        .from('posts')
+        .delete()
+        .eq('id', post.id)
+        .eq('user_id', user.id);
+      if (deleteError) throw deleteError;
+      setPosts((currentPosts) => currentPosts.filter((currentPost) => currentPost.id !== post.id));
+      setSocialByPost((currentSocial) => {
+        const nextSocial = { ...currentSocial };
+        delete nextSocial[post.id];
+        return nextSocial;
+      });
+      activityCache.clear();
+    } catch (deleteError) {
+      window.alert(deleteError.message || 'No se pudo eliminar la publicación.');
+    }
+  };
+
   const renderPost = (post) => {
     const name = post.profile?.username || (post.user_id === user.id ? 'Tú' : 'Coffee lover');
     const avatar = post.profile?.avatar_url || fallbackAvatar(name);
-    const social = socialByPost[post.id] || { likes: 0, comments: 0, liked: false };
+    const social = socialByPost[post.id] || { likes: 0, comments: 0, liked: false, likeProfiles: [] };
+    const friendLikeNames = social.likeProfiles?.map((profile) => profile.username).filter(Boolean) || [];
     return (
       <article className="activity-post" id={`post-${post.id}`} key={post.id}>
-        <PostHeader avatar={avatar} name={name} date={post.visited_on || post.created_at} onOpenProfile={() => navigate(post.user_id === user.id ? '/profile' : `/profile/${post.user_id}`)} />
+        <PostHeader
+          avatar={avatar}
+          name={name}
+          date={post.visited_on || post.created_at}
+          canManage={post.user_id === user.id}
+          menuOpen={postMenuId === post.id}
+          onOpenMenu={() => setPostMenuId((currentId) => currentId === post.id ? null : post.id)}
+          onEdit={() => startEditingPost(post)}
+          onDelete={() => deletePost(post)}
+          onOpenProfile={() => navigate(post.user_id === user.id ? '/profile' : `/profile/${post.user_id}`)}
+        />
         {post.cafe?.nombre && <button type="button" className="activity-cafe-link" onClick={() => navigate(`/cafe/${post.cafe_id}`)}>{post.cafe.nombre}</button>}
         {Number(post.rating) > 0 && <div className="activity-rating"><HalfStarRating value={Number(post.rating)} readOnly size={17} /><span>{Number(post.rating).toFixed(1)}</span></div>}
         {post.content && <p className="activity-post-copy">{post.content}</p>}
         {post.images.length > 0 && <PostImageCarousel images={post.images} cafeName={post.cafe?.nombre} />}
+        {social.likes > 0 && (
+          <div className="activity-like-summary">
+            {social.likeProfiles?.length > 0 && (
+              <div className="activity-like-avatars" aria-label="Amigos a los que les gustó">
+                {social.likeProfiles.map((profile) => <img key={profile.id} src={profile.avatar_url || fallbackAvatar(profile.username)} alt="" />)}
+              </div>
+            )}
+            <span>
+              {friendLikeNames.length > 0
+                ? <>Le gustó a <strong>{friendLikeNames[0]}</strong>{friendLikeNames.length > 1 ? ` y ${friendLikeNames.length - 1} amigo${friendLikeNames.length > 2 ? 's' : ''}` : ''}{social.likes > friendLikeNames.length ? ' y más personas' : ''}</>
+                : `${social.likes} me gusta`}
+            </span>
+          </div>
+        )}
         <div className="activity-post-actions">
-          <button type="button" className={social.liked ? 'is-active' : ''} onClick={() => toggleLike(post.id)} aria-label={social.liked ? 'Quitar me gusta' : 'Me gusta'}><Heart size={18} fill={social.liked ? 'currentColor' : 'none'} />{social.likes > 0 && <span>{social.likes}</span>}</button>
-          <button type="button" onClick={() => openComments(post)} aria-label="Comentar"><MessageCircle size={18} />{social.comments > 0 && <span>{social.comments}</span>}</button>
+          <button type="button" className={social.liked ? 'is-active' : ''} onClick={() => toggleLike(post.id)} aria-label={social.liked ? 'Quitar me gusta' : 'Me gusta'}><Heart size={18} fill={social.liked ? 'currentColor' : 'none'} /><span>{social.likes}</span></button>
+          <button type="button" onClick={() => openComments(post)} aria-label="Comentar"><MessageCircle size={18} /><span>{social.comments}</span></button>
           <button type="button" onClick={() => sharePost(post)} aria-label="Compartir"><Send size={17} /></button>
         </div>
       </article>
@@ -284,6 +519,36 @@ export function ActivityFeed({ userIdFilter = null, userIdsFilter = null, kindFi
             </div>
             <div className="comments-reactions" aria-label="Reacciones rápidas"><button type="button" onClick={() => setCommentText((text) => `${text} ❤️`)}>❤️</button><button type="button" onClick={() => setCommentText((text) => `${text} 🔥`)}>🔥</button><button type="button" onClick={() => setCommentText((text) => `${text} ✨`)}>✨</button><button type="button" onClick={() => setCommentText((text) => `${text} 😍`)}>😍</button><button type="button" onClick={() => setCommentText((text) => `${text} 😂`)}>😂</button></div>
             <form className="comments-composer" onSubmit={addComment}><img src={fallbackAvatar(user.user_metadata?.username || user.email)} alt="" /><input value={commentText} onChange={(event) => setCommentText(event.target.value)} placeholder="Escribe un comentario…" maxLength={500} autoFocus /><button type="submit" disabled={!commentText.trim()} aria-label="Publicar comentario"><Send size={18} /></button></form>
+          </section>
+        </div>
+      )}
+      {editingPost && (
+        <div className="activity-edit-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeEditPost(); }}>
+          <section className="activity-edit-sheet" role="dialog" aria-modal="true" aria-labelledby="activity-edit-title">
+            <header>
+              <div><small>PUBLICACIÓN</small><h2 id="activity-edit-title">Editar publicación</h2></div>
+              <button type="button" onClick={closeEditPost} aria-label="Cerrar editor"><X size={19} /></button>
+            </header>
+            <textarea value={editText} onChange={(event) => setEditText(event.target.value)} maxLength={1000} placeholder="Escribe algo sobre tu visita…" autoFocus />
+            <div className="activity-edit-section-label"><span>Fotos</span><small>{editImages.length + editFiles.length}/10</small></div>
+            {(editImages.length > 0 || editPreviews.length > 0) ? (
+              <div className="activity-edit-images">
+                {editImages.map((image) => (
+                  <div className="activity-edit-image" key={image.id}>
+                    <img src={image.public_url} alt="" />
+                    <button type="button" onClick={() => removeEditImage(image.id)} aria-label="Eliminar esta foto"><X size={14} /></button>
+                  </div>
+                ))}
+                {editPreviews.map((preview) => <div className="activity-edit-image" key={preview}><img src={preview} alt="Nueva foto" /><span className="activity-edit-new-badge">Nueva</span></div>)}
+              </div>
+            ) : <p className="activity-edit-empty">No hay fotos en esta publicación.</p>}
+            <input ref={editFileInputRef} hidden type="file" accept="image/*" multiple onChange={chooseEditPhotos} />
+            <button type="button" className="activity-edit-add-photo" onClick={() => editFileInputRef.current?.click()} disabled={editImages.length + editFiles.length >= 10}><ImagePlus size={17} /> Agregar fotos</button>
+            {editFeedback && <p className="activity-edit-feedback" role="alert">{editFeedback}</p>}
+            <footer>
+              <button type="button" className="activity-edit-cancel" onClick={closeEditPost}>Cancelar</button>
+              <button type="button" className="activity-edit-save" onClick={saveEditedPost} disabled={savingEdit}>{savingEdit ? 'Guardando…' : <><Check size={16} /> Guardar cambios</>}</button>
+            </footer>
           </section>
         </div>
       )}
@@ -333,7 +598,7 @@ function FriendsActivityPanel() {
 
 function ActivityPage() {
   const { user } = useAuth();
-  const [activeSection, setActiveSection] = useState('friends');
+  const [activeSection, setActiveSection] = useState('you');
 
   return (
     <main className="social-page activity-page">
@@ -350,9 +615,29 @@ function ActivityPage() {
   );
 }
 
-function PostHeader({ avatar, name, date, onOpenProfile }) {
+function PostHeader({ avatar, name, date, canManage, menuOpen, onOpenMenu, onEdit, onDelete, onOpenProfile }) {
   const formattedDate = new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short' }).format(new Date(date));
-  return <div className="activity-post-header"><button type="button" className="activity-author" onClick={onOpenProfile}><img src={avatar} alt="" /><span>{name}</span></button><small>{formattedDate}</small><MoreHorizontal size={16} /></div>;
+  return (
+    <div className="activity-post-header">
+      <button type="button" className="activity-author" onClick={onOpenProfile}><img src={avatar} alt="" /><span>{name}</span></button>
+      <div className="activity-post-tools">
+        <small>{formattedDate}</small>
+        {canManage && (
+          <div className="activity-post-menu-wrap">
+            <button type="button" className="activity-post-menu-button" onClick={onOpenMenu} aria-label="Más opciones: editar o eliminar publicación" aria-expanded={menuOpen} title="Editar o eliminar publicación">
+              <MoreHorizontal size={20} aria-hidden="true" />
+            </button>
+            {menuOpen && (
+              <div className="activity-post-menu" role="menu">
+                <button type="button" onClick={onEdit} role="menuitem"><Edit3 size={15} /> Editar publicación</button>
+                <button type="button" onClick={onDelete} role="menuitem" className="is-danger"><Trash2 size={15} /> Eliminar publicación</button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export default ActivityPage;

@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { useCoffeeData } from '../context/CoffeeDataContext';
 import { supabase } from '../supabase';
 import { getCafeOpenStatus, getCafeScheduleRows } from '../utils/cafeHours';
-import { geocodeCafeAddress, getCafeCoordinates } from '../utils/cafeLocation';
+import { geocodeCafeLocation, getCafeCoordinates } from '../utils/cafeLocation';
 
 const MAP_TARGET_STORAGE_KEY = 'coffee-map:focus-cafe';
 const getLocalDate = () => {
@@ -134,14 +134,7 @@ function CafePage({ cafeId }) {
 
   const showInAppMap = async () => {
     if (!cafe) return;
-    let coordinates = getCafeCoordinates(cafe);
-    if (cafe.source === 'community' && cafe.address) {
-      try {
-        coordinates = (await geocodeCafeAddress(cafe.address)) || coordinates;
-      } catch {
-        // Keep the saved coordinates as a fallback when geocoding is offline.
-      }
-    }
+    const coordinates = (await geocodeCafeLocation(cafe)) || getCafeCoordinates(cafe);
     if (!coordinates) return;
 
     window.sessionStorage.setItem(MAP_TARGET_STORAGE_KEY, JSON.stringify({

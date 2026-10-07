@@ -24,6 +24,7 @@ const AUTH_REQUIRED_ROUTE_TYPES = new Set([
   'settings',
   'collection',
   'admin',
+  'cafe',
 ]);
 
 const getRouteEntry = (pathname) => {

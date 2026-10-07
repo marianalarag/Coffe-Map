@@ -201,6 +201,8 @@ function App() {
   const userMarkerRef = useRef(null)
   const scanTimerRef = useRef(null)
   const programmaticMoveUntilRef = useRef(0)
+  const neighborhoodDragRef = useRef(null)
+  const resultsPanelDragRef = useRef(null)
   const [map, setMap] = useState(null)
   const [mapLoading, setMapLoading] = useState(true)
   const [scanning, setScanning] = useState(false)
@@ -218,7 +220,8 @@ function App() {
   const [showFilterPanel, setShowFilterPanel] = useState(false)
   const [areaSearchBounds, setAreaSearchBounds] = useState(null)
   const [areaSearchPending, setAreaSearchPending] = useState(false)
-  const [resultsPanelOpen, setResultsPanelOpen] = useState(true)
+  const [resultsPanelOpen, setResultsPanelOpen] = useState(false)
+  const [resultsPanelOffset, setResultsPanelOffset] = useState(0)
   const isTouchDevice = useMemo(() => (
     window.matchMedia?.('(hover: none), (pointer: coarse)').matches ?? false
   ), [])
@@ -261,6 +264,49 @@ function App() {
     event.preventDefault();
     container.scrollLeft += event.deltaX || event.deltaY;
   }, [])
+
+  const handleNeighborhoodPointerDown = useCallback((event) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    const container = event.currentTarget;
+    if (container.scrollWidth <= container.clientWidth) return;
+    neighborhoodDragRef.current = { pointerId: event.pointerId, startX: event.clientX, startScrollLeft: container.scrollLeft };
+    container.setPointerCapture?.(event.pointerId);
+  }, [])
+
+  const handleNeighborhoodPointerMove = useCallback((event) => {
+    const drag = neighborhoodDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    event.preventDefault();
+    event.currentTarget.scrollLeft = drag.startScrollLeft - (event.clientX - drag.startX);
+  }, [])
+
+  const stopNeighborhoodDrag = useCallback((event) => {
+    if (neighborhoodDragRef.current?.pointerId === event.pointerId) neighborhoodDragRef.current = null;
+  }, [])
+
+  const handleResultsPanelPointerDown = useCallback((event) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    resultsPanelDragRef.current = { pointerId: event.pointerId, startY: event.clientY };
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  }, [])
+
+  const handleResultsPanelPointerMove = useCallback((event) => {
+    const drag = resultsPanelDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const offset = Math.max(0, event.clientY - drag.startY);
+    if (offset > 0) {
+      event.preventDefault();
+      setResultsPanelOffset(offset);
+    }
+  }, [])
+
+  const handleResultsPanelPointerUp = useCallback((event) => {
+    const drag = resultsPanelDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    resultsPanelDragRef.current = null;
+    if (resultsPanelOffset > 80) setResultsPanelOpen(false);
+    setResultsPanelOffset(0);
+  }, [resultsPanelOffset])
 
   const focusCafesOnMap = useCallback((items) => {
     if (!map || !items.length) return;
@@ -353,7 +399,6 @@ function App() {
     if (!map) return;
     setAreaSearchBounds(getBoundsSnapshot(map.getBounds()));
     setAreaSearchPending(false);
-    setResultsPanelOpen(true);
     showToast('Resultados actualizados para esta zona.', 'location');
   }, [map, showToast]);
 
@@ -1014,7 +1059,7 @@ function App() {
         <span className="text-white/75 text-[12px] font-semibold">Buscar cafeterías</span>
       </div>
 
-      <div className="map-neighborhood-filters absolute left-1/2 -translate-x-1/2 z-[1000]" role="toolbar" aria-label="Filtrar por zona" onWheel={handleNeighborhoodWheel}>
+      <div className="map-neighborhood-filters absolute left-1/2 -translate-x-1/2 z-[1000]" role="toolbar" aria-label="Filtrar por zona" onWheel={handleNeighborhoodWheel} onPointerDown={handleNeighborhoodPointerDown} onPointerMove={handleNeighborhoodPointerMove} onPointerUp={stopNeighborhoodDrag} onPointerCancel={stopNeighborhoodDrag}>
         <button
           type="button"
           className={selectedNeighborhood === 'Todas' ? 'is-active' : ''}
@@ -1128,8 +1173,8 @@ function App() {
       </button>
 
       {resultsPanelOpen && (
-        <aside className="map-results-panel absolute left-0 z-[980]" aria-label="Cafeterías en esta zona">
-          <div className="map-results-header">
+        <aside className={`map-results-panel absolute left-0 z-[980] ${resultsPanelOffset ? 'is-dragging' : ''}`} style={{ transform: `translateY(${resultsPanelOffset}px)` }} aria-label="Cafeterías en esta zona">
+          <div className="map-results-header" onPointerDown={handleResultsPanelPointerDown} onPointerMove={handleResultsPanelPointerMove} onPointerUp={handleResultsPanelPointerUp} onPointerCancel={handleResultsPanelPointerUp}>
             <div>
               <strong>{displayedCafes.length} cafeterías</strong>
               <span>{selectedNeighborhood === 'Todas' ? 'En Mérida' : selectedNeighborhood}</span>

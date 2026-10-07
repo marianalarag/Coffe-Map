@@ -44,23 +44,37 @@ export const extractGoogleMapsCoordinates = (value) => {
   return null;
 };
 
-export const getCafeCoordinates = (cafe) => {
-  // Community submissions are geocoded from their address before saving.
-  // Their stored coordinates must win over an old/current-location link.
-  if (cafe?.source === 'community') {
-    const storedCoordinates = toCoordinatePair(cafe?.lat, cafe?.lng);
-    if (storedCoordinates) return storedCoordinates;
+export const extractGoogleMapsSearchQuery = (value) => {
+  const link = decodeMapLink(value);
+  if (!link) return null;
+
+  try {
+    const url = new URL(link);
+    const query = url.searchParams.get('query')
+      || url.searchParams.get('q')
+      || url.searchParams.get('destination')
+      || url.searchParams.get('daddr');
+    if (query && !extractGoogleMapsCoordinates(query)) return query.trim();
+  } catch {
+    // Some Maps links are not valid URL strings until their redirect runs.
   }
 
-  const coordinatesFromMapLink = extractGoogleMapsCoordinates(
-    cafe?.link || cafe?.source_url || cafe?.sourceUrl,
-  );
+  const placeMatch = link.match(/\/maps\/(?:place|search)\/([^/@?]+)/i);
+  return placeMatch?.[1]?.replaceAll('+', ' ').trim() || null;
+};
+
+export const getCafeCoordinates = (cafe) => {
+  // A Maps link identifies the cafe itself. It must win over coordinates
+  // captured from the submitter's current location.
+  const coordinatesFromMapLink = [cafe?.link, cafe?.source_url, cafe?.sourceUrl]
+    .map(extractGoogleMapsCoordinates)
+    .find(Boolean);
   if (coordinatesFromMapLink) return coordinatesFromMapLink;
 
   return toCoordinatePair(cafe?.lat, cafe?.lng);
 };
 
-export const geocodeCafeAddress = async (address) => {
+const geocodeAddressOnce = async (address) => {
   const cleanAddress = String(address || '').trim();
   if (!cleanAddress) return null;
 
@@ -89,4 +103,74 @@ export const geocodeCafeAddress = async (address) => {
       || result.address?.city_district
       || null,
   };
+};
+
+export const geocodeCafeAddress = async (address) => {
+  const cleanAddress = String(address || '').trim();
+  if (!cleanAddress) return null;
+
+  const expandedAddress = cleanAddress
+    .replace(/\bC\.\s*/gi, 'Calle ')
+    .replace(/\bAv\.\s*/gi, 'Avenida ')
+    .replace(/\bCol\.\s*/gi, 'Colonia ');
+  const variants = [...new Set([
+    cleanAddress,
+    expandedAddress,
+    expandedAddress.replace(/\s+III\b/gi, ''),
+  ])];
+
+  for (const variant of variants) {
+    try {
+      const location = await geocodeAddressOnce(variant);
+      if (location) return location;
+    } catch {
+      // Try the next normalized form.
+    }
+  }
+
+  return null;
+};
+
+const resolveGoogleMapsLink = async (link) => {
+  if (!link || typeof window === 'undefined') return null;
+  try {
+    const mapsUrl = new URL(link);
+    const isShortLink = mapsUrl.hostname === 'maps.app.goo.gl' || mapsUrl.hostname === 'goo.gl';
+    const isPlaceLink = mapsUrl.pathname.includes('/maps/place/');
+    if (!isShortLink && !isPlaceLink) return null;
+  } catch {
+    return null;
+  }
+  try {
+    const response = await fetch(`/api/maps-location?url=${encodeURIComponent(link)}`);
+    if (!response.ok) return null;
+    const payload = await response.json();
+    return toCoordinatePair(payload?.lat, payload?.lng);
+  } catch {
+    return null;
+  }
+};
+
+export const geocodeCafeLocation = async (cafe) => {
+  const mapLinks = [cafe?.link, cafe?.source_url, cafe?.sourceUrl].filter(Boolean);
+  const coordinatesFromMapLink = mapLinks.map(extractGoogleMapsCoordinates).find(Boolean);
+  if (coordinatesFromMapLink) return coordinatesFromMapLink;
+
+  for (const mapLink of mapLinks) {
+    const resolvedCoordinates = await resolveGoogleMapsLink(mapLink);
+    if (resolvedCoordinates) return resolvedCoordinates;
+  }
+
+  const mapQuery = mapLinks.map(extractGoogleMapsSearchQuery).find(Boolean);
+  for (const searchText of [mapQuery, cafe?.address]) {
+    if (!searchText) continue;
+    try {
+      const location = await geocodeCafeAddress(searchText);
+      if (location) return location;
+    } catch {
+      // Try the next available source before falling back to stored data.
+    }
+  }
+
+  return null;
 };

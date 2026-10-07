@@ -44,16 +44,29 @@ function SettingsPage() {
     setFeedback({ type: '', message: '' });
 
     try {
-      const { error: profileError } = await supabase
+      const profilePayload = {
+        username: trimmedName,
+        updated_at: new Date().toISOString(),
+      };
+      const { data: updatedProfile, error: profileError } = await supabase
         .from('profiles')
-        .upsert({
-          id: user.id,
-          username: trimmedName,
-          role: userProfile?.role || 'usuario',
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'id' });
+        .update(profilePayload)
+        .eq('id', user.id)
+        .select('id,username,avatar_url,cover_url,text_color,role')
+        .maybeSingle();
 
       if (profileError) throw profileError;
+
+      let savedProfile = updatedProfile;
+      if (!savedProfile) {
+        const { data: insertedProfile, error: insertProfileError } = await supabase
+          .from('profiles')
+          .insert({ id: user.id, username: trimmedName, role: 'usuario' })
+          .select('id,username,avatar_url,cover_url,text_color,role')
+          .single();
+        if (insertProfileError) throw insertProfileError;
+        savedProfile = insertedProfile;
+      }
 
       const emailChanged = trimmedEmail.toLowerCase() !== (user.email || '').toLowerCase();
       const authUpdates = {};
@@ -65,12 +78,7 @@ function SettingsPage() {
         if (authError) throw authError;
       }
 
-      updateCachedProfile({
-        id: user.id,
-        username: trimmedName,
-        role: userProfile?.role || 'usuario',
-        updated_at: new Date().toISOString(),
-      });
+      updateCachedProfile(savedProfile);
       setPassword('');
       setFeedback({
         type: 'success',
