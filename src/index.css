@@ -528,6 +528,7 @@ html.is-app-mode .map-scan-control {
 .admin-manual-form h2 { display: flex; align-items: center; gap: 7px; }
 .admin-manual-form > div { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .admin-manual-form input { width: 100%; min-width: 0; padding: 11px 12px; color: #eee5d2; background: #1b1713; border: 1px solid rgba(238,229,210,.1); border-radius: 11px; outline: 0; font: 11px "Inria Serif", Georgia, serif; }
+.admin-manual-location-note { color: rgba(238,229,210,.45); font-size: 9px; line-height: 1.4; }
 .admin-row { display: flex; align-items: center; gap: 11px; min-height: 70px; padding: 10px; background: #27211b; border: 1px solid rgba(238,229,210,.07); border-radius: 15px; }
 .admin-thumb { width: 48px; height: 48px; flex: 0 0 auto; display: grid; place-items: center; overflow: hidden; color: #bca47f; background: #3b3026; border-radius: 12px; }
 .admin-thumb img { width: 100%; height: 100%; object-fit: cover; }

@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useCoffeeData } from '../context/CoffeeDataContext';
 import { supabase } from '../supabase';
 import { areDuplicateCafes, distanceBetweenCafes } from '../utils/cafeDeduplication';
-import { extractGoogleMapsCoordinates } from '../utils/cafeLocation';
+import { geocodeCafeLocation } from '../utils/cafeLocation';
 
 const MERIDA_BBOX = { south: 20.86, west: -89.75, north: 21.08, east: -89.52 };
 const OVERPASS_URLS = [
@@ -461,7 +461,7 @@ function AdminDashboardPage() {
   const [photos, setPhotos] = useState([]);
   const [posts, setPosts] = useState([]);
   const [users, setUsers] = useState([]);
-  const [manualCafe, setManualCafe] = useState({ nombre: '', lat: '', lng: '', address: '', link: '' });
+  const [manualCafe, setManualCafe] = useState({ nombre: '', address: '', link: '' });
   const [openImageCafe, setOpenImageCafe] = useState(null);
   const [openImageResults, setOpenImageResults] = useState([]);
   const [openImageLoading, setOpenImageLoading] = useState(false);
@@ -662,11 +662,15 @@ function AdminDashboardPage() {
   const addManualCafe = (event) => {
     event.preventDefault();
     return runAction('manual', async () => {
-      const mapCoordinates = extractGoogleMapsCoordinates(manualCafe.link.trim());
-      const lat = mapCoordinates?.lat ?? Number(manualCafe.lat);
-      const lng = mapCoordinates?.lng ?? Number(manualCafe.lng);
+      const address = manualCafe.address.trim();
+      const link = manualCafe.link.trim();
+      const location = await geocodeCafeLocation({ address, link });
+      const lat = Number(location?.lat);
+      const lng = Number(location?.lng);
       if (!manualCafe.nombre.trim() || lat < MERIDA_BBOX.south || lat > MERIDA_BBOX.north || lng < MERIDA_BBOX.west || lng > MERIDA_BBOX.east) {
-        throw new Error('Nombre y coordenadas válidas dentro de Mérida son obligatorios.');
+        throw new Error(location
+          ? 'El nombre y una ubicación dentro de Mérida son obligatorios.'
+          : 'No pudimos ubicar la cafetería. Agrega una dirección o un enlace válido de Google Maps.');
       }
       const existingCafes = await fetchAllCafes();
       const duplicate = existingCafes.find((cafe) => areDuplicateCafes(cafe, { nombre: manualCafe.nombre, lat, lng }));
@@ -677,14 +681,15 @@ function AdminDashboardPage() {
         nombre: manualCafe.nombre.trim(),
         lat,
         lng,
-        address: manualCafe.address.trim() || null,
-        link: manualCafe.link.trim() || null,
+        address: address || null,
+        link: link || null,
+        neighborhood: location.neighborhood || null,
         source: 'manual',
         source_id: sourceId,
         status: 'active',
       });
       if (error) throw error;
-      setManualCafe({ nombre: '', lat: '', lng: '', address: '', link: '' });
+      setManualCafe({ nombre: '', address: '', link: '' });
     }, 'Cafetería agregada.');
   };
 
@@ -895,8 +900,8 @@ function AdminDashboardPage() {
               <h2><MapPinned size={19} /> Agregar cafetería faltante</h2>
               <input placeholder="Nombre" value={manualCafe.nombre} onChange={(event) => setManualCafe({ ...manualCafe, nombre: event.target.value })} />
               <input placeholder="Dirección" value={manualCafe.address} onChange={(event) => setManualCafe({ ...manualCafe, address: event.target.value })} />
-              <div><input inputMode="decimal" placeholder="Latitud" value={manualCafe.lat} onChange={(event) => setManualCafe({ ...manualCafe, lat: event.target.value })} /><input inputMode="decimal" placeholder="Longitud" value={manualCafe.lng} onChange={(event) => setManualCafe({ ...manualCafe, lng: event.target.value })} /></div>
               <input placeholder="Enlace de Maps (opcional)" value={manualCafe.link} onChange={(event) => setManualCafe({ ...manualCafe, link: event.target.value })} />
+              <small className="admin-manual-location-note">La ubicación se obtiene automáticamente desde la dirección o el enlace de Maps.</small>
               <button type="submit" disabled={Boolean(actionLoading)}>Guardar cafetería</button>
             </form>
             {exactLocationCandidates.length > 0 && (

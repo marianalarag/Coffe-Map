@@ -226,7 +226,11 @@ function SearchPage() {
     }
     const candidate = { nombre: newCafe.nombre.trim(), lat, lng };
     if (!candidate.nombre || !Number.isFinite(lat) || !Number.isFinite(lng)) {
-      setAddCafeFeedback('Escribe el nombre y agrega una ubicación válida.');
+      setAddCafeFeedback(!candidate.nombre
+        ? 'Escribe el nombre de la cafetería.'
+        : !newCafe.address.trim() && !newCafe.link.trim()
+          ? 'Agrega una dirección o un enlace de Google Maps para ubicarla.'
+          : 'No pudimos ubicar la cafetería con esos datos. Revisa la dirección o el enlace de Maps.');
       return;
     }
 
@@ -405,12 +409,7 @@ function SearchPage() {
               <button className="missing-cafe-location" type="button" onClick={useCurrentLocation}>
                 <Navigation size={16} /> Usar mi ubicación actual
               </button>
-              <div className="missing-cafe-coordinates">
-                <label>Latitud<input inputMode="decimal" value={newCafe.lat} onChange={(event) => setNewCafe({ ...newCafe, lat: event.target.value })} /></label>
-                <label>Longitud<input inputMode="decimal" value={newCafe.lng} onChange={(event) => setNewCafe({ ...newCafe, lng: event.target.value })} /></label>
-              </div>
-
-              <p className="missing-cafe-note">Si escribes la dirección o pegas un enlace de Maps, las coordenadas se llenan automáticamente.</p>
+              <p className="missing-cafe-note">La ubicación se obtiene automáticamente desde la dirección o el enlace de Maps; no necesitas conocer coordenadas.</p>
               {locationStatus && <p className="missing-cafe-location-status" role="status">{locationStatus}</p>}
               {addCafeFeedback && <p className="missing-cafe-feedback" role="status">{addCafeFeedback}</p>}
               <button className="missing-cafe-submit" type="submit" disabled={addingCafe}>{addingCafe ? 'Enviando...' : 'Enviar cafetería'}</button>
