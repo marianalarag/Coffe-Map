@@ -510,7 +510,7 @@ function AdminDashboardPage() {
         supabase.from('cafe_photos').select('id', { count: 'exact', head: true }),
         supabase.from('user_cafes').select('id', { count: 'exact', head: true }).not('review_text', 'eq', ''),
         supabase.from('cafes').select('id,nombre,lat,lng,address,neighborhood,image_url,image_source_url,image_attribution,image_license,opening_hours,opening_hours_source,opening_hours_source_url,opening_hours_verified_at,source,source_id,status,submitted_by,created_at,last_verified_at').order('nombre').limit(1000),
-        supabase.from('cafe_photos').select('id,cafe_id,user_id,storage_path,public_url,status,is_cover,rights_confirmed,rights_basis,rights_note,created_at').order('created_at', { ascending: false }).limit(100),
+        supabase.from('cafe_photos').select('id,cafe_id,user_id,storage_path,public_url,status,is_cover,rights_confirmed,rights_basis,rights_note,created_at').eq('status', 'pending').order('created_at', { ascending: false }).limit(100),
         supabase.from('posts').select('id,user_id,cafe_id,content,image_url,status,created_at').order('created_at', { ascending: false }).limit(100),
         supabase.from('profiles').select('id,username,avatar_url,role,updated_at').order('updated_at', { ascending: false }).limit(250),
       ]);
@@ -930,14 +930,20 @@ function AdminDashboardPage() {
           </section>
         )}
 
-        {tab === 'photos' && <section className="admin-photo-grid">
-          {photos.length === 0 && <p className="admin-empty">No hay fotos para moderar.</p>}
+        {tab === 'photos' && <section className="admin-stack">
+          <article className="admin-panel admin-photo-guide">
+            <Image size={22} />
+            <div><h2>Revisión de fotos</h2><p>Estas fotos fueron enviadas por usuarios. Aprueba una para publicarla en la cafetería; usa “Aprobar como portada” si además quieres mostrarla como imagen principal. Rechaza las que no deban publicarse.</p></div>
+          </article>
+          <div className="admin-photo-grid">
+          {photos.length === 0 && <p className="admin-empty">No hay fotos pendientes de revisión.</p>}
           {photos.map((photo) => <article className="admin-photo-card" key={photo.id}>
             <img src={photo.public_url} alt={cafeMap.get(photo.cafe_id)?.nombre || 'Foto de cafetería'} />
             <div><strong>{cafeMap.get(photo.cafe_id)?.nombre || 'Cafetería'}</strong><small>{profileMap.get(photo.user_id)?.username || 'Usuario'} · {photo.status}</small></div>
             <div className="admin-photo-rights">{photo.rights_confirmed ? `Derechos confirmados · ${photo.rights_basis === 'own' ? 'foto propia' : 'con permiso'}` : 'Sin declaración de derechos (foto anterior)'}</div>
-            <div className="admin-photo-actions"><button disabled={!photo.rights_confirmed} onClick={() => moderatePhoto(photo, 'approved')}>Aprobar</button><button disabled={!photo.rights_confirmed} onClick={() => moderatePhoto(photo, 'approved', true)}>Usar portada</button><button className="danger" onClick={() => moderatePhoto(photo, 'rejected')}>Rechazar</button></div>
+            <div className="admin-photo-actions"><button disabled={!photo.rights_confirmed} onClick={() => moderatePhoto(photo, 'approved')}>Aprobar y publicar</button><button disabled={!photo.rights_confirmed} onClick={() => moderatePhoto(photo, 'approved', true)}>Aprobar como portada</button><button className="danger" onClick={() => moderatePhoto(photo, 'rejected')}>Rechazar foto</button></div>
           </article>)}
+          </div>
         </section>}
 
         {tab === 'posts' && <section className="admin-list">

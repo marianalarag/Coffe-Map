@@ -484,7 +484,7 @@ html.is-app-mode .map-scan-control {
 
 /* Admin control center */
 .admin-page { --admin-page-gutter: 16px; --admin-top-inset: max(18px, env(safe-area-inset-top, 0px)); width: 100%; height: 100%; overflow-y: auto; padding: var(--admin-top-inset) var(--admin-page-gutter) calc(34px + env(safe-area-inset-bottom, 0px)); color: #eee5d2; background: #181511; font-family: "Inria Serif", Georgia, serif; }
-.admin-topbar { position: sticky; top: 0; z-index: 20; margin: calc(-1 * var(--admin-top-inset)) calc(-1 * var(--admin-page-gutter)) 10px; background: rgba(24,21,17,.96); border-bottom: 1px solid rgba(238,229,210,.08); box-shadow: 0 8px 22px rgba(0,0,0,.12); backdrop-filter: blur(18px); }
+.admin-topbar { position: sticky; top: 0; z-index: 20; isolation: isolate; overflow: hidden; margin: calc(-1 * var(--admin-top-inset)) calc(-1 * var(--admin-page-gutter)) 10px; background: #181511; border-bottom: 1px solid rgba(238,229,210,.08); box-shadow: 0 8px 22px rgba(0,0,0,.12); }
 .admin-header { display: grid; grid-template-columns: 38px 1fr 38px; align-items: center; min-height: 54px; padding: var(--admin-top-inset) var(--admin-page-gutter) 6px; }
 .admin-header button { width: 32px; height: 32px; display: grid; place-items: center; padding: 0; color: #eee5d2; background: #2d261f; border: 0; border-radius: 10px; }
 .admin-header button:last-child { justify-self: end; }
@@ -546,6 +546,8 @@ html.is-app-mode .map-scan-control {
 .admin-duplicate-warning span { display: flex; justify-content: space-between; gap: 8px; padding: 7px 8px; color: #e6dac1; background: rgba(29,25,21,.42); border-radius: 8px; font-size: 9px; }
 .admin-duplicate-warning span small, .admin-duplicate-warning > small { color: rgba(238,229,210,.48); font-size: 8px; }
 .admin-photo-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.admin-photo-guide { display: flex; align-items: flex-start; gap: 12px; color: #d4bd96; }
+.admin-photo-guide p { max-width: 760px; }
 .admin-photo-card { overflow: hidden; background: #27211b; border: 1px solid rgba(238,229,210,.07); border-radius: 16px; }
 .admin-photo-card > img { width: 100%; height: 140px; display: block; object-fit: cover; }
 .admin-photo-card > div { display: flex; flex-direction: column; gap: 3px; padding: 10px; }
