@@ -460,6 +460,7 @@ function AdminDashboardPage() {
   const [metrics, setMetrics] = useState({});
   const [cafes, setCafes] = useState([]);
   const [photos, setPhotos] = useState([]);
+  const [postPhotos, setPostPhotos] = useState([]);
   const [posts, setPosts] = useState([]);
   const [users, setUsers] = useState([]);
   const [manualCafe, setManualCafe] = useState({ nombre: '', address: '', link: '' });
@@ -480,6 +481,7 @@ function AdminDashboardPage() {
 
   const profileMap = useMemo(() => new Map(users.map((profile) => [profile.id, profile])), [users]);
   const cafeMap = useMemo(() => new Map(cafes.map((cafe) => [cafe.id, cafe])), [cafes]);
+  const postMap = useMemo(() => new Map(posts.map((post) => [post.id, post])), [posts]);
   const exactLocationCandidates = useMemo(() => {
     const candidates = [];
     for (let index = 0; index < cafes.length; index += 1) {
@@ -504,23 +506,25 @@ function AdminDashboardPage() {
     setLoading(true);
     setNotice('');
     try {
-      const [cafeCount, userCount, postCount, photoCount, reviewCount, cafeRows, photoRows, postRows, profileRows] = await Promise.all([
+      const [cafeCount, userCount, postCount, photoCount, reviewCount, cafeRows, photoRows, postRows, postImageRows, profileRows] = await Promise.all([
         supabase.from('cafes').select('id', { count: 'exact', head: true }),
         supabase.from('profiles').select('id', { count: 'exact', head: true }),
         supabase.from('posts').select('id', { count: 'exact', head: true }),
         supabase.from('cafe_photos').select('id', { count: 'exact', head: true }),
         supabase.from('user_cafes').select('id', { count: 'exact', head: true }).not('review_text', 'eq', ''),
         supabase.from('cafes').select('id,nombre,lat,lng,address,link,source_url,neighborhood,image_url,image_source_url,image_attribution,image_license,opening_hours,opening_hours_source,opening_hours_source_url,opening_hours_verified_at,source,source_id,status,submitted_by,created_at,last_verified_at').order('nombre').limit(1000),
-        supabase.from('cafe_photos').select('id,cafe_id,user_id,storage_path,public_url,status,is_cover,rights_confirmed,rights_basis,rights_note,created_at').eq('status', 'pending').order('created_at', { ascending: false }).limit(100),
-        supabase.from('posts').select('id,user_id,cafe_id,content,image_url,status,created_at').order('created_at', { ascending: false }).limit(100),
+        supabase.from('cafe_photos').select('id,cafe_id,user_id,post_id,storage_path,public_url,status,is_cover,rights_confirmed,rights_basis,rights_note,created_at').eq('status', 'pending').is('post_id', null).order('created_at', { ascending: false }).limit(100),
+        supabase.from('posts').select('id,user_id,cafe_id,content,image_url,status,created_at').order('created_at', { ascending: false }).limit(1000),
+        supabase.from('post_images').select('id,post_id,user_id,storage_path,public_url,position,created_at').order('created_at', { ascending: false }).limit(1000),
         supabase.from('profiles').select('id,username,avatar_url,role,updated_at').order('updated_at', { ascending: false }).limit(250),
       ]);
-      const firstError = [cafeCount, userCount, postCount, photoCount, reviewCount, cafeRows, photoRows, postRows, profileRows].find((result) => result.error)?.error;
+      const firstError = [cafeCount, userCount, postCount, photoCount, reviewCount, cafeRows, photoRows, postRows, postImageRows, profileRows].find((result) => result.error)?.error;
       if (firstError) throw firstError;
       setMetrics({ cafes: cafeCount.count, users: userCount.count, posts: postCount.count, photos: photoCount.count, reviews: reviewCount.count });
       setCafes(cafeRows.data || []);
       setPhotos(photoRows.data || []);
       setPosts(postRows.data || []);
+      setPostPhotos(postImageRows.data || []);
       setUsers(profileRows.data || []);
     } catch (error) {
       setNotice(error.message?.includes('relation') ? 'Aplica primero la migración 20260808_admin_social_photos.sql en Supabase.' : error.message);
@@ -716,6 +720,7 @@ function AdminDashboardPage() {
       .eq('source', 'community')
       .eq('status', 'needs_review');
     if (error) throw error;
+    if (nextStatus === 'active') await refreshCafes();
   }, nextStatus === 'active' ? `Solicitud aceptada: ${cafe.nombre}.` : `Solicitud rechazada: ${cafe.nombre}.`);
 
   const uploadCafeCover = (cafe, file) => {
@@ -824,6 +829,55 @@ function AdminDashboardPage() {
       await refreshCafes();
     }
   }, status === 'approved' ? 'Foto aprobada.' : 'Foto rechazada.');
+
+  const moderatePostPhoto = (photo, action) => runAction('post-photo:' + photo.id + ':' + action, async () => {
+    const post = postMap.get(photo.post_id);
+    const cafeId = post?.cafe_id;
+
+    if (action === 'cover') {
+      if (!cafeId) throw new Error('Esta publicación no está relacionada con una cafetería.');
+      const { error: cafeError } = await supabase.from('cafes').update({
+        image_url: photo.public_url,
+        image_source_url: null,
+        image_attribution: 'Foto aprobada de una publicación de Coffee Map',
+        image_license: null,
+      }).eq('id', cafeId);
+      if (cafeError) throw cafeError;
+      const { error: resetCoverError } = await supabase.from('cafe_photos').update({ is_cover: false }).eq('cafe_id', cafeId);
+      if (resetCoverError) throw resetCoverError;
+      const { error: coverError } = await supabase.from('cafe_photos').update({
+        status: 'approved',
+        is_cover: true,
+        moderated_at: new Date().toISOString(),
+        moderated_by: user.id,
+      }).eq('storage_path', photo.storage_path);
+      if (coverError) throw coverError;
+      await refreshCafes();
+      return;
+    }
+
+    const { data: replacement, error: replacementError } = await supabase
+      .from('post_images')
+      .select('public_url')
+      .eq('post_id', photo.post_id)
+      .neq('id', photo.id)
+      .order('position')
+      .limit(1)
+      .maybeSingle();
+    if (replacementError) throw replacementError;
+    const { error: deleteImageError } = await supabase.from('post_images').delete().eq('id', photo.id);
+    if (deleteImageError) throw deleteImageError;
+    const { error: postError } = await supabase.from('posts').update({
+      image_url: replacement?.public_url || null,
+      updated_at: new Date().toISOString(),
+    }).eq('id', photo.post_id);
+    if (postError) throw postError;
+    const { error: cafePhotoError } = await supabase.from('cafe_photos').delete()
+      .eq('post_id', photo.post_id)
+      .eq('storage_path', photo.storage_path);
+    if (cafePhotoError) throw cafePhotoError;
+    await supabase.storage.from('cafe-photos').remove([photo.storage_path]);
+  }, 'Foto bloqueada y retirada de la publicación.');
 
   const updatePost = (post, status) => runAction(`post:${post.id}`, async () => {
     const { error } = await supabase.from('posts').update({ status }).eq('id', post.id);
@@ -976,9 +1030,31 @@ function AdminDashboardPage() {
         {tab === 'photos' && <section className="admin-stack">
           <article className="admin-panel admin-photo-guide">
             <Image size={22} />
-            <div><h2>Revisión de fotos</h2><p>Estas fotos fueron enviadas por usuarios. Aprueba una para publicarla en la cafetería; usa “Aprobar como portada” si además quieres mostrarla como imagen principal. Rechaza las que no deban publicarse.</p></div>
+            <div><h2>Moderación de fotos</h2><p>Aquí aparecen las fotos de las publicaciones. Descárgalas para revisarlas, bloquéalas si son indebidas y decide manualmente cuál será la portada de cada cafetería.</p></div>
           </article>
           <div className="admin-photo-grid">
+            {postPhotos.length === 0 && <p className="admin-empty">No hay fotos en publicaciones.</p>}
+            {postPhotos.map((photo) => {
+              const post = postMap.get(photo.post_id);
+              const cafe = post?.cafe_id ? cafeMap.get(post.cafe_id) : null;
+              return (
+                <article className="admin-photo-card" key={photo.id}>
+                  <img src={photo.public_url} alt={cafe?.nombre || 'Foto de publicación'} />
+                  <div><strong>{cafe?.nombre || 'Publicación general'}</strong><small>{profileMap.get(photo.user_id)?.username || 'Usuario'} · Publicación</small></div>
+                  <div className="admin-photo-rights">{post?.content || 'Sin texto en la publicación.'}</div>
+                  <div className="admin-photo-actions">
+                    <a className="admin-photo-download" href={photo.public_url} download target="_blank" rel="noreferrer">Descargar</a>
+                    <button className="danger" onClick={() => moderatePostPhoto(photo, 'block')}>Bloquear foto</button>
+                    <button disabled={!cafe} onClick={() => moderatePostPhoto(photo, 'cover')}>Usar como portada</button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+          {photos.length > 0 && <article className="admin-panel">
+            <h2>Fotos enviadas directamente a cafeterías</h2>
+            <p>También puedes moderar las fotos que no pertenecen a una publicación.</p>
+            <div className="admin-photo-grid admin-photo-grid-secondary">
           {photos.length === 0 && <p className="admin-empty">No hay fotos pendientes de revisión.</p>}
           {photos.map((photo) => <article className="admin-photo-card" key={photo.id}>
             <img src={photo.public_url} alt={cafeMap.get(photo.cafe_id)?.nombre || 'Foto de cafetería'} />
@@ -987,6 +1063,7 @@ function AdminDashboardPage() {
             <div className="admin-photo-actions"><button disabled={!photo.rights_confirmed} onClick={() => moderatePhoto(photo, 'approved')}>Aprobar y publicar</button><button disabled={!photo.rights_confirmed} onClick={() => moderatePhoto(photo, 'approved', true)}>Aprobar como portada</button><button className="danger" onClick={() => moderatePhoto(photo, 'rejected')}>Rechazar foto</button></div>
           </article>)}
           </div>
+          </article>}
         </section>}
 
         {tab === 'posts' && <section className="admin-list">

@@ -1379,6 +1379,13 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 .profile-cafe-copy span:last-child { max-width: 100%; align-items: flex-start; text-align: right; white-space: normal; line-height: 1.1; }
 .collection-cafe-copy { min-height: 45px; grid-template-rows: 17px auto; }
 .collection-cafe-copy span:last-child { max-width: 68px; align-items: flex-start; text-align: right; white-space: normal; line-height: 1.1; }
+.profile-cafe-card { height: 128px; }
+.profile-cafe-copy { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto; row-gap: 2px; min-height: 54px; padding: 5px 6px 4px; }
+.profile-cafe-copy strong, .profile-cafe-copy span { grid-column: 1; }
+.profile-cafe-copy span { min-height: 13px; line-height: 1.2; }
+.profile-cafe-copy span:last-child { width: 100%; max-width: none; justify-self: stretch; justify-content: flex-end; line-height: 1.2; }
+.admin-photo-actions a.admin-photo-download { display: inline-flex; align-items: center; justify-content: center; padding: 7px 5px; color: #2d241d; background: #e6dac1; border-radius: 11px; font: 600 10px "Inria Serif", Georgia, serif; text-decoration: none; }
+.admin-photo-actions a.admin-photo-download:hover { background: #f0e5cf; }
 
 @media (min-width: 720px) {
   .profile-tab-panel { padding-right: clamp(34px,5vw,96px); padding-left: clamp(34px,5vw,96px); }

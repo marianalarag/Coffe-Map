@@ -58,7 +58,7 @@ function SearchPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
-  const { cafes, cafesLoading, cafesLoaded, loadCafes, interactionsByCafeId } = useCoffeeData();
+  const { cafes, cafesLoading, cafesLoaded, loadCafes, refreshCafes, interactionsByCafeId } = useCoffeeData();
   const [searchQuery, setSearchQuery] = useState('');
   const [userLocation, setUserLocation] = useState(null);
   const [locationResolved, setLocationResolved] = useState(() => !navigator.geolocation);
@@ -108,11 +108,11 @@ function SearchPage() {
   }, [cafes, userLocation]);
 
   const displayedCafes = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
+    const query = normalizeCafeName(searchQuery);
 
     if (query) {
       return cafesWithDistance
-        .filter((cafe) => cafe.nombre.toLowerCase().includes(query))
+        .filter((cafe) => normalizeCafeName(cafe.nombre).includes(query))
         .sort((a, b) => (a.distance ?? Number.MAX_SAFE_INTEGER) - (b.distance ?? Number.MAX_SAFE_INTEGER))
         .slice(0, 6);
     }
@@ -248,6 +248,7 @@ function SearchPage() {
 
       setAddCafeFeedback('¡Gracias por contribuir! La cafetería se envió a revisión. Un administrador la validará antes de publicarla.');
       setNewCafe({ nombre: '', address: '', link: '', lat: '', lng: '' });
+      await refreshCafes();
     } catch (error) {
       setAddCafeFeedback(error.message?.includes('policy')
         ? 'Falta aplicar la actualización de cafeterías comunitarias.'

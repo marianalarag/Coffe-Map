@@ -7,7 +7,7 @@ import { geocodeCafeLocation, getCafeCoordinates } from '../utils/cafeLocation';
 
 const CoffeeDataContext = createContext(null);
 
-const CAFES_CACHE_KEY = 'coffee-map:cafes:v14';
+const CAFES_CACHE_KEY = 'coffee-map:cafes:v15';
 const CAFES_CACHE_TTL_MS = 15 * 60 * 1000;
 const CAFE_REQUEST_TIMEOUT_MS = 8 * 1000;
 const CAFE_COLUMNS = 'id,nombre,lat,lng,rating,reviews,link,address,neighborhood,category,image_url,image_source_url,image_attribution,image_license,opening_hours,opening_hours_source,opening_hours_source_url,opening_hours_verified_at,source,source_id,source_url,status';

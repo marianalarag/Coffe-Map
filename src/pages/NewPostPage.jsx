@@ -35,7 +35,7 @@ function NewPostPage() {
   const visitModeTouchedRef = useRef(false);
   const composerRouteRef = useRef(`${location.pathname}:${location.search}`);
   const { user, userProfile } = useAuth();
-  const { cafes, interactions, interactionsByCafeId, interactionsLoaded, loadCafes, saveCafeInteraction } = useCoffeeData();
+  const { cafes, interactions, interactionsByCafeId, interactionsLoaded, saveCafeInteraction } = useCoffeeData();
   const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const requestedCafeId = searchParams.get('cafe') || '';
   const draftMode = searchParams.get('draft') === '1';
@@ -311,8 +311,7 @@ function NewPostPage() {
         if (updateError) throw updateError;
 
         if (cafeId) {
-          const isAdmin = userProfile?.role === 'administrador';
-          const { data: cafePhotos, error: cafePhotoError } = await supabase
+          const { error: cafePhotoError } = await supabase
             .from('cafe_photos')
             .insert(uploadedImages.map((image) => ({
               cafe_id: cafeId,
@@ -320,31 +319,14 @@ function NewPostPage() {
               post_id: post.id,
               storage_path: image.storage_path,
               public_url: image.public_url,
-              status: isAdmin ? 'approved' : 'pending',
+              status: 'pending',
               is_cover: false,
               rights_confirmed: true,
               rights_basis: 'own',
               rights_note: 'Foto propia confirmada al publicar la reseña.',
-            })))
-            .select('id,public_url');
+            })));
           if (cafePhotoError) throw cafePhotoError;
 
-          if (isAdmin && !selectedCafe?.imageUrl && cafePhotos?.[0]) {
-            const { error: coverError } = await supabase.from('cafes').update({
-              image_url: cafePhotos[0].public_url,
-              image_source_url: null,
-              image_attribution: `Foto de ${username} en Coffee Map`,
-              image_license: null,
-            }).eq('id', cafeId);
-            if (coverError) throw coverError;
-
-            const { error: markCoverError } = await supabase
-              .from('cafe_photos')
-              .update({ is_cover: true, moderated_at: new Date().toISOString(), moderated_by: user.id })
-              .eq('id', cafePhotos[0].id);
-            if (markCoverError) throw markCoverError;
-            await loadCafes({ force: true });
-          }
         }
       }
 
