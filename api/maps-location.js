@@ -1,4 +1,5 @@
 const COORDINATE_PATTERN = '(-?\\d+(?:\\.\\d+)?)';
+const MERIDA_BOUNDS = { south: 20.86, west: -89.75, north: 21.08, east: -89.52 };
 
 const toCoordinatePair = (latitude, longitude) => {
   const lat = Number(latitude);
@@ -7,6 +8,13 @@ const toCoordinatePair = (latitude, longitude) => {
   if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
   return { lat, lng };
 };
+
+const isMeridaCoordinate = ({ lat, lng }) => (
+  lat >= MERIDA_BOUNDS.south
+  && lat <= MERIDA_BOUNDS.north
+  && lng >= MERIDA_BOUNDS.west
+  && lng <= MERIDA_BOUNDS.east
+);
 
 const getCoordinatesFromHtml = (html) => {
   const patterns = [
@@ -18,9 +26,11 @@ const getCoordinatesFromHtml = (html) => {
   ];
 
   for (const pattern of patterns) {
-    const match = html.match(pattern);
-    const coordinates = match && toCoordinatePair(match[1], match[2]);
-    if (coordinates) return coordinates;
+    const globalPattern = new RegExp(pattern.source, `${pattern.flags.replace('g', '')}g`);
+    for (const match of html.matchAll(globalPattern)) {
+      const coordinates = toCoordinatePair(match[1], match[2]);
+      if (coordinates && isMeridaCoordinate(coordinates)) return coordinates;
+    }
   }
   return null;
 };
