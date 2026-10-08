@@ -10,7 +10,9 @@ const toCoordinatePair = (latitude, longitude) => {
 
 const getCoordinatesFromHtml = (html) => {
   const patterns = [
-    new RegExp(`center[=:%2C]+${COORDINATE_PATTERN}[,%]2?C?${COORDINATE_PATTERN}`, 'i'),
+    new RegExp(`center(?:=|:|%3D|%3A)${COORDINATE_PATTERN}(?:,|%2C)${COORDINATE_PATTERN}`, 'i'),
+    new RegExp(`!3d${COORDINATE_PATTERN}!4d${COORDINATE_PATTERN}`, 'i'),
+    new RegExp(`3d${COORDINATE_PATTERN}[!&,]4d${COORDINATE_PATTERN}`, 'i'),
     new RegExp(`@${COORDINATE_PATTERN},${COORDINATE_PATTERN}`),
     new RegExp(`(?:\\"lat\\"|lat)\\s*[:=]\\s*${COORDINATE_PATTERN}[^\\d]+(?:\\"lng\\"|lng|lon)\\s*[:=]\\s*${COORDINATE_PATTERN}`, 'i'),
   ];

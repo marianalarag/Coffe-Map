@@ -176,11 +176,6 @@ export const geocodeCafeLocation = async (cafe) => {
   const coordinatesFromMapLink = mapLinks.map(extractExplicitGoogleMapsCoordinates).find(Boolean);
   if (coordinatesFromMapLink) return coordinatesFromMapLink;
 
-  for (const mapLink of mapLinks) {
-    const resolvedCoordinates = await resolveGoogleMapsLink(mapLink);
-    if (resolvedCoordinates) return resolvedCoordinates;
-  }
-
   const mapQuery = mapLinks.map(extractGoogleMapsSearchQuery).find(Boolean);
   for (const searchText of [mapQuery, cafe?.address]) {
     if (!searchText) continue;
@@ -190,6 +185,11 @@ export const geocodeCafeLocation = async (cafe) => {
     } catch {
       // Try the next available source before falling back to stored data.
     }
+  }
+
+  for (const mapLink of mapLinks) {
+    const resolvedCoordinates = await resolveGoogleMapsLink(mapLink);
+    if (resolvedCoordinates) return resolvedCoordinates;
   }
 
   // @lat,lng is only a last resort. It can represent the map viewport rather
