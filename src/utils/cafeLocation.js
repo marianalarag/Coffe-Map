@@ -29,9 +29,9 @@ export const extractGoogleMapsCoordinates = (value) => {
   if (!link) return null;
 
   const patterns = [
-    new RegExp(`@${COORDINATE_PATTERN},\\s*${COORDINATE_PATTERN}`),
     new RegExp(`!3d${COORDINATE_PATTERN}!4d${COORDINATE_PATTERN}`),
     new RegExp(`3d${COORDINATE_PATTERN}[!&,]4d${COORDINATE_PATTERN}`),
+    new RegExp(`@${COORDINATE_PATTERN},\\s*${COORDINATE_PATTERN}`),
     new RegExp(`(?:[?&](?:q|query|ll|destination|daddr)=)${COORDINATE_PATTERN}[,+\\s]+${COORDINATE_PATTERN}`, 'i'),
   ];
 
@@ -41,6 +41,22 @@ export const extractGoogleMapsCoordinates = (value) => {
     if (coordinates) return coordinates;
   }
 
+  return null;
+};
+
+const extractExplicitGoogleMapsCoordinates = (value) => {
+  const link = decodeMapLink(value);
+  if (!link) return null;
+  const patterns = [
+    new RegExp(`!3d${COORDINATE_PATTERN}!4d${COORDINATE_PATTERN}`),
+    new RegExp(`3d${COORDINATE_PATTERN}[!&,]4d${COORDINATE_PATTERN}`),
+    new RegExp(`(?:[?&](?:q|query|ll|destination|daddr)=)${COORDINATE_PATTERN}[,+\\s]+${COORDINATE_PATTERN}`, 'i'),
+  ];
+  for (const pattern of patterns) {
+    const match = link.match(pattern);
+    const coordinates = match && toCoordinatePair(match[1], match[2]);
+    if (coordinates) return coordinates;
+  }
   return null;
 };
 
@@ -64,14 +80,18 @@ export const extractGoogleMapsSearchQuery = (value) => {
 };
 
 export const getCafeCoordinates = (cafe) => {
-  // A Maps link identifies the cafe itself. It must win over coordinates
-  // captured from the submitter's current location.
+  const storedCoordinates = toCoordinatePair(cafe?.lat, cafe?.lng);
+  // Community and manually verified rows already contain the coordinates
+  // approved for that cafe. Do not replace them with an @lat,lng viewport
+  // that Google may include in a share URL.
+  if (storedCoordinates && ['community', 'manual'].includes(cafe?.source)) return storedCoordinates;
+
   const coordinatesFromMapLink = [cafe?.link, cafe?.source_url, cafe?.sourceUrl]
     .map(extractGoogleMapsCoordinates)
     .find(Boolean);
   if (coordinatesFromMapLink) return coordinatesFromMapLink;
 
-  return toCoordinatePair(cafe?.lat, cafe?.lng);
+  return storedCoordinates;
 };
 
 const geocodeAddressOnce = async (address) => {
@@ -153,7 +173,7 @@ const resolveGoogleMapsLink = async (link) => {
 
 export const geocodeCafeLocation = async (cafe) => {
   const mapLinks = [cafe?.link, cafe?.source_url, cafe?.sourceUrl].filter(Boolean);
-  const coordinatesFromMapLink = mapLinks.map(extractGoogleMapsCoordinates).find(Boolean);
+  const coordinatesFromMapLink = mapLinks.map(extractExplicitGoogleMapsCoordinates).find(Boolean);
   if (coordinatesFromMapLink) return coordinatesFromMapLink;
 
   for (const mapLink of mapLinks) {
@@ -172,5 +192,7 @@ export const geocodeCafeLocation = async (cafe) => {
     }
   }
 
-  return null;
+  // @lat,lng is only a last resort. It can represent the map viewport rather
+  // than the business, so address/query resolution must win first.
+  return mapLinks.map(extractGoogleMapsCoordinates).find(Boolean) || null;
 };

@@ -6,7 +6,7 @@ import { useCoffeeData } from '../context/CoffeeDataContext';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../supabase';
 import { areDuplicateCafes, normalizeCafeName } from '../utils/cafeDeduplication';
-import { extractGoogleMapsCoordinates, geocodeCafeLocation } from '../utils/cafeLocation';
+import { geocodeCafeLocation } from '../utils/cafeLocation';
 
 const calculateDistance = (lat1, lon1, lat2, lon2) => {
   const radiusKm = 6371;
@@ -138,19 +138,8 @@ function SearchPage() {
 
     const link = newCafe.link.trim();
     const address = newCafe.address.trim();
-    const directCoordinates = extractGoogleMapsCoordinates(link);
     const lookupId = locationLookupRef.current + 1;
     locationLookupRef.current = lookupId;
-
-    if (directCoordinates) {
-      setNewCafe((current) => ({
-        ...current,
-        lat: directCoordinates.lat.toFixed(6),
-        lng: directCoordinates.lng.toFixed(6),
-      }));
-      setLocationStatus('Coordenadas tomadas del enlace de Maps.');
-      return undefined;
-    }
 
     if (!link && !address) {
       setLocationStatus('');
@@ -205,11 +194,11 @@ function SearchPage() {
     event.preventDefault();
     if (!user) return;
 
-    const mapCoordinates = extractGoogleMapsCoordinates(newCafe.link.trim());
-    let lat = mapCoordinates?.lat ?? Number(newCafe.lat);
-    let lng = mapCoordinates?.lng ?? Number(newCafe.lng);
+    const hasLocationInput = Boolean(newCafe.link.trim() || newCafe.address.trim());
+    let lat;
+    let lng;
     let resolvedLocation = null;
-    if (!mapCoordinates && (newCafe.link.trim() || newCafe.address.trim())) {
+    if (hasLocationInput) {
       setAddingCafe(true);
       setAddCafeFeedback('Ubicando la dirección exacta…');
       try {
@@ -223,6 +212,10 @@ function SearchPage() {
       } finally {
         setAddingCafe(false);
       }
+    }
+    if (!hasLocationInput && (!Number.isFinite(lat) || !Number.isFinite(lng))) {
+      lat = Number(newCafe.lat);
+      lng = Number(newCafe.lng);
     }
     const candidate = { nombre: newCafe.nombre.trim(), lat, lng };
     if (!candidate.nombre || !Number.isFinite(lat) || !Number.isFinite(lng)) {

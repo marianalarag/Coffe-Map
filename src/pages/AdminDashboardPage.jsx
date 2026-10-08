@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, BarChart3, Camera, ChevronLeft, ChevronRight, Clock, Coffee, Database, ExternalLink, FileUp, Image, MapPinned, RefreshCw, ScanSearch, Search, Shield, Sparkles, Trash2, Users, X } from 'lucide-react';
+import { ArrowLeft, BarChart3, Camera, ChevronLeft, ChevronRight, ClipboardList, Clock, Coffee, Database, ExternalLink, FileUp, Image, MapPinned, RefreshCw, ScanSearch, Search, Shield, Sparkles, Trash2, Users, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCoffeeData } from '../context/CoffeeDataContext';
@@ -21,6 +21,7 @@ const OPENVERSE_LICENSES = new Set(['by', 'by-sa', 'cc0', 'pdm']);
 const CAFE_ASSISTANT_URL = import.meta.env.VITE_CAFE_ASSISTANT_URL || '';
 const TABS = [
   { id: 'overview', label: 'Resumen', icon: <BarChart3 size={17} /> },
+  { id: 'requests', label: 'Solicitudes', icon: <ClipboardList size={17} /> },
   { id: 'cafes', label: 'Cafeterías', icon: <Coffee size={17} /> },
   { id: 'photos', label: 'Fotos', icon: <Image size={17} /> },
   { id: 'posts', label: 'Posts', icon: <Camera size={17} /> },
@@ -509,7 +510,7 @@ function AdminDashboardPage() {
         supabase.from('posts').select('id', { count: 'exact', head: true }),
         supabase.from('cafe_photos').select('id', { count: 'exact', head: true }),
         supabase.from('user_cafes').select('id', { count: 'exact', head: true }).not('review_text', 'eq', ''),
-        supabase.from('cafes').select('id,nombre,lat,lng,address,neighborhood,image_url,image_source_url,image_attribution,image_license,opening_hours,opening_hours_source,opening_hours_source_url,opening_hours_verified_at,source,source_id,status,submitted_by,created_at,last_verified_at').order('nombre').limit(1000),
+        supabase.from('cafes').select('id,nombre,lat,lng,address,link,source_url,neighborhood,image_url,image_source_url,image_attribution,image_license,opening_hours,opening_hours_source,opening_hours_source_url,opening_hours_verified_at,source,source_id,status,submitted_by,created_at,last_verified_at').order('nombre').limit(1000),
         supabase.from('cafe_photos').select('id,cafe_id,user_id,storage_path,public_url,status,is_cover,rights_confirmed,rights_basis,rights_note,created_at').eq('status', 'pending').order('created_at', { ascending: false }).limit(100),
         supabase.from('posts').select('id,user_id,cafe_id,content,image_url,status,created_at').order('created_at', { ascending: false }).limit(100),
         supabase.from('profiles').select('id,username,avatar_url,role,updated_at').order('updated_at', { ascending: false }).limit(250),
@@ -694,9 +695,23 @@ function AdminDashboardPage() {
   };
 
   const moderateCafeRequest = (cafe, nextStatus) => runAction(`request:${cafe.id}:${nextStatus}`, async () => {
+    const location = nextStatus === 'active' ? await geocodeCafeLocation(cafe) : null;
+    if (nextStatus === 'active' && (!location || !isInsideMerida(location))) {
+      throw new Error('No pudimos verificar una ubicaciÃ³n vÃ¡lida dentro de MÃ©rida desde la direcciÃ³n o el enlace de Google Maps. Corrige esos datos antes de aprobarla.');
+    }
+    const update = {
+      status: nextStatus,
+      last_verified_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    if (nextStatus === 'active') {
+      update.lat = location.lat;
+      update.lng = location.lng;
+      update.neighborhood = location.neighborhood || cafe.neighborhood || null;
+    }
     const { error } = await supabase
       .from('cafes')
-      .update({ status: nextStatus, last_verified_at: new Date().toISOString() })
+      .update(update)
       .eq('id', cafe.id)
       .eq('source', 'community')
       .eq('status', 'needs_review');
@@ -837,7 +852,7 @@ function AdminDashboardPage() {
 
       <nav className="admin-tabs" aria-label="Secciones de administración">
         {TABS.map(({ id, label, icon }) => (
-          <button type="button" key={id} className={tab === id ? 'is-active' : ''} onClick={() => setTab(id)}>{icon}<span>{label}</span></button>
+          <button type="button" key={id} className={tab === id ? 'is-active' : ''} onClick={() => setTab(id)}>{icon}<span>{label}{id === 'requests' && pendingCafeRequests.length > 0 ? ` (${pendingCafeRequests.length})` : ''}</span></button>
         ))}
       </nav>
       </div>
@@ -927,6 +942,34 @@ function AdminDashboardPage() {
                 </article>
               ))}
             </div>
+          </section>
+        )}
+
+        {tab === 'requests' && (
+          <section className="admin-stack">
+            <article className="admin-panel admin-request-panel">
+              <div className="admin-request-heading">
+                <div><h2>Solicitudes de nuevas cafeterÃ­as</h2><p>Revisa la direcciÃ³n y el enlace de Google Maps. Al aprobar una solicitud, el sistema vuelve a verificar la ubicaciÃ³n y guarda esas coordenadas para el pin y la redirecciÃ³n.</p></div>
+                <strong>{pendingCafeRequests.length}</strong>
+              </div>
+              <div className="admin-request-list">
+                {pendingCafeRequests.length === 0 && <p className="admin-empty">No hay solicitudes pendientes.</p>}
+                {pendingCafeRequests.map((cafe) => (
+                  <div className="admin-request-row" key={cafe.id}>
+                    <div className="admin-row-copy">
+                      <strong>{cafe.nombre}</strong>
+                      <span>{cafe.address || 'DirecciÃ³n por confirmar'}</span>
+                      {cafe.link && <a href={cafe.link} target="_blank" rel="noreferrer"><ExternalLink size={12} /> Ver enlace de Maps</a>}
+                      <small>{cafe.created_at ? new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium' }).format(new Date(cafe.created_at)) : 'Solicitud reciente'}</small>
+                    </div>
+                    <div className="admin-request-actions">
+                      <button type="button" onClick={() => moderateCafeRequest(cafe, 'active')} disabled={Boolean(actionLoading)}>Aceptar y ubicar</button>
+                      <button type="button" className="danger" onClick={() => moderateCafeRequest(cafe, 'closed')} disabled={Boolean(actionLoading)}>Rechazar</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </article>
           </section>
         )}
 

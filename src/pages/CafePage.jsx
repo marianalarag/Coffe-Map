@@ -134,7 +134,10 @@ function CafePage({ cafeId }) {
 
   const showInAppMap = async () => {
     if (!cafe) return;
-    const coordinates = (await geocodeCafeLocation(cafe)) || getCafeCoordinates(cafe);
+    const verifiedCoordinates = getCafeCoordinates(cafe);
+    const coordinates = ['community', 'manual'].includes(cafe.source)
+      ? verifiedCoordinates
+      : (await geocodeCafeLocation(cafe)) || verifiedCoordinates;
     if (!coordinates) return;
 
     window.sessionStorage.setItem(MAP_TARGET_STORAGE_KEY, JSON.stringify({
