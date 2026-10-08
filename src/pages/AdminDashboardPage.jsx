@@ -697,7 +697,7 @@ function AdminDashboardPage() {
   const moderateCafeRequest = (cafe, nextStatus) => runAction(`request:${cafe.id}:${nextStatus}`, async () => {
     const location = nextStatus === 'active' ? await geocodeCafeLocation(cafe) : null;
     if (nextStatus === 'active' && (!location || !isInsideMerida(location))) {
-      throw new Error('No pudimos verificar una ubicaciÃ³n vÃ¡lida dentro de MÃ©rida desde la direcciÃ³n o el enlace de Google Maps. Corrige esos datos antes de aprobarla.');
+      throw new Error('No pudimos verificar una ubicación válida dentro de Mérida desde la dirección o el enlace de Google Maps. Corrige esos datos antes de aprobarla.');
     }
     const update = {
       status: nextStatus,
@@ -949,7 +949,7 @@ function AdminDashboardPage() {
           <section className="admin-stack">
             <article className="admin-panel admin-request-panel">
               <div className="admin-request-heading">
-                <div><h2>Solicitudes de nuevas cafeterÃ­as</h2><p>Revisa la direcciÃ³n y el enlace de Google Maps. Al aprobar una solicitud, el sistema vuelve a verificar la ubicaciÃ³n y guarda esas coordenadas para el pin y la redirecciÃ³n.</p></div>
+                <div><h2>Solicitudes de nuevas cafeterías</h2><p>Revisa la dirección y el enlace de Google Maps. Al aprobar una solicitud, el sistema verifica la ubicación y guarda el lugar correcto para el mapa.</p></div>
                 <strong>{pendingCafeRequests.length}</strong>
               </div>
               <div className="admin-request-list">
@@ -958,7 +958,7 @@ function AdminDashboardPage() {
                   <div className="admin-request-row" key={cafe.id}>
                     <div className="admin-row-copy">
                       <strong>{cafe.nombre}</strong>
-                      <span>{cafe.address || 'DirecciÃ³n por confirmar'}</span>
+                      <span>{cafe.address || 'Dirección por confirmar'}</span>
                       {cafe.link && <a href={cafe.link} target="_blank" rel="noreferrer"><ExternalLink size={12} /> Ver enlace de Maps</a>}
                       <small>{cafe.created_at ? new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium' }).format(new Date(cafe.created_at)) : 'Solicitud reciente'}</small>
                     </div>

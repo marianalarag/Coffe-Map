@@ -57,7 +57,7 @@ const getCafeStatus = (interaction) => {
 function SearchPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, userProfile } = useAuth();
+  const { user } = useAuth();
   const { cafes, cafesLoading, cafesLoaded, loadCafes, interactionsByCafeId } = useCoffeeData();
   const [searchQuery, setSearchQuery] = useState('');
   const [userLocation, setUserLocation] = useState(null);
@@ -66,7 +66,6 @@ function SearchPage() {
   const [showAddCafe, setShowAddCafe] = useState(false);
   const [addingCafe, setAddingCafe] = useState(false);
   const [addCafeFeedback, setAddCafeFeedback] = useState('');
-  const [locationStatus, setLocationStatus] = useState('');
   const [newCafe, setNewCafe] = useState({ nombre: '', address: '', link: '', lat: '', lng: '' });
   const locationLookupRef = useRef(0);
   const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
@@ -125,7 +124,6 @@ function SearchPage() {
 
   const openAddCafe = () => {
     setAddCafeFeedback('');
-    setLocationStatus('');
     setNewCafe((current) => ({
       ...current,
       nombre: current.nombre || searchQuery.trim(),
@@ -142,16 +140,13 @@ function SearchPage() {
     locationLookupRef.current = lookupId;
 
     if (!link && !address) {
-      setLocationStatus('');
       return undefined;
     }
 
     const timerId = window.setTimeout(async () => {
-      setLocationStatus('Buscando ubicación…');
       try {
         const resolvedLocation = await geocodeCafeLocation({ link, address });
         if (locationLookupRef.current !== lookupId || !resolvedLocation) {
-          if (locationLookupRef.current === lookupId) setLocationStatus('No encontramos esa ubicación todavía.');
           return;
         }
         setNewCafe((current) => ({
@@ -159,9 +154,8 @@ function SearchPage() {
           lat: resolvedLocation.lat.toFixed(6),
           lng: resolvedLocation.lng.toFixed(6),
         }));
-        setLocationStatus('Ubicación encontrada automáticamente.');
       } catch {
-        if (locationLookupRef.current === lookupId) setLocationStatus('No encontramos esa ubicación todavía.');
+        // Validation feedback is shown when the form is submitted.
       }
     }, 700);
 
@@ -182,7 +176,6 @@ function SearchPage() {
           lat: position.coords.latitude.toFixed(6),
           lng: position.coords.longitude.toFixed(6),
         }));
-        setLocationStatus('Ubicación tomada del dispositivo.');
         setAddCafeFeedback('Ubicación agregada.');
       },
       () => setAddCafeFeedback('No pudimos obtener tu ubicación.'),
@@ -238,7 +231,6 @@ function SearchPage() {
     try {
       const suggestionId = crypto.randomUUID();
       const sourceId = `${normalizeCafeName(candidate.nombre).replaceAll(' ', '-')}:${suggestionId}`;
-      const isAdminSubmission = userProfile?.role === 'administrador';
       const { error } = await supabase.from('cafes').insert({
         id: `community:${suggestionId}`,
         nombre: candidate.nombre,
@@ -249,14 +241,12 @@ function SearchPage() {
         link: newCafe.link.trim() || null,
         source: 'community',
         source_id: sourceId,
-        status: isAdminSubmission ? 'active' : 'needs_review',
+        status: 'needs_review',
         submitted_by: user.id,
       });
       if (error) throw error;
 
-      setAddCafeFeedback(isAdminSubmission
-        ? '¡Listo! La cafetería ya está activa en el mapa.'
-        : '¡Gracias! La cafetería se envió para revisión.');
+      setAddCafeFeedback('¡Gracias por contribuir! La cafetería se envió a revisión. Un administrador la validará antes de publicarla.');
       setNewCafe({ nombre: '', address: '', link: '', lat: '', lng: '' });
     } catch (error) {
       setAddCafeFeedback(error.message?.includes('policy')
@@ -402,8 +392,6 @@ function SearchPage() {
               <button className="missing-cafe-location" type="button" onClick={useCurrentLocation}>
                 <Navigation size={16} /> Usar mi ubicación actual
               </button>
-              <p className="missing-cafe-note">La ubicación se obtiene automáticamente desde la dirección o el enlace de Maps; no necesitas conocer coordenadas.</p>
-              {locationStatus && <p className="missing-cafe-location-status" role="status">{locationStatus}</p>}
               {addCafeFeedback && <p className="missing-cafe-feedback" role="status">{addCafeFeedback}</p>}
               <button className="missing-cafe-submit" type="submit" disabled={addingCafe}>{addingCafe ? 'Enviando...' : 'Enviar cafetería'}</button>
             </form>
