@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Check, Coffee, Croissant, Heart, Info, MapPin, Plus, Search, Star } from 'lucide-react';
+import { Check, Coffee, Croissant, Heart, Info, MapPin, Plus, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import BottomNav from '../components/BottomNav';
 import PageLoading from '../components/PageLoading';
@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { useCoffeeData } from '../context/CoffeeDataContext';
 import { getCafeCoordinates } from '../utils/cafeLocation';
 import { getCafeFullAddress, getCafeNeighborhood } from '../utils/cafeAddress';
+import CoffeeBeanIcon from '../components/CoffeeBeanIcon';
 
 const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=1200&q=85';
 const MAP_TARGET_STORAGE_KEY = 'coffee-map:focus-cafe';
@@ -109,7 +110,7 @@ function CafeCard({ cafe, interaction, onOpen }) {
       <div className="home-cafe-copy">
         <strong>{cafe.nombre}</strong>
         <div className="home-cafe-details">
-          <span><Star size={10} fill="currentColor" /> {rating.toFixed(1)}</span>
+          <span><CoffeeBeanIcon size={10} filled /> {rating.toFixed(1)}</span>
           <span title={getCafeAddress(cafe)}><MapPin size={14} strokeWidth={2.4} /> {getCompactAddress(cafe)}</span>
         </div>
       </div>

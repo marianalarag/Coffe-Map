@@ -271,7 +271,7 @@ html.is-app-mode #root {
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
-  justify-content: safe center;
+  justify-content: flex-start;
   width: calc(100% - clamp(24px, 12vw, 232px));
   max-width: none;
   max-height: 72px;
@@ -283,6 +283,8 @@ html.is-app-mode #root {
   touch-action: pan-x;
   overscroll-behavior-x: contain;
   cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
 }
 .map-neighborhood-filters:active { cursor: grabbing; }
 .map-neighborhood-filters::-webkit-scrollbar { display: none; }
@@ -348,6 +350,8 @@ html.is-app-mode #root {
   padding: 3px 2px 8px;
   scrollbar-width: none;
 }
+.map-neighborhood-filters button,
+.map-filter-controls button { pointer-events: auto; }
 .map-filter-controls::-webkit-scrollbar { display: none; }
 .map-filter-chip {
   display: inline-flex;
@@ -562,6 +566,51 @@ html.is-app-mode .map-scan-control {
 .admin-post-row > button { padding: 8px; }
 .admin-post-row .admin-delete { color: #f0b5a7; background: #4d2923; }
 .admin-empty { grid-column: 1 / -1; padding: 50px 20px; color: rgba(238,229,210,.5); text-align: center; font-size: 11px; }
+.admin-cafe-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.admin-cafe-legacy-list { display: none; }
+.admin-cafe-card { overflow: hidden; background: #27211b; border: 1px solid rgba(238,229,210,.08); border-radius: 17px; }
+.admin-cafe-card-media { position: relative; height: 145px; background: #3b3026; }
+.admin-cafe-card-media img { width: 100%; height: 100%; display: block; object-fit: cover; }
+.admin-cafe-card-media > svg { position: absolute; inset: 50% auto auto 50%; color: #bca47f; transform: translate(-50%, -50%); }
+.admin-cafe-card-media .admin-cafe-status { position: absolute; top: 9px; left: 9px; padding: 5px 8px; color: #2d241d; background: #e6dac1; border-radius: 999px; font-size: 8px; font-weight: 800; text-transform: uppercase; }
+.admin-cafe-card-media label { position: absolute; right: 9px; bottom: 9px; width: 32px; height: 32px; display: grid; place-items: center; color: #2d241d; background: #e6dac1; border-radius: 50%; cursor: pointer; }
+.admin-cafe-card-body { display: grid; gap: 7px; padding: 12px; }
+.admin-cafe-card-body input, .admin-cafe-card-body textarea { width: 100%; min-width: 0; padding: 8px 9px; color: #eee5d2; background: #1b1713; border: 1px solid rgba(238,229,210,.1); border-radius: 9px; outline: 0; font: 10px "Inria Serif", Georgia, serif; }
+.admin-cafe-card-body textarea { min-height: 46px; resize: vertical; }
+.admin-cafe-card-body input:focus, .admin-cafe-card-body textarea:focus { border-color: rgba(230,218,193,.5); }
+.admin-cafe-card-row { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.admin-cafe-card-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.admin-cafe-card-actions button, .admin-cafe-card-actions a { min-height: 30px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 7px 9px; color: #2d241d; background: #e6dac1; border: 0; border-radius: 9px; font: 600 9px "Inria Serif", Georgia, serif; cursor: pointer; text-decoration: none; }
+.admin-cafe-card-actions button:hover, .admin-cafe-card-actions a:hover, .admin-icon-action:hover { background: #f0e5cf; }
+.admin-cafe-card-socials { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.admin-cafe-card-socials label { position: relative; }
+.admin-cafe-card-socials svg { position: absolute; top: 50%; left: 8px; color: #bca47f; transform: translateY(-50%); }
+.admin-cafe-card-socials input { padding-left: 28px; }
+.admin-photo-actions button, .admin-photo-actions a, .admin-post-row > button { cursor: pointer; }
+.admin-photo-actions { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; }
+.admin-photo-actions .danger { grid-column: auto; }
+.admin-photo-download { width: 34px; padding-inline: 0 !important; }
+.cafe-social-links { display: flex; flex-wrap: wrap; gap: 7px; margin: 0 0 15px; }
+.cafe-social-links a { display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; color: #e6dac1; background: #372821; border: 1px solid rgba(230,218,193,.12); border-radius: 999px; font-size: 10px; text-decoration: none; }
+.cafe-social-links a:hover { background: #493a33; }
+.cafe-community-gallery img { aspect-ratio: 1.35; border-radius: 12px !important; }
+.profile-crop-backdrop { position: fixed; inset: 0; z-index: 5200; display: grid; place-items: center; padding: 16px; background: rgba(8,6,5,.84); backdrop-filter: blur(9px); }
+.profile-crop-modal { width: min(560px, 100%); padding: 16px; color: #eee5d2; background: #27201a; border: 1px solid rgba(238,229,210,.14); border-radius: 22px; box-shadow: 0 24px 80px rgba(0,0,0,.55); }
+.profile-crop-modal > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.profile-crop-modal > header small { color: rgba(238,229,210,.5); font-size: 8px; letter-spacing: .1em; }
+.profile-crop-modal > header h2 { margin: 2px 0 0; font: 400 21px "Lancelot", Georgia, serif; }
+.profile-crop-modal > header button { width: 30px; height: 30px; display: grid; place-items: center; color: #eee5d2; background: #3a3027; border: 0; border-radius: 50%; cursor: pointer; }
+.profile-crop-viewport { position: relative; width: 100%; aspect-ratio: 1; overflow: hidden; background: #15110e; border-radius: 16px; cursor: grab; touch-action: none; }
+.profile-crop-viewport.is-cover { aspect-ratio: 2.5; }
+.profile-crop-viewport:active { cursor: grabbing; }
+.profile-crop-viewport img { width: 100%; height: 100%; display: block; object-fit: cover; transition: transform .12s ease; }
+.profile-crop-grid { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(90deg, transparent 33.1%, rgba(255,255,255,.6) 33.3%, transparent 33.6%, transparent 66.1%, rgba(255,255,255,.6) 66.3%, transparent 66.6%), linear-gradient(0deg, transparent 33.1%, rgba(255,255,255,.6) 33.3%, transparent 33.6%, transparent 66.1%, rgba(255,255,255,.6) 66.3%, transparent 66.6%); box-shadow: inset 0 0 0 1px rgba(255,255,255,.5); }
+.profile-crop-zoom { display: flex; align-items: center; gap: 10px; margin-top: 14px; color: rgba(238,229,210,.72); font-size: 10px; }
+.profile-crop-zoom input { flex: 1; accent-color: #e6dac1; }
+.profile-crop-help { margin: 8px 0 14px; color: rgba(238,229,210,.5); font-size: 10px; }
+.profile-crop-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.profile-crop-actions button { min-height: 34px; padding: 8px 13px; color: #2d241d; background: #e6dac1; border: 0; border-radius: 10px; font: 700 10px "Inria Serif", Georgia, serif; cursor: pointer; }
+.profile-crop-actions .is-secondary { color: #eee5d2; background: #3a3027; }
 .cafe-image-credit { position: absolute; right: 10px; bottom: 28px; z-index: 2; max-width: calc(100% - 20px); overflow: hidden; padding: 5px 8px; color: rgba(255,255,255,.88); background: rgba(0,0,0,.65); border-radius: 8px; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
 .cafe-photo-add-button { display: inline-flex; align-items: center; gap: 5px; padding: 7px 9px; color: #2d241d; background: #e6dac1; border: 0; border-radius: 10px; font: 700 9px "Inria Serif", Georgia, serif; }
 .cafe-photo-empty { width: 100%; min-height: 90px; display: flex; align-items: center; justify-content: center; gap: 12px; padding: 15px; color: rgba(230,218,193,.62); text-align: left; background: #1d1a15; border: 1px dashed rgba(230,218,193,.18); border-radius: 18px; }

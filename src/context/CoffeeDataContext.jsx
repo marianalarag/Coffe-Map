@@ -10,7 +10,7 @@ const CoffeeDataContext = createContext(null);
 const CAFES_CACHE_KEY = 'coffee-map:cafes:v15';
 const CAFES_CACHE_TTL_MS = 15 * 60 * 1000;
 const CAFE_REQUEST_TIMEOUT_MS = 8 * 1000;
-const CAFE_COLUMNS = 'id,nombre,lat,lng,rating,reviews,link,address,neighborhood,category,image_url,image_source_url,image_attribution,image_license,opening_hours,opening_hours_source,opening_hours_source_url,opening_hours_verified_at,source,source_id,source_url,status';
+const CAFE_COLUMNS = 'id,nombre,lat,lng,rating,reviews,link,address,neighborhood,category,image_url,image_source_url,image_attribution,image_license,instagram_url,tiktok_url,opening_hours,opening_hours_source,opening_hours_source_url,opening_hours_verified_at,source,source_id,source_url,status';
 const INTERACTION_COLUMNS = 'id,user_id,cafe_id,is_visited,is_favorite,in_waitlist,rating,review_text,visited_on,updated_at';
 const INTERACTION_WITH_CAFE_COLUMNS = `${INTERACTION_COLUMNS},cafe:cafes(${CAFE_COLUMNS})`;
 // Change this version whenever a validated source scan is published so the next
@@ -54,6 +54,8 @@ const normalizeCafe = (cafe) => {
     imageSourceUrl: cafe.image_source_url || cafe.imageSourceUrl || null,
     imageAttribution: cafe.image_attribution || cafe.imageAttribution || null,
     imageLicense: cafe.image_license || cafe.imageLicense || null,
+    instagramUrl: cafe.instagram_url || cafe.instagramUrl || null,
+    tiktokUrl: cafe.tiktok_url || cafe.tiktokUrl || null,
     openingHours: cafe.opening_hours || cafe.openingHours || null,
     openingHoursSource: cafe.opening_hours_source || cafe.openingHoursSource || null,
     openingHoursSourceUrl: cafe.opening_hours_source_url || cafe.openingHoursSourceUrl || null,

@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Star, MapPin, Coffee, Heart, CheckCircle2, Clock, Edit3 } from 'lucide-react';
+import { ArrowLeft, MapPin, Coffee, Heart, CheckCircle2, Clock, Edit3, Instagram, Music2 } from 'lucide-react';
 import PageLoading from '../components/PageLoading';
 import { useAuth } from '../context/AuthContext';
 import { useCoffeeData } from '../context/CoffeeDataContext';
 import { supabase } from '../supabase';
 import { getCafeOpenStatus, getCafeScheduleRows } from '../utils/cafeHours';
 import { geocodeCafeLocation, getCafeCoordinates } from '../utils/cafeLocation';
+import CoffeeBeanIcon from '../components/CoffeeBeanIcon';
 
 const MAP_TARGET_STORAGE_KEY = 'coffee-map:focus-cafe';
 const getLocalDate = () => {
@@ -204,7 +205,7 @@ function CafePage({ cafeId }) {
 
           <div className="flex flex-wrap items-center gap-2 mt-2 mb-4">
             <div className="flex items-center gap-1 bg-[#372821] px-3 py-1.5 rounded-full">
-              <Star className={rating > 0 ? 'text-yellow-500 fill-yellow-500' : 'text-[#E6DAC1]/35'} size={16} />
+              <CoffeeBeanIcon className={rating > 0 ? 'text-yellow-500' : 'text-[#E6DAC1]/35'} size={16} filled={rating > 0} />
               <span className="font-bold text-[#E6DAC1]">{rating > 0 ? rating : 'Sin calificar'}</span>
             </div>
             {personalStatusItems.map((item) => (
@@ -240,6 +241,13 @@ function CafePage({ cafeId }) {
               <span className="text-xs font-bold">Ir luego</span>
             </button>
           </div>
+
+          {(cafe.instagramUrl || cafe.tiktokUrl) && (
+            <div className="cafe-social-links" aria-label="Redes sociales de la cafetería">
+              {cafe.instagramUrl && <a href={cafe.instagramUrl} target="_blank" rel="noreferrer" aria-label="Instagram de la cafetería" title="Instagram"><Instagram size={16} /><span>Instagram</span></a>}
+              {cafe.tiktokUrl && <a href={cafe.tiktokUrl} target="_blank" rel="noreferrer" aria-label="TikTok de la cafetería" title="TikTok"><Music2 size={16} /><span>TikTok</span></a>}
+            </div>
+          )}
           {saveError && <p className="mt-3 text-center text-xs text-red-300" role="alert">{saveError}</p>}
         </div>
 
@@ -248,7 +256,7 @@ function CafePage({ cafeId }) {
             <div className="px-2 pb-3">
               <h3 className="font-bold text-[#E6DAC1] text-lg">Fotos de la comunidad</h3>
             </div>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-2 cafe-community-gallery">
               {communityPhotos.map((photo) => (
                 <img key={photo.id} src={photo.public_url} alt={cafe.nombre} className="w-full aspect-square object-cover rounded-2xl" loading="lazy" decoding="async" />
               ))}
@@ -293,7 +301,7 @@ function CafePage({ cafeId }) {
               <article key={review.id} className="cafe-personal-review">
                 <div className="cafe-personal-review-meta">
                   <div className="flex gap-1">
-                    {[1, 2, 3, 4, 5].map((star) => <Star key={star} size={16} className={star <= Number(review.rating || 0) ? 'text-yellow-400 fill-yellow-400' : 'text-[#372821] fill-[#372821]'} />)}
+                    {[1, 2, 3, 4, 5].map((bean) => <CoffeeBeanIcon key={bean} size={16} filled={bean <= Number(review.rating || 0)} className={bean <= Number(review.rating || 0) ? 'text-yellow-400' : 'text-[#372821]'} />)}
                   </div>
                   <span>{review.visited_on ? new Date(`${review.visited_on}T12:00:00`).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Visita sin fecha'}</span>
                 </div>

@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { Star } from 'lucide-react';
+import CoffeeBeanIcon from './CoffeeBeanIcon';
 
 const clampRating = (value) => Math.min(5, Math.max(0.5, Math.round(Number(value || 0.5) * 2) / 2));
 
@@ -63,13 +63,13 @@ function HalfStarRating({ value = 0, onChange, readOnly = false, size = 24, labe
         return (
           <span className="half-star" key={index} style={{ '--star-fill': `${fill}%`, '--star-size': `${size}px`, width: size, height: size }}>
             {fill >= 100 ? (
-              <Star className="half-star-full" size={size} fill="currentColor" strokeWidth={0} />
+              <CoffeeBeanIcon className="half-star-full" size={size} filled strokeWidth={1.3} />
             ) : fill <= 0 ? (
-              <Star className="half-star-empty" size={size} />
+              <CoffeeBeanIcon className="half-star-empty" size={size} strokeWidth={1.6} />
             ) : (
               <>
-                <Star className="half-star-empty" size={size} />
-                <span className="half-star-fill"><Star size={size} fill="currentColor" strokeWidth={0} /></span>
+                <CoffeeBeanIcon className="half-star-empty" size={size} strokeWidth={1.6} />
+                <span className="half-star-fill"><CoffeeBeanIcon size={size} filled strokeWidth={1.3} /></span>
               </>
             )}
           </span>

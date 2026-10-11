@@ -14,7 +14,6 @@ import {
   Settings,
   Share2,
   SlidersHorizontal,
-  Star,
   UserPlus,
   Users,
   Search,
@@ -26,6 +25,7 @@ import PageLoading from '../components/PageLoading';
 import { supabase } from '../supabase';
 import { ActivityFeed } from './ActivityPage';
 import { getCafeNeighborhood } from '../utils/cafeAddress';
+import CoffeeBeanIcon from '../components/CoffeeBeanIcon';
 
 
 const getOptimizedProfileImageUrl = (url, width) => {
@@ -82,6 +82,82 @@ const getProfileSaveErrorMessage = (error) => {
   return message;
 };
 
+function ProfileImageCropper({ file, kind, onCancel, onConfirm }) {
+  const previewUrl = useMemo(() => URL.createObjectURL(file), [file]);
+  const [zoom, setZoom] = useState(1);
+  const [position, setPosition] = useState({ x: 50, y: 50 });
+  const dragRef = useRef(null);
+  const viewportRef = useRef(null);
+  const isCover = kind === 'cover';
+
+  useEffect(() => () => URL.revokeObjectURL(previewUrl), [previewUrl]);
+
+  const handlePointerDown = (event) => {
+    dragRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  };
+
+  const handlePointerMove = (event) => {
+    const drag = dragRef.current;
+    const viewport = viewportRef.current;
+    if (!drag || drag.pointerId !== event.pointerId || !viewport) return;
+    const rect = viewport.getBoundingClientRect();
+    setPosition((current) => ({
+      x: Math.max(0, Math.min(100, current.x - ((event.clientX - drag.x) / rect.width) * 100)),
+      y: Math.max(0, Math.min(100, current.y - ((event.clientY - drag.y) / rect.height) * 100)),
+    }));
+    dragRef.current = { ...drag, x: event.clientX, y: event.clientY };
+  };
+
+  const exportCrop = async () => {
+    if (!previewUrl) return;
+    const image = new Image();
+    image.src = previewUrl;
+    await new Promise((resolve, reject) => { image.onload = resolve; image.onerror = reject; });
+
+    const outputWidth = isCover ? 2400 : 1200;
+    const outputHeight = isCover ? 960 : 1200;
+    const scale = Math.max(outputWidth / image.naturalWidth, outputHeight / image.naturalHeight) * zoom;
+    const renderedWidth = image.naturalWidth * scale;
+    const renderedHeight = image.naturalHeight * scale;
+    const sourceLeft = ((renderedWidth - outputWidth) * (position.x / 100)) / scale;
+    const sourceTop = ((renderedHeight - outputHeight) * (position.y / 100)) / scale;
+    const sourceWidth = outputWidth / scale;
+    const sourceHeight = outputHeight / scale;
+    const canvas = document.createElement('canvas');
+    canvas.width = outputWidth;
+    canvas.height = outputHeight;
+    const context = canvas.getContext('2d');
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = 'high';
+    context.drawImage(image, sourceLeft, sourceTop, sourceWidth, sourceHeight, 0, 0, outputWidth, outputHeight);
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/webp', 0.92));
+    if (blob) onConfirm(new File([blob], `${kind}-cropped.webp`, { type: 'image/webp', lastModified: Date.now() }));
+  };
+
+  return (
+    <div className="profile-crop-backdrop" role="dialog" aria-modal="true" aria-label={`Ajustar ${isCover ? 'portada' : 'foto de perfil'}`}>
+      <section className="profile-crop-modal">
+        <header><div><small>AJUSTAR IMAGEN</small><h2>{isCover ? 'Ajusta tu portada' : 'Ajusta tu foto de perfil'}</h2></div><button type="button" onClick={onCancel} aria-label="Cerrar"><X size={18} /></button></header>
+        <div
+          ref={viewportRef}
+          className={`profile-crop-viewport ${isCover ? 'is-cover' : 'is-avatar'}`}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={() => { dragRef.current = null; }}
+          onPointerCancel={() => { dragRef.current = null; }}
+        >
+          {previewUrl && <img src={previewUrl} alt="Vista previa" style={{ objectPosition: `${position.x}% ${position.y}%`, transform: `scale(${zoom})` }} />}
+          <div className="profile-crop-grid" aria-hidden="true" />
+        </div>
+        <label className="profile-crop-zoom">Zoom <input type="range" min="1" max="3" step="0.01" value={zoom} onChange={(event) => setZoom(Number(event.target.value))} /></label>
+        <p className="profile-crop-help">Arrastra la imagen para encuadrarla y usa la cuadrícula como guía.</p>
+        <div className="profile-crop-actions"><button type="button" className="is-secondary" onClick={onCancel}>Cancelar</button><button type="button" onClick={exportCrop}>Usar imagen</button></div>
+      </section>
+    </div>
+  );
+}
+
 function ProfilePage() {
   const { user, userProfile, logout, updateCachedProfile } = useAuth();
   const {
@@ -104,6 +180,8 @@ function ProfilePage() {
   const avatarPressTimerRef = useRef(null);
   const colorSaveTimerRef = useRef(null);
   const [showAvatarViewer, setShowAvatarViewer] = useState(false);
+  const [cropRequest, setCropRequest] = useState(null);
+  const avatarInputRef = useRef(null);
   const [draftTextColor, setDraftTextColor] = useState(userProfile?.text_color || '#E6DAC1');
 
   const openProfileTab = (tab) => navigate(tab === 'profile' ? '/profile' : `/profile?tab=${tab}`);
@@ -214,9 +292,26 @@ function ProfilePage() {
     updateCachedProfile(data);
   };
 
-  const uploadProfileImage = async (event, kind) => {
+  const startImageCrop = (event, kind) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      alert('Selecciona una imagen válida.');
+      event.target.value = '';
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      alert('La imagen debe pesar menos de 8 MB.');
+      event.target.value = '';
+      return;
+    }
+    setShowSettings(false);
+    setCropRequest({ file, kind });
+  };
+
+  const uploadProfileImage = async (source, kind) => {
     try {
-      const file = event.target.files?.[0];
+      const file = source?.target ? source.target.files?.[0] : source;
       if (!file) return;
 
       if (!file.type.startsWith('image/')) {
@@ -227,7 +322,6 @@ function ProfilePage() {
         throw new Error('La imagen debe pesar menos de 8 MB.');
       }
 
-      setShowSettings(false);
       setUploadingField(kind);
       const optimizedFile = await optimizeProfileImage(file, kind);
       const fileName = getProfileAssetPath(user.id, kind, optimizedFile);
@@ -249,8 +343,13 @@ function ProfilePage() {
       alert(getProfileSaveErrorMessage(error));
     } finally {
       setUploadingField('');
-      event.target.value = '';
+      if (source?.target) source.target.value = '';
     }
+  };
+
+  const confirmCrop = async (file, kind) => {
+    setCropRequest(null);
+    await uploadProfileImage(file, kind);
   };
 
   const updateTextColor = async (textColor) => {
@@ -329,7 +428,7 @@ function ProfilePage() {
             <input
               type="file"
               accept="image/*"
-              onChange={(event) => uploadProfileImage(event, 'cover')}
+              onChange={(event) => startImageCrop(event, 'cover')}
               disabled={Boolean(uploadingField)}
               className="hidden"
             />
@@ -367,7 +466,7 @@ function ProfilePage() {
                       <input
                         type="file"
                         accept="image/*"
-                        onChange={(event) => uploadProfileImage(event, 'cover')}
+                        onChange={(event) => startImageCrop(event, 'cover')}
                         disabled={Boolean(uploadingField)}
                         className="hidden"
                       />
@@ -379,7 +478,7 @@ function ProfilePage() {
                       <input
                         type="file"
                         accept="image/*"
-                        onChange={(event) => uploadProfileImage(event, 'avatar')}
+                        onChange={(event) => startImageCrop(event, 'avatar')}
                         disabled={Boolean(uploadingField)}
                         className="hidden"
                       />
@@ -414,7 +513,8 @@ function ProfilePage() {
               className="relative profile-avatar-wrap"
               role="button"
               tabIndex={0}
-              aria-label="Mantén pulsado para ver la foto de perfil"
+              aria-label="Haz clic para cambiar tu foto o mantén pulsado para verla"
+              onClick={() => avatarInputRef.current?.click()}
               onPointerDown={startAvatarPress}
               onPointerUp={cancelAvatarPress}
               onPointerCancel={cancelAvatarPress}
@@ -441,6 +541,7 @@ function ProfilePage() {
                   <Loader2 className="animate-spin" size={22} />
                 </div>
               )}
+              <input ref={avatarInputRef} type="file" accept="image/*" onChange={(event) => startImageCrop(event, 'avatar')} hidden />
             </div>
 
             <div className="profile-identity-copy">
@@ -507,7 +608,7 @@ function ProfilePage() {
                     )}
                     <div className="profile-cafe-copy">
                       <strong>{cafe.nombre}</strong>
-                      <span><Star size={9} fill="currentColor" /> {Number(cafe.rating || 4.5).toFixed(1)}</span>
+                      <span><CoffeeBeanIcon size={9} filled /> {Number(cafe.rating || 4.5).toFixed(1)}</span>
                       <span title={cafe.address || 'Dirección no disponible'}><MapPin size={13} strokeWidth={2.4} /> {getCafeNeighborhood(cafe)}</span>
                     </div>
                   </button>
@@ -542,7 +643,7 @@ function ProfilePage() {
             </button>
 
             <button className="profile-shortcut profile-shortcut-light" onClick={() => navigate('/ratings')}>
-              <Star className="fill-current" size={34} style={textStyle} />
+              <CoffeeBeanIcon filled size={34} style={textStyle} />
               <span className="text-sm font-medium" style={textStyle}>Calificadas</span>
               <span className="sr-only">{profile.stats.rated}</span>
             </button>
@@ -587,7 +688,7 @@ function ProfilePage() {
                 <button type="button" key={visitId} onClick={() => navigate(`/cafe/${cafe.id}`)}>
                   {cafe.imageUrl ? <img src={cafe.imageUrl} alt={cafe.nombre} /> : <div className="profile-cafe-placeholder"><Coffee size={26} /></div>}
                   <strong>{cafe.nombre}</strong>
-                  <span><Star size={11} fill="currentColor" /> {Number(visitRating || cafe.rating || 0).toFixed(1)} <b><MapPin size={10} /> {getCafeNeighborhood(cafe)}</b></span>
+                  <span><CoffeeBeanIcon size={11} filled /> {Number(visitRating || cafe.rating || 0).toFixed(1)} <b><MapPin size={10} /> {getCafeNeighborhood(cafe)}</b></span>
                 </button>
               ))}
             </div>
@@ -612,10 +713,12 @@ function ProfilePage() {
                 if (event.currentTarget.src !== profile.avatarUrl) event.currentTarget.src = profile.avatarUrl;
               }}
             />
-            <label><Camera size={16} /> Cambiar foto<input type="file" accept="image/*" onChange={(event) => uploadProfileImage(event, 'avatar')} disabled={Boolean(uploadingField)} hidden /></label>
+            <label><Camera size={16} /> Cambiar foto<input type="file" accept="image/*" onChange={(event) => startImageCrop(event, 'avatar')} disabled={Boolean(uploadingField)} hidden /></label>
           </section>
         </div>
       )}
+
+      {cropRequest && <ProfileImageCropper file={cropRequest.file} kind={cropRequest.kind} onCancel={() => setCropRequest(null)} onConfirm={confirmCrop} />}
 
       <div className="profile-bottom-actions">
         <button

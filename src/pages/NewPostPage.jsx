@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Eye, FileText, Heart, ImagePlus, Link2, MapPin, RefreshCw, Star, Trash2, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Eye, FileText, Heart, ImagePlus, Link2, MapPin, RefreshCw, Trash2, X } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import BottomNav from '../components/BottomNav';
 import HalfStarRating from '../components/HalfStarRating';
+import CoffeeBeanIcon from '../components/CoffeeBeanIcon';
 import { useAuth } from '../context/AuthContext';
 import { useCoffeeData } from '../context/CoffeeDataContext';
 import { supabase } from '../supabase';
@@ -375,7 +376,7 @@ function NewPostPage() {
           <div className="new-post-cafe-picker"><MapPin size={16} /><button type="button" onClick={() => navigate('/search?selectCafe=1&returnTo=%2Fnew-post')}>{selectedCafe?.nombre || 'Relacionar una cafetería (opcional)'}</button>{selectedCafe && <button type="button" className="new-post-cafe-clear" onClick={() => setCafeId('')} aria-label="Quitar cafetería relacionada"><X size={15} /></button>}</div>
           {selectedCafe && (
             <div className="new-post-review-options">
-              <label className="new-post-rating"><Star size={17} /><span>Calificación</span><HalfStarRating value={rating} onChange={setRating} size={23} /></label>
+              <label className="new-post-rating"><CoffeeBeanIcon size={17} /><span>Calificación</span><HalfStarRating value={rating} onChange={setRating} size={23} /></label>
               <label className="new-post-favorite"><input type="checkbox" checked={isFavorite} onChange={(event) => setIsFavorite(event.target.checked)} /><Heart size={18} fill={isFavorite ? 'currentColor' : 'none'} /> Agregar a favoritos</label>
             </div>
           )}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, BarChart3, Camera, ChevronLeft, ChevronRight, ClipboardList, Clock, Coffee, Database, ExternalLink, FileUp, Image, MapPinned, RefreshCw, ScanSearch, Search, Shield, Sparkles, Trash2, Users, X } from 'lucide-react';
+import { ArrowLeft, BarChart3, Camera, ChevronLeft, ChevronRight, ClipboardList, Clock, Coffee, Database, Download, ExternalLink, FileUp, Image, Instagram, MapPin, MapPinned, Music2, RefreshCw, ScanSearch, Search, Shield, Sparkles, Trash2, Users, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCoffeeData } from '../context/CoffeeDataContext';
@@ -449,6 +449,46 @@ function MetricCard({ label, value, icon }) {
   );
 }
 
+function AdminCafeCard({ cafe, onChange, onSave, onStatusChange, onUpload, onAssistant, onFindImage }) {
+  const textField = (field, placeholder, multiline = false) => {
+    const Component = multiline ? 'textarea' : 'input';
+    return <Component value={cafe[field] || ''} placeholder={placeholder} onChange={(event) => onChange(cafe.id, field, event.target.value)} onBlur={() => onSave(cafe, field, cafe[field] || null)} />;
+  };
+
+  return (
+    <article className="admin-cafe-card">
+      <div className="admin-cafe-card-media">
+        {cafe.image_url ? <img src={cafe.image_url} alt={cafe.nombre} /> : <Coffee size={34} />}
+        <span className="admin-cafe-status">{cafe.status === 'active' ? 'Activa' : cafe.status === 'closed' ? 'Cerrada' : 'Revisar'}</span>
+        <label title="Subir foto de portada"><Camera size={16} /><input hidden type="file" accept="image/*" onChange={(event) => onUpload(cafe, event.target.files?.[0])} /></label>
+      </div>
+      <div className="admin-cafe-card-body">
+        {textField('nombre', 'Nombre de la cafetería')}
+        {textField('address', 'Dirección completa', true)}
+        <div className="admin-cafe-card-row">
+          <input value={cafe.lat ?? ''} placeholder="Latitud" onChange={(event) => onChange(cafe.id, 'lat', event.target.value)} onBlur={() => onSave(cafe, 'lat', cafe.lat)} />
+          <input value={cafe.lng ?? ''} placeholder="Longitud" onChange={(event) => onChange(cafe.id, 'lng', event.target.value)} onBlur={() => onSave(cafe, 'lng', cafe.lng)} />
+        </div>
+        {textField('opening_hours', 'Horarios (Mo-Fr 08:00-20:00)', true)}
+        {textField('image_url', 'URL de foto de portada')}
+        <div className="admin-cafe-card-socials">
+          <label><Instagram size={14} /><input value={cafe.instagram_url || ''} placeholder="Instagram" onChange={(event) => onChange(cafe.id, 'instagram_url', event.target.value)} onBlur={() => onSave(cafe, 'instagram_url', cafe.instagram_url || null)} /></label>
+          <label><Music2 size={14} /><input value={cafe.tiktok_url || ''} placeholder="TikTok" onChange={(event) => onChange(cafe.id, 'tiktok_url', event.target.value)} onBlur={() => onSave(cafe, 'tiktok_url', cafe.tiktok_url || null)} /></label>
+        </div>
+        <div className="admin-cafe-card-row">
+          <select value={cafe.status} onChange={(event) => onStatusChange(cafe, event.target.value)}><option value="active">Activa</option><option value="needs_review">Revisar</option><option value="closed">Cerrada</option></select>
+          <small className="admin-row-copy"><span>{cafe.source || 'manual'} · {cafe.neighborhood || 'Zona por confirmar'}</span></small>
+        </div>
+        <div className="admin-cafe-card-actions">
+          <button type="button" title="Revisar datos" onClick={() => onAssistant(cafe)}><Sparkles size={14} /> Revisar</button>
+          <button type="button" title="Buscar foto con licencia abierta" onClick={() => onFindImage(cafe)}><Search size={14} /> Foto</button>
+          {cafe.link && <a href={cafe.link} target="_blank" rel="noreferrer" title="Abrir ubicación"><MapPin size={14} /> Maps</a>}
+        </div>
+      </div>
+    </article>
+  );
+}
+
 function AdminDashboardPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -507,12 +547,12 @@ function AdminDashboardPage() {
     setNotice('');
     try {
       const [cafeCount, userCount, postCount, photoCount, reviewCount, cafeRows, photoRows, postRows, postImageRows, profileRows] = await Promise.all([
-        supabase.from('cafes').select('id', { count: 'exact', head: true }),
+        supabase.from('cafes').select('id', { count: 'exact', head: true }).eq('status', 'active'),
         supabase.from('profiles').select('id', { count: 'exact', head: true }),
         supabase.from('posts').select('id', { count: 'exact', head: true }),
         supabase.from('cafe_photos').select('id', { count: 'exact', head: true }),
         supabase.from('user_cafes').select('id', { count: 'exact', head: true }).not('review_text', 'eq', ''),
-        supabase.from('cafes').select('id,nombre,lat,lng,address,link,source_url,neighborhood,image_url,image_source_url,image_attribution,image_license,opening_hours,opening_hours_source,opening_hours_source_url,opening_hours_verified_at,source,source_id,status,submitted_by,created_at,last_verified_at').order('nombre').limit(1000),
+        supabase.from('cafes').select('id,nombre,lat,lng,address,link,source_url,neighborhood,image_url,image_source_url,image_attribution,image_license,instagram_url,tiktok_url,opening_hours,opening_hours_source,opening_hours_source_url,opening_hours_verified_at,source,source_id,status,submitted_by,created_at,last_verified_at').order('nombre').limit(1000),
         supabase.from('cafe_photos').select('id,cafe_id,user_id,post_id,storage_path,public_url,status,is_cover,rights_confirmed,rights_basis,rights_note,created_at').eq('status', 'pending').is('post_id', null).order('created_at', { ascending: false }).limit(100),
         supabase.from('posts').select('id,user_id,cafe_id,content,image_url,status,created_at').order('created_at', { ascending: false }).limit(1000),
         supabase.from('post_images').select('id,post_id,user_id,storage_path,public_url,position,created_at').order('created_at', { ascending: false }).limit(1000),
@@ -889,6 +929,31 @@ function AdminDashboardPage() {
     if (error) throw error;
   }, 'Publicación eliminada.');
 
+  const updateCafeDraft = (cafeId, field, value) => {
+    setCafes((current) => current.map((cafe) => cafe.id === cafeId ? { ...cafe, [field]: value } : cafe));
+  };
+
+  const saveCafeField = (cafe, field, value) => {
+    const numericField = field === 'lat' || field === 'lng';
+    const nextValue = numericField ? Number(value) : (typeof value === 'string' ? value.trim() || null : value);
+    if (numericField && !Number.isFinite(nextValue)) return;
+    return runAction(`cafe-field:${cafe.id}:${field}`, async () => {
+      const patch = { [field]: nextValue, updated_at: new Date().toISOString() };
+      if (field === 'opening_hours') {
+        patch.opening_hours_source = nextValue ? 'admin' : null;
+        patch.opening_hours_source_url = null;
+        patch.opening_hours_verified_at = nextValue ? new Date().toISOString() : null;
+      }
+      const { error } = await supabase.from('cafes').update(patch).eq('id', cafe.id);
+      if (error) throw error;
+    }, 'Cafetería actualizada.');
+  };
+
+  const updateCafeStatus = (cafe, status) => runAction(`cafe:${cafe.id}`, async () => {
+    const { error } = await supabase.from('cafes').update({ status, updated_at: new Date().toISOString() }).eq('id', cafe.id);
+    if (error) throw error;
+  }, 'Estado actualizado.');
+
   const updateRole = (profile, role) => runAction(`user:${profile.id}`, async () => {
     if (profile.id === user.id && role !== 'administrador') throw new Error('No puedes quitarte tu propio acceso admin.');
     const { error } = await supabase.from('profiles').update({ role, updated_at: new Date().toISOString() }).eq('id', profile.id);
@@ -983,7 +1048,7 @@ function AdminDashboardPage() {
                 {exactLocationCandidates.length > 4 && <small>+{exactLocationCandidates.length - 4} coincidencias más</small>}
               </article>
             )}
-            <div className="admin-list">
+            <div className="admin-cafe-legacy-list">
               {cafes.map((cafe) => (
                 <article className="admin-row admin-cafe-row" key={cafe.id}>
                   <div className="admin-thumb">{cafe.image_url ? <img src={cafe.image_url} alt="" /> : <Coffee size={20} />}</div>
@@ -994,6 +1059,11 @@ function AdminDashboardPage() {
                   <button type="button" className="admin-icon-action" title="Editar horario" onClick={() => editCafeHours(cafe)}><Clock size={17} /></button>
                   <label className="admin-icon-action" title="Subir portada"><Camera size={17} /><input hidden type="file" accept="image/*" onChange={(event) => uploadCafeCover(cafe, event.target.files?.[0])} /></label>
                 </article>
+              ))}
+            </div>
+            <div className="admin-cafe-grid">
+              {cafes.map((cafe) => (
+                <AdminCafeCard key={cafe.id} cafe={cafe} onChange={updateCafeDraft} onSave={saveCafeField} onStatusChange={updateCafeStatus} onUpload={uploadCafeCover} onAssistant={openCafeAssistant} onFindImage={findOpenImages} />
               ))}
             </div>
           </section>
@@ -1043,9 +1113,9 @@ function AdminDashboardPage() {
                   <div><strong>{cafe?.nombre || 'Publicación general'}</strong><small>{profileMap.get(photo.user_id)?.username || 'Usuario'} · Publicación</small></div>
                   <div className="admin-photo-rights">{post?.content || 'Sin texto en la publicación.'}</div>
                   <div className="admin-photo-actions">
-                    <a className="admin-photo-download" href={photo.public_url} download target="_blank" rel="noreferrer">Descargar</a>
-                    <button className="danger" onClick={() => moderatePostPhoto(photo, 'block')}>Bloquear foto</button>
                     <button disabled={!cafe} onClick={() => moderatePostPhoto(photo, 'cover')}>Usar como portada</button>
+                    <button className="danger" onClick={() => moderatePostPhoto(photo, 'block')}>Bloquear</button>
+                    <a className="admin-photo-download" href={photo.public_url} download target="_blank" rel="noreferrer" aria-label="Descargar foto" title="Descargar"><Download size={15} /></a>
                   </div>
                 </article>
               );

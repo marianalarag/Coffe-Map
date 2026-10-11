@@ -13,7 +13,6 @@ import {
   ChevronDown,
   X,
   Clock3,
-  Star,
   List,
   Map as MapIcon,
 } from 'lucide-react'
@@ -26,6 +25,7 @@ import { useCoffeeData } from './context/CoffeeDataContext'
 import { getCafeZone } from './utils/cafeAddress'
 import { normalizeCafeName } from './utils/cafeDeduplication'
 import { getCafeOpenStatus, isCafeOpenOnDay } from './utils/cafeHours'
+import CoffeeBeanIcon from './components/CoffeeBeanIcon'
 
 const MERIDA_CENTER = { lat: 20.9753, lng: -89.6178 };
 const MERIDA_BOUNDS = [[20.86, -89.75], [21.08, -89.52]];
@@ -267,6 +267,7 @@ function App() {
 
   const handleNeighborhoodPointerDown = useCallback((event) => {
     if (event.pointerType === 'mouse' && event.button !== 0) return;
+    if (event.target.closest?.('button')) return;
     const container = event.currentTarget;
     if (container.scrollWidth <= container.clientWidth) return;
     neighborhoodDragRef.current = { pointerId: event.pointerId, startX: event.clientX, startScrollLeft: container.scrollLeft };
@@ -1087,7 +1088,7 @@ function App() {
           {activeFilterCount > 0 && <b>{activeFilterCount}</b>}
         </button>
         <button type="button" className={`map-filter-chip ${selectedRating ? 'has-filter' : ''}`} onClick={() => setSelectedRating((current) => current ? 0 : 4)}>
-          <Star size={16} fill={selectedRating ? 'currentColor' : 'none'} />
+          <CoffeeBeanIcon size={16} filled={Boolean(selectedRating)} />
           <span>{selectedRating ? `${selectedRating.toFixed(1)}+` : 'Calificación'}</span>
           <ChevronDown size={14} />
         </button>
@@ -1126,7 +1127,7 @@ function App() {
             <div className="map-rating-options">
               {[0, 3, 4, 4.5].map((value) => (
                 <button key={value} type="button" className={selectedRating === value ? 'is-selected' : ''} onClick={() => setSelectedRating(value)}>
-                  {value ? `${value}+` : 'Cualquiera'} {value > 0 && <Star size={12} fill="currentColor" />}
+                  {value ? `${value}+` : 'Cualquiera'} {value > 0 && <CoffeeBeanIcon size={12} filled />}
                 </button>
               ))}
             </div>
@@ -1192,7 +1193,7 @@ function App() {
                   </div>
                   <div className="map-result-copy">
                     <strong>{cafe.nombre}</strong>
-                    <span className="map-result-meta"><Star size={12} fill="currentColor" /> {Number(cafe.rating || 0).toFixed(1)} · {getCafeZone(cafe)}</span>
+                    <span className="map-result-meta"><CoffeeBeanIcon size={12} filled /> {Number(cafe.rating || 0).toFixed(1)} · {getCafeZone(cafe)}</span>
                     <span className={`map-result-status ${status.state === 'open' ? 'is-open' : ''}`}>
                       {status.state === 'open' ? status.label : status.state === 'closed' ? 'Cerrado ahora' : 'Horario por confirmar'}
                     </span>
