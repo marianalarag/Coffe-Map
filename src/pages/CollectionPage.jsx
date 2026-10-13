@@ -123,7 +123,7 @@ function CafeGrid({ entries, collection, onOpen }) {
           </div>
           <div className="collection-cafe-copy">
             <strong>{cafe.nombre}</strong>
-            <span><CoffeeBeanIcon size={9} filled /> {getRating(interaction, cafe).toFixed(1)}</span>
+            <span><CoffeeBeanIcon size={9} filled tone="light" /> {getRating(interaction, cafe).toFixed(1)}</span>
             <span title={cafe.address || 'Dirección no disponible'}><MapPin size={13} strokeWidth={2.4} /> {getCafeNeighborhood(cafe)}</span>
           </div>
         </button>

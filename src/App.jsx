@@ -1127,7 +1127,7 @@ function App() {
             <div className="map-rating-options">
               {[0, 3, 4, 4.5].map((value) => (
                 <button key={value} type="button" className={selectedRating === value ? 'is-selected' : ''} onClick={() => setSelectedRating(value)}>
-                  {value ? `${value}+` : 'Cualquiera'} {value > 0 && <CoffeeBeanIcon size={12} filled />}
+                  {value ? `${value}+` : 'Cualquiera'} {value > 0 && <CoffeeBeanIcon size={12} filled tone={selectedRating === value ? 'dark' : 'light'} />}
                 </button>
               ))}
             </div>

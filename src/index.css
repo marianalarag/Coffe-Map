@@ -1005,8 +1005,7 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 .profile-rating-heading small { color: rgba(238,229,210,.45); font-size: 8px; letter-spacing: .09em; }
 .profile-rating-heading h2 { margin: 3px 0 0; font: 400 18px/1 "Lancelot", Georgia, serif; }
 .profile-rating-rows { display: grid; gap: 8px; }
-.profile-rating-row { display: grid; grid-template-columns: 13px auto minmax(50px, 1fr) 20px; align-items: center; gap: 7px; font-size: 9px; }
-.profile-rating-beans { display: flex; gap: 2px; }
+.profile-rating-row { display: grid; grid-template-columns: 25px auto minmax(50px, 1fr) 20px; align-items: center; gap: 6px; font-size: 9px; }
 .profile-rating-track { height: 7px; overflow: hidden; background: #3a2a22; border-radius: 999px; }
 .profile-rating-track span { display: block; height: 100%; background: #d4bd96; border-radius: inherit; transition: width .25s ease; }
 .profile-rating-row strong { color: rgba(238,229,210,.62); text-align: right; font-size: 9px; }
@@ -1349,7 +1348,7 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 }
 
 /* Half-star input and social review galleries */
-.coffee-bean-icon, .coffee-bean-rating { display: inline-block; flex: 0 0 auto; background-repeat: no-repeat; background-color: transparent; }
+.coffee-bean-icon, .coffee-bean-rating { display: inline-block; flex: 0 0 auto; background-repeat: no-repeat; background-color: transparent; vertical-align: middle; line-height: 0; }
 .half-star-rating { display: inline-flex; align-items: center; gap: 2px; width: max-content; touch-action: none; user-select: none; cursor: ew-resize; outline: 0; }
 .half-star-rating:focus-visible { border-radius: 7px; box-shadow: 0 0 0 2px rgba(230,218,193,.42); }
 .half-star-rating.is-readonly { cursor: default; pointer-events: none; }

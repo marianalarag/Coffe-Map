@@ -22,7 +22,7 @@ import PageLoading from '../components/PageLoading';
 import { supabase } from '../supabase';
 import { ActivityFeed } from './ActivityPage';
 import { getCafeNeighborhood } from '../utils/cafeAddress';
-import CoffeeBeanIcon from '../components/CoffeeBeanIcon';
+import CoffeeBeanIcon, { CoffeeBeanRating } from '../components/CoffeeBeanIcon';
 
 
 const getOptimizedProfileImageUrl = (url, width) => {
@@ -156,9 +156,9 @@ function ProfileImageCropper({ file, kind, onCancel, onConfirm }) {
 }
 
 function ProfileRatingChart({ interactions, textStyle }) {
-  const rows = [5, 4, 3, 2, 1].map((rating) => ({
+  const rows = Array.from({ length: 10 }, (_, index) => 5 - (index * 0.5)).map((rating) => ({
     rating,
-    count: interactions.filter((interaction) => Math.ceil(Number(interaction.rating || 0)) === rating).length,
+    count: interactions.filter((interaction) => Math.round(Number(interaction.rating || 0) * 2) / 2 === rating).length,
   }));
   const maxCount = Math.max(1, ...rows.map((row) => row.count));
 
@@ -169,9 +169,7 @@ function ProfileRatingChart({ interactions, textStyle }) {
         {rows.map((row) => (
           <div className="profile-rating-row" key={row.rating}>
             <span>{row.rating}</span>
-            <div className="profile-rating-beans" aria-hidden="true">
-              {[1, 2, 3, 4, 5].map((bean) => <CoffeeBeanIcon key={bean} size={13} filled={bean <= row.rating} />)}
-            </div>
+            <CoffeeBeanRating value={row.rating} size={10} />
             <div className="profile-rating-track"><span style={{ width: `${(row.count / maxCount) * 100}%` }} /></div>
             <strong>{row.count}</strong>
           </div>
@@ -674,7 +672,7 @@ function ProfilePage() {
                     )}
                     <div className="profile-cafe-copy">
                       <strong>{cafe.nombre}</strong>
-                      <span><CoffeeBeanIcon size={9} filled /> {Number(cafe.rating || 4.5).toFixed(1)}</span>
+                      <span><CoffeeBeanIcon size={9} filled tone="light" /> {Number(cafe.rating || 4.5).toFixed(1)}</span>
                       <span title={cafe.address || 'Dirección no disponible'}><MapPin size={13} strokeWidth={2.4} /> {getCafeNeighborhood(cafe)}</span>
                     </div>
                   </button>
@@ -720,7 +718,7 @@ function ProfilePage() {
                 <button type="button" key={visitId} onClick={() => navigate(`/cafe/${cafe.id}`)}>
                   {cafe.imageUrl ? <img src={cafe.imageUrl} alt={cafe.nombre} /> : <div className="profile-cafe-placeholder"><Coffee size={26} /></div>}
                   <strong>{cafe.nombre}</strong>
-                  <span><CoffeeBeanIcon size={11} filled /> {Number(visitRating || cafe.rating || 0).toFixed(1)} <b><MapPin size={10} /> {getCafeNeighborhood(cafe)}</b></span>
+                  <span><CoffeeBeanIcon size={11} filled tone="light" /> {Number(visitRating || cafe.rating || 0).toFixed(1)} <b><MapPin size={10} /> {getCafeNeighborhood(cafe)}</b></span>
                 </button>
               ))}
             </div>
