@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, MapPin, Coffee, Heart, CheckCircle2, Clock, Edit3, Instagram, Music2 } from 'lucide-react';
+import { ArrowLeft, MapPin, Coffee, Heart, CheckCircle2, Clock, Edit3, Instagram, Music2, Plus } from 'lucide-react';
 import PageLoading from '../components/PageLoading';
 import { useAuth } from '../context/AuthContext';
 import { useCoffeeData } from '../context/CoffeeDataContext';
 import { supabase } from '../supabase';
 import { getCafeOpenStatus, getCafeScheduleRows } from '../utils/cafeHours';
 import { geocodeCafeLocation, getCafeCoordinates } from '../utils/cafeLocation';
-import CoffeeBeanIcon from '../components/CoffeeBeanIcon';
+import CoffeeBeanIcon, { CoffeeBeanRating } from '../components/CoffeeBeanIcon';
 
 const MAP_TARGET_STORAGE_KEY = 'coffee-map:focus-cafe';
 const getLocalDate = () => {
@@ -93,7 +93,7 @@ function CafePage({ cafeId }) {
     return false;
   };
 
-  const saveInteraction = async (updates) => {
+  const saveInteraction = async (updates, options = {}) => {
     if (!requireAuth() || !cafe) return;
 
     const hasUpdate = (key) => Object.prototype.hasOwnProperty.call(updates, key);
@@ -107,7 +107,7 @@ function CafePage({ cafeId }) {
         rating: hasUpdate('rating') ? updates.rating : (rating === 0 ? null : rating),
         review_text: hasUpdate('review_text') ? updates.review_text : reviewText,
         ...(hasUpdate('visited_on') ? { visited_on: updates.visited_on } : {}),
-      });
+      }, options);
       return savedInteraction;
     } catch (error) {
       console.error('Error al guardar interaccion', error);
@@ -137,6 +137,24 @@ function CafePage({ cafeId }) {
     const nextValue = !inWaitlist;
     setInWaitlist(nextValue);
     saveInteraction({ in_waitlist: nextValue });
+  };
+
+  const registerAnotherVisit = async () => {
+    if (!requireAuth() || !cafe || savingInteraction) return;
+    if (!window.confirm(`¿Registrar una nueva visita a ${cafe.nombre}? Puedes agregar una reseña después si quieres.`)) return;
+    const saved = await saveInteraction({
+      is_visited: true,
+      is_favorite: isFavorite,
+      in_waitlist: inWaitlist,
+      rating: null,
+      review_text: '',
+      visited_on: getLocalDate(),
+    }, { createNewVisit: true });
+    if (saved) {
+      setIsVisited(true);
+      setRating(0);
+      setReviewText('');
+    }
   };
 
   const openReviewComposer = () => {
@@ -253,6 +271,13 @@ function CafePage({ cafeId }) {
             </button>
           </div>
 
+          {(isVisited || personalReviews.length > 0) && (
+            <button type="button" className="cafe-add-visit-button" onClick={registerAnotherVisit} disabled={savingInteraction}>
+              <Plus size={17} />
+              <span><strong>Agregar nueva visita</strong><small>Regístrala sin reseña o escribe una después.</small></span>
+            </button>
+          )}
+
           {cafe.instagramUrl && (
             <div className="cafe-social-links" aria-label="Redes sociales de la cafetería">
               <a href={cafe.instagramUrl} target="_blank" rel="noreferrer" aria-label="Instagram de la cafetería" title="Abrir Instagram de la cafetería"><Instagram size={18} /></a>
@@ -327,9 +352,7 @@ function CafePage({ cafeId }) {
             {personalReviews.length > 0 ? personalReviews.map((review) => (
               <article key={review.id} className="cafe-personal-review">
                 <div className="cafe-personal-review-meta">
-                  <div className="flex gap-1">
-                    {[1, 2, 3, 4, 5].map((bean) => <CoffeeBeanIcon key={bean} size={16} filled={bean <= Number(review.rating || 0)} className={bean <= Number(review.rating || 0) ? 'text-yellow-400' : 'text-[#372821]'} />)}
-                  </div>
+                  <CoffeeBeanRating value={Number(review.rating || 0)} size={16} />
                   <span>{review.visited_on ? new Date(`${review.visited_on}T12:00:00`).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Visita sin fecha'}</span>
                 </div>
                 <p>“{review.review_text}”</p>

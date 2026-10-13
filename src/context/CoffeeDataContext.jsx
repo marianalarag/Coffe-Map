@@ -477,6 +477,27 @@ export function CoffeeDataProvider({ children }) {
     return normalizedInteraction;
   }, [interactions, userId]);
 
+  const deleteCafeInteraction = useCallback(async (interactionId) => {
+    if (!userId || !isUuid(interactionId)) return null;
+
+    const removedInteraction = interactions.find((interaction) => interaction.id === interactionId);
+    if (!removedInteraction) return null;
+
+    setInteractions((current) => current.filter((interaction) => interaction.id !== interactionId));
+    const { error } = await supabase
+      .from('user_cafes')
+      .delete()
+      .eq('id', interactionId)
+      .eq('user_id', userId);
+
+    if (error) {
+      setInteractions((current) => [removedInteraction, ...current].sort((first, second) => String(second.updated_at || '').localeCompare(String(first.updated_at || ''))));
+      throw error;
+    }
+
+    return removedInteraction;
+  }, [interactions, userId]);
+
   useEffect(() => {
     if (!userId) {
       setInteractions([]);
@@ -522,6 +543,7 @@ export function CoffeeDataProvider({ children }) {
     preloadInitialData,
     refreshUserInteractions,
     saveCafeInteraction,
+    deleteCafeInteraction,
   }), [
     addCafes,
     cafeById,
@@ -537,6 +559,7 @@ export function CoffeeDataProvider({ children }) {
     preloadInitialData,
     refreshUserInteractions,
     saveCafeInteraction,
+    deleteCafeInteraction,
   ]);
 
   return (

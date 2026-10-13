@@ -7,10 +7,10 @@ import {
   Loader2,
   LogOut,
   MapPin,
-  Plus,
   Settings,
   Share2,
   SlidersHorizontal,
+  Trash2,
   UserPlus,
   Users,
   Search,
@@ -179,19 +179,19 @@ function ProfileRatingChart({ interactions, textStyle }) {
   );
 }
 
-function ProfileVisitRanking({ places, textStyle, navigate, onRegisterVisit }) {
+function ProfileVisitRanking({ places, textStyle, navigate, onRemoveVisit }) {
   return (
     <section className="profile-visit-ranking">
       <div className="profile-rating-heading"><div><small>HISTORIAL</small><h2 style={textStyle}>Cafés más visitados</h2></div><Coffee size={20} /></div>
       {places.length > 0 ? (
         <div className="profile-visit-ranking-list">
-          {places.slice(0, 6).map(({ cafe, count, rating }) => (
+          {places.slice(0, 6).map(({ cafe, count, rating, reviewCount, latestVisitId }) => (
             <article className="profile-visit-ranking-card" key={cafe.id}>
               <button type="button" className="profile-visit-ranking-main" onClick={() => navigate(`/cafe/${cafe.id}`)}>
                 {cafe.imageUrl ? <img src={cafe.imageUrl} alt={cafe.nombre} /> : <span className="profile-cafe-placeholder"><Coffee size={20} /></span>}
-                <span><strong>{cafe.nombre}</strong><small><Coffee size={12} /> {count} {count === 1 ? 'visita' : 'visitas'}{rating ? ` · ${rating.toFixed(1)}` : ''}</small></span>
+                <span><strong>{cafe.nombre}</strong><small><Coffee size={12} /> {count} {count === 1 ? 'visita' : 'visitas'}{reviewCount ? ` · ${reviewCount} ${reviewCount === 1 ? 'reseña' : 'reseñas'}` : ''}{rating ? ` · ${rating.toFixed(1)}` : ''}</small></span>
               </button>
-              <button type="button" className="profile-visit-add" onClick={(event) => onRegisterVisit(event, cafe)} aria-label={`Registrar visita a ${cafe.nombre}`} title="Registrar visita"><Plus size={14} /></button>
+              <button type="button" className="profile-visit-remove" onClick={(event) => onRemoveVisit(event, cafe, latestVisitId)} aria-label={`Quitar la última visita a ${cafe.nombre}`} title="Quitar última visita"><Trash2 size={13} /></button>
             </article>
           ))}
         </div>
@@ -211,6 +211,7 @@ function ProfilePage() {
     interactionsLoaded,
     interactionsLoading,
     saveCafeInteraction,
+    deleteCafeInteraction,
   } = useCoffeeData();
   const navigate = useNavigate();
   const location = useLocation();
@@ -293,14 +294,29 @@ function ProfilePage() {
   }, [stats, user, userProfile]);
 
   const visitedPlaces = useMemo(() => {
-    return interactions
+    const grouped = new Map();
+    interactions
       .filter((interaction) => interaction.is_visited)
-      .map((interaction) => ({
-        ...interaction,
-        cafe: interaction.cafe || cafeById.get(interaction.cafe_id),
-      }))
-      .filter((interaction) => interaction.cafe)
-      .sort((a, b) => (b.visited_on || b.updated_at || '').localeCompare(a.visited_on || a.updated_at || ''));
+      .forEach((interaction) => {
+        const cafe = interaction.cafe || cafeById.get(interaction.cafe_id);
+        if (!cafe) return;
+        const visitedAt = interaction.visited_on || interaction.updated_at || '';
+        const current = grouped.get(cafe.id) || { cafe, latestInteraction: null, latestAt: '', visitCount: 0 };
+        current.visitCount += 1;
+        if (!current.latestInteraction || visitedAt > current.latestAt) {
+          current.latestInteraction = interaction;
+          current.latestAt = visitedAt;
+        }
+        grouped.set(cafe.id, current);
+      });
+
+    return [...grouped.values()]
+      .sort((first, second) => second.latestAt.localeCompare(first.latestAt))
+      .map(({ cafe, latestInteraction, visitCount }) => ({
+        ...latestInteraction,
+        cafe,
+        visitCount,
+      }));
   }, [cafeById, interactions]);
 
   const favoritePlaces = useMemo(() => {
@@ -315,10 +331,15 @@ function ProfilePage() {
     interactions.filter((interaction) => interaction.is_visited).forEach((interaction) => {
       const cafe = interaction.cafe || cafeById.get(interaction.cafe_id);
       if (!cafe) return;
-      const current = grouped.get(cafe.id) || { cafe, count: 0, rating: 0, lastVisited: '' };
+      const current = grouped.get(cafe.id) || { cafe, count: 0, rating: 0, lastVisited: '', latestVisitId: null, reviewCount: 0 };
       current.count += 1;
-      current.rating = Number(interaction.rating || current.rating || cafe.rating || 0);
-      current.lastVisited = [interaction.visited_on, interaction.updated_at, current.lastVisited].sort().pop() || '';
+      if (String(interaction.review_text || '').trim()) current.reviewCount += 1;
+      const visitedAt = interaction.visited_on || interaction.updated_at || '';
+      if (visitedAt >= current.lastVisited) {
+        current.rating = Number(interaction.rating || cafe.rating || 0);
+        current.lastVisited = visitedAt;
+        current.latestVisitId = interaction.id;
+      }
       grouped.set(cafe.id, current);
     });
     return [...grouped.values()].sort((first, second) => second.count - first.count || second.lastVisited.localeCompare(first.lastVisited));
@@ -329,17 +350,20 @@ function ProfilePage() {
     await saveCafeInteraction(cafe.id, { is_favorite: false });
   };
 
-  const registerVisit = async (event, cafe) => {
+  const removeVisit = async (event, cafe, interactionId) => {
     event.stopPropagation();
-    const today = new Date().toISOString().slice(0, 10);
-    const alreadyRegisteredToday = interactions.some((interaction) => interaction.cafe_id === cafe.id && interaction.is_visited && interaction.visited_on === today);
-    await saveCafeInteraction(cafe.id, { is_visited: true, visited_on: today }, { createNewVisit: !alreadyRegisteredToday });
+    if (!interactionId || !window.confirm(`¿Quitar la última visita a ${cafe.nombre}? Si tenía reseña, también se quitará esa entrada.`)) return;
+    try {
+      await deleteCafeInteraction(interactionId);
+    } catch (error) {
+      console.error('Error al quitar visita', error);
+      window.alert('No pudimos quitar la visita. Intenta otra vez.');
+    }
   };
 
-  const topVisitedPlaces = visitedPlaces.slice(0, 5);
-  const recentCafes = topVisitedPlaces.length > 0
-    ? topVisitedPlaces.map((visit) => visit.cafe).filter(Boolean).slice(0, 3)
-    : cafes.slice(0, 3);
+  const recentCafes = visitedPlaces.length > 0
+    ? visitedPlaces.map((visit) => visit.cafe).filter(Boolean).slice(0, 4)
+    : cafes.slice(0, 4);
 
   const persistProfileUpdates = async (updates) => {
     if (!user?.id) return;
@@ -672,7 +696,7 @@ function ProfilePage() {
                     )}
                     <div className="profile-cafe-copy">
                       <strong>{cafe.nombre}</strong>
-                      <span><CoffeeBeanIcon size={9} filled tone="light" /> {Number(cafe.rating || 4.5).toFixed(1)}</span>
+                      <span><CoffeeBeanIcon size={11} filled tone="light" /> {Number(cafe.rating || 4.5).toFixed(1)}</span>
                       <span title={cafe.address || 'Dirección no disponible'}><MapPin size={13} strokeWidth={2.4} /> {getCafeNeighborhood(cafe)}</span>
                     </div>
                   </button>
@@ -688,7 +712,7 @@ function ProfilePage() {
 
         <ProfileRatingChart interactions={interactions} textStyle={textStyle} />
 
-        <ProfileVisitRanking places={visitedCafeStats} textStyle={textStyle} navigate={navigate} onRegisterVisit={registerVisit} />
+        <ProfileVisitRanking places={visitedCafeStats} textStyle={textStyle} navigate={navigate} onRemoveVisit={removeVisit} />
 
         {favoritePlaces.length > 0 && (
           <section className="profile-favorites-section">
@@ -718,7 +742,7 @@ function ProfilePage() {
                 <button type="button" key={visitId} onClick={() => navigate(`/cafe/${cafe.id}`)}>
                   {cafe.imageUrl ? <img src={cafe.imageUrl} alt={cafe.nombre} /> : <div className="profile-cafe-placeholder"><Coffee size={26} /></div>}
                   <strong>{cafe.nombre}</strong>
-                  <span><CoffeeBeanIcon size={11} filled tone="light" /> {Number(visitRating || cafe.rating || 0).toFixed(1)} <b><MapPin size={10} /> {getCafeNeighborhood(cafe)}</b></span>
+                  <span><CoffeeBeanIcon size={12} filled tone="light" /> {Number(visitRating || cafe.rating || 0).toFixed(1)} <b><MapPin size={10} /> {getCafeNeighborhood(cafe)}</b></span>
                 </button>
               ))}
             </div>
