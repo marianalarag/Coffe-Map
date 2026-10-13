@@ -500,8 +500,8 @@ html.is-app-mode .map-scan-control {
 .admin-tabs::-webkit-scrollbar { display: none; }
 .admin-tabs button { min-width: max-content; display: flex; align-items: center; gap: 6px; padding: 7px 10px; color: rgba(238,229,210,.58); background: #27211b; border: 1px solid transparent; border-radius: 12px; font: 10px "Inria Serif", Georgia, serif; }
 .admin-tabs button.is-active { color: #2d241d; background: #e6dac1; }
-.admin-content { width: min(100%, 1120px); margin: 0 auto; padding-top: clamp(52px, 9vh, 104px); }
-.admin-notice { width: min(100%, 1120px); margin: 0 auto 14px; padding: 11px 13px; color: #decaaa; background: #34291f; border: 1px solid rgba(222,202,170,.18); border-radius: 12px; font-size: 10px; line-height: 1.4; }
+.admin-content { width: 100%; margin: 0; padding-top: clamp(28px, 5vh, 58px); }
+.admin-notice { width: 100%; margin: 0 0 14px; padding: 11px 13px; color: #decaaa; background: #34291f; border: 1px solid rgba(222,202,170,.18); border-radius: 12px; font-size: 10px; line-height: 1.4; }
 .admin-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .admin-metric-card { min-height: 112px; display: grid; grid-template-columns: 1fr auto; grid-template-rows: 1fr auto; padding: 15px; background: linear-gradient(140deg, #30271f, #241e19); border: 1px solid rgba(238,229,210,.08); border-radius: 19px; }
 .admin-metric-card > span { width: 34px; height: 34px; display: grid; place-items: center; color: #d2bb95; background: #44362b; border-radius: 11px; }
@@ -517,6 +517,38 @@ html.is-app-mode .map-scan-control {
 .admin-visual-editor label { display: inline-flex; align-items: center; gap: 6px; color: rgba(238,229,210,.62); font-size: 9px; }
 .admin-visual-editor input { width: 24px; height: 24px; padding: 0; overflow: hidden; background: transparent; border: 0; border-radius: 50%; cursor: pointer; }
 .admin-visual-editor button { min-height: 28px; padding: 7px 10px; color: #2d241d; background: var(--admin-accent); border: 0; border-radius: 8px; font: 700 9px "Inria Serif", Georgia, serif; cursor: pointer; }
+.admin-builder-section { display: grid; gap: 9px; margin-bottom: 14px; }
+.admin-builder-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; background: var(--admin-panel-bg); border: 1px solid rgba(238,229,210,.09); border-radius: 16px; }
+.admin-builder-toolbar > div { min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: 8px; }
+.admin-builder-toolbar > div > svg { grid-row: span 2; color: var(--admin-accent); }
+.admin-builder-toolbar strong { overflow: hidden; color: #eee5d2; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.admin-builder-toolbar small { color: rgba(238,229,210,.48); font-size: 9px; }
+.admin-builder-toolbar button { display: inline-flex; align-items: center; gap: 5px; flex: 0 0 auto; padding: 8px 11px; color: #2d241d; background: var(--admin-accent); border: 0; border-radius: 9px; font: 700 9px "Inria Serif", Georgia, serif; cursor: pointer; }
+.admin-block-menu { display: flex; align-items: stretch; flex-wrap: wrap; gap: 7px; padding: 10px; background: #342a22; border: 1px solid rgba(230,218,193,.16); border-radius: 14px; }
+.admin-block-menu > strong { width: 100%; color: rgba(238,229,210,.68); font-size: 9px; }
+.admin-block-menu button { min-width: 150px; display: flex; align-items: center; gap: 8px; flex: 1; padding: 9px 10px; color: #eee5d2; text-align: left; background: #1d1915; border: 1px solid rgba(238,229,210,.09); border-radius: 10px; cursor: pointer; }
+.admin-block-menu button:hover { border-color: rgba(230,218,193,.4); background: #403329; }
+.admin-block-menu button > svg { color: var(--admin-accent); }
+.admin-block-menu button span { display: flex; flex-direction: column; gap: 2px; }
+.admin-block-menu button b { font-size: 10px; }
+.admin-block-menu button small { color: rgba(238,229,210,.5); font-size: 8px; }
+.admin-custom-blocks { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+.admin-custom-block { min-width: 0; padding: 11px; background: #27211b; border: 1px solid rgba(238,229,210,.1); border-radius: 14px; cursor: grab; }
+.admin-custom-block:active { cursor: grabbing; }
+.admin-custom-block header { position: static; display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
+.admin-custom-block header .admin-block-handle { position: static; color: rgba(238,229,210,.38); }
+.admin-custom-block-kind { display: inline-flex; align-items: center; gap: 5px; color: #d4bd96; font-size: 9px; font-weight: 700; }
+.admin-custom-block-remove { width: 25px; height: 25px; display: grid; place-items: center; margin-left: auto; padding: 0 !important; color: #f0b5a7 !important; background: #4d2923 !important; border-radius: 7px !important; cursor: pointer; }
+.admin-custom-block input, .admin-custom-block textarea { width: 100%; min-width: 0; padding: 8px 9px; color: #eee5d2; background: #1b1713; border: 1px solid rgba(238,229,210,.1); border-radius: 9px; outline: 0; font: 10px "Inria Serif", Georgia, serif; }
+.admin-custom-block textarea { min-height: 76px; resize: vertical; }
+.admin-custom-field-preview { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.admin-custom-chart { display: grid; gap: 8px; }
+.admin-custom-chart > div { display: grid; grid-template-columns: 70px minmax(0, 1fr) 25px; align-items: center; gap: 7px; color: rgba(238,229,210,.65); font-size: 8px; }
+.admin-custom-chart i { height: 7px; overflow: hidden; background: #443329; border-radius: 999px; }
+.admin-custom-chart b { display: block; height: 100%; background: var(--admin-accent); border-radius: inherit; }
+.admin-custom-chart strong { color: #eee5d2; text-align: right; font-size: 9px; }
+.admin-custom-image { display: grid; gap: 8px; }
+.admin-custom-image img { width: 100%; max-height: 150px; display: block; object-fit: cover; border-radius: 10px; }
 .admin-overview-blocks { display: grid; gap: 14px; }
 .admin-overview-block { position: relative; min-width: 0; padding-left: 23px; }
 .admin-overview-block[draggable="true"] { cursor: grab; }
@@ -580,7 +612,7 @@ html.is-app-mode .map-scan-control {
 .admin-post-row > button { padding: 8px; }
 .admin-post-row .admin-delete { color: #f0b5a7; background: #4d2923; }
 .admin-empty { grid-column: 1 / -1; padding: 50px 20px; color: rgba(238,229,210,.5); text-align: center; font-size: 11px; }
-.admin-cafe-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.admin-cafe-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 14px; }
 .admin-cafe-legacy-list { display: none; }
 .admin-cafe-card { overflow: hidden; background: #27211b; border: 1px solid rgba(238,229,210,.08); border-radius: 17px; }
 .admin-cafe-card-media { position: relative; height: 145px; background: #3b3026; }
@@ -593,7 +625,21 @@ html.is-app-mode .map-scan-control {
 .admin-cafe-card-body textarea { min-height: 46px; resize: vertical; }
 .admin-cafe-card-body input:focus, .admin-cafe-card-body textarea:focus { border-color: rgba(230,218,193,.5); }
 .admin-cafe-card-row { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.admin-location-note { display: flex; align-items: flex-start; gap: 5px; color: rgba(238,229,210,.48); font-size: 8px; line-height: 1.35; }
+.admin-location-note svg { flex: 0 0 auto; color: #d4bd96; }
+.admin-hours-editor { display: grid; gap: 6px; margin: 0; padding: 9px; border: 1px solid rgba(238,229,210,.1); border-radius: 11px; }
+.admin-hours-editor legend { display: inline-flex; align-items: center; gap: 5px; padding: 0 4px; color: #d4bd96; font-size: 9px; font-weight: 700; }
+.admin-hours-editor legend svg { color: var(--admin-accent); }
+.admin-hours-editor > small { margin: -2px 0 2px; color: rgba(238,229,210,.45); font-size: 8px; }
+.admin-hours-row { display: grid; grid-template-columns: minmax(82px, 1fr) 70px 8px 70px; align-items: center; gap: 5px; min-height: 26px; color: rgba(238,229,210,.65); font-size: 8px; }
+.admin-hours-day { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.admin-hours-day input { width: 13px !important; height: 13px; flex: 0 0 auto; padding: 0 !important; accent-color: var(--admin-accent); }
+.admin-hours-day strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-hours-row input[type="time"] { min-width: 0; padding: 5px 4px; font-size: 8px; }
+.admin-hours-row > span { text-align: center; }
+.admin-hours-row > em { grid-column: 2 / -1; color: rgba(238,229,210,.38); font-style: normal; }
 .admin-cafe-card-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.admin-cafe-save { flex-basis: 100%; }
 .admin-cafe-card-actions button, .admin-cafe-card-actions a { min-height: 30px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 7px 9px; color: #2d241d; background: #e6dac1; border: 0; border-radius: 9px; font: 600 9px "Inria Serif", Georgia, serif; cursor: pointer; text-decoration: none; }
 .admin-cafe-card-actions button:hover, .admin-cafe-card-actions a:hover, .admin-icon-action:hover { background: #f0e5cf; }
 .admin-cafe-card-actions button.is-danger { color: #f0b5a7; background: #4d2923; }

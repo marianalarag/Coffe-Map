@@ -132,6 +132,83 @@ const getOsmCafeSuggestion = async (cafe) => {
   } : {};
 };
 
+const ADMIN_DAYS = [
+  { key: 'mo', short: 'Mo', label: 'Lunes' },
+  { key: 'tu', short: 'Tu', label: 'Martes' },
+  { key: 'we', short: 'We', label: 'Miércoles' },
+  { key: 'th', short: 'Th', label: 'Jueves' },
+  { key: 'fr', short: 'Fr', label: 'Viernes' },
+  { key: 'sa', short: 'Sa', label: 'Sábado' },
+  { key: 'su', short: 'Su', label: 'Domingo' },
+];
+
+const createEmptyAdminSchedule = () => ADMIN_DAYS.reduce((schedule, day) => ({
+  ...schedule,
+  [day.key]: { open: false, from: '08:00', to: '18:00' },
+}), {});
+
+const parseAdminTime = (value, suffix = '') => {
+  const match = String(value || '').trim().match(/^(\d{1,2})(?::(\d{2}))?/);
+  if (!match) return null;
+  let hours = Number(match[1]);
+  const minutes = Number(match[2] || 0);
+  const meridiem = `${suffix} ${value}`.toLowerCase();
+  if (/p\.?\s*m\.?/.test(meridiem) && hours < 12) hours += 12;
+  if (/a\.?\s*m\.?/.test(meridiem) && hours === 12) hours = 0;
+  if (hours > 23 || minutes > 59) return null;
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+};
+
+const getAdminDayKeys = (value) => {
+  const normalized = String(value || '').toLowerCase().replace(/[.:]/g, '').replace(/\s+/g, '');
+  if (normalized === 'weekdays' || normalized === 'lunesaviernes') return ADMIN_DAYS.slice(0, 5).map((day) => day.key);
+  if (normalized === 'weekend' || normalized === 'findesemana') return ADMIN_DAYS.slice(5).map((day) => day.key);
+  const range = normalized.split('-');
+  if (range.length === 2) {
+    const start = ADMIN_DAYS.findIndex((day) => day.short.toLowerCase() === range[0] || day.key === range[0]);
+    const end = ADMIN_DAYS.findIndex((day) => day.short.toLowerCase() === range[1] || day.key === range[1]);
+    if (start >= 0 && end >= start) return ADMIN_DAYS.slice(start, end + 1).map((day) => day.key);
+  }
+  return ADMIN_DAYS.filter((day) => (
+    normalized.includes(day.short.toLowerCase())
+    || normalized.includes(day.key)
+    || normalized.includes(day.label.toLowerCase().replace('é', 'e'))
+  )).map((day) => day.key);
+};
+
+const parseAdminHours = (value) => {
+  const schedule = createEmptyAdminSchedule();
+  const text = String(value || '').trim();
+  if (!text) return schedule;
+
+  text.split(/[;\n]+/).forEach((part) => {
+    const cleanPart = part.trim();
+    if (!cleanPart) return;
+    const rangeMatch = cleanPart.match(/(\d{1,2}(?::\d{2})?\s*(?:a\.?\s*m\.?|p\.?\s*m\.?)?)\s*[-–]\s*(\d{1,2}(?::\d{2})?\s*(?:a\.?\s*m\.?|p\.?\s*m\.?)?)/i);
+    const dayText = rangeMatch ? cleanPart.slice(0, rangeMatch.index).replace(/[:|]/g, '').trim() : cleanPart.replace(/\b(?:off|closed|cerrad[oa]s?)\b/gi, '').trim();
+    const dayKeys = getAdminDayKeys(dayText);
+    if (dayKeys.length === 0) return;
+    if (/24\s*\/\s*7/i.test(cleanPart)) {
+      dayKeys.forEach((key) => { schedule[key] = { open: true, from: '00:00', to: '23:59' }; });
+      return;
+    }
+    if (!rangeMatch) {
+      dayKeys.forEach((key) => { schedule[key] = { ...schedule[key], open: false }; });
+      return;
+    }
+    const from = parseAdminTime(rangeMatch[1], rangeMatch[2]);
+    const to = parseAdminTime(rangeMatch[2]);
+    if (!from || !to) return;
+    dayKeys.forEach((key) => { schedule[key] = { open: true, from, to }; });
+  });
+  return schedule;
+};
+
+const serializeAdminHours = (schedule) => ADMIN_DAYS
+  .filter((day) => schedule?.[day.key]?.open)
+  .map((day) => `${day.short} ${schedule[day.key].from}-${schedule[day.key].to}`)
+  .join('; ') || null;
+
 const inferAssistantFields = (message) => {
   const normalized = normalizeName(message);
   const fields = new Set();
@@ -449,7 +526,7 @@ function MetricCard({ label, value, icon }) {
   );
 }
 
-function AdminCafeCard({ cafe, tiktoks = [], onChange, onSave, onStatusChange, onUpload, onAssistant, onFindImage, onAddTikTok, onDeleteTikTok, onDelete }) {
+function LegacyAdminCafeCard({ cafe, tiktoks = [], onChange, onSave, onStatusChange, onUpload, onAssistant, onFindImage, onAddTikTok, onDeleteTikTok, onDelete }) {
   const textField = (field, placeholder, multiline = false) => {
     const Component = multiline ? 'textarea' : 'input';
     return <Component value={cafe[field] || ''} placeholder={placeholder} onChange={(event) => onChange(cafe.id, field, event.target.value)} onBlur={() => onSave(cafe, field, cafe[field] || null)} />;
@@ -489,6 +566,145 @@ function AdminCafeCard({ cafe, tiktoks = [], onChange, onSave, onStatusChange, o
           <small className="admin-row-copy"><span>{cafe.source || 'manual'} · {cafe.neighborhood || 'Zona por confirmar'}</span></small>
         </div>
         <div className="admin-cafe-card-actions">
+          <button type="button" title="Revisar datos" onClick={() => onAssistant(cafe)}><Sparkles size={14} /> Revisar</button>
+          <button type="button" title="Buscar foto con licencia abierta" onClick={() => onFindImage(cafe)}><Search size={14} /> Foto</button>
+          {cafe.link && <a href={cafe.link} target="_blank" rel="noreferrer" title="Abrir ubicación"><MapPin size={14} /> Maps</a>}
+          <button type="button" className="is-danger" title="Eliminar cafetería" onClick={() => onDelete(cafe)}><Trash2 size={14} /> Eliminar</button>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+const BUILDER_OPTIONS = [
+  { type: 'field', label: 'Campo', icon: <Database size={15} />, description: 'Etiqueta y valor' },
+  { type: 'text', label: 'Texto', icon: <FileUp size={15} />, description: 'Nota editable' },
+  { type: 'chart', label: 'Gráfica', icon: <BarChart3 size={15} />, description: 'Indicadores del panel' },
+  { type: 'image', label: 'Imagen', icon: <Image size={15} />, description: 'Imagen por URL' },
+];
+
+function AdminCustomBlock({ block, metrics, onChange, onRemove, onDragStart, onDragOver, onDrop }) {
+  const option = BUILDER_OPTIONS.find((item) => item.type === block.type) || BUILDER_OPTIONS[0];
+  return (
+    <article className="admin-custom-block" draggable onDragStart={onDragStart} onDragOver={(event) => { event.preventDefault(); onDragOver?.(); }} onDrop={onDrop}>
+      <header>
+        <span className="admin-block-handle" title="Arrastrar bloque"><GripVertical size={15} /></span>
+        <span className="admin-custom-block-kind">{option.icon}{option.label}</span>
+        <button type="button" className="admin-custom-block-remove" onClick={onRemove} aria-label="Eliminar bloque" title="Eliminar bloque"><X size={14} /></button>
+      </header>
+      {block.type === 'field' && (
+        <div className="admin-custom-field-preview">
+          <input value={block.label || ''} onChange={(event) => onChange({ label: event.target.value })} placeholder="Etiqueta" />
+          <input value={block.value || ''} onChange={(event) => onChange({ value: event.target.value })} placeholder="Valor" />
+        </div>
+      )}
+      {block.type === 'text' && <textarea value={block.content || ''} onChange={(event) => onChange({ content: event.target.value })} placeholder="Escribe una nota para esta sección..." />}
+      {block.type === 'chart' && (
+        <div className="admin-custom-chart">
+          {[
+            ['Cafeterías', metrics.cafes],
+            ['Usuarios', metrics.users],
+            ['Posts', metrics.posts],
+            ['Fotos', metrics.photos],
+          ].map(([label, value]) => (
+            <div key={label}><span>{label}</span><i><b style={{ width: `${Math.min(100, Number(value || 0) * 5)}%` }} /></i><strong>{value ?? 0}</strong></div>
+          ))}
+        </div>
+      )}
+      {block.type === 'image' && (
+        <div className="admin-custom-image">
+          <input value={block.url || ''} onChange={(event) => onChange({ url: event.target.value })} placeholder="https://..." />
+          {block.url && <img src={block.url} alt="Bloque del centro de control" />}
+        </div>
+      )}
+    </article>
+  );
+}
+
+function AdminSectionBuilder({ section, blocks, metrics, menuOpen, onToggleMenu, onAdd, onChange, onRemove, onDragStart, onDragOver, onDrop }) {
+  return (
+    <section className="admin-builder-section">
+      <div className="admin-builder-toolbar">
+        <div><Palette size={17} /><strong>Editor visual de {TABS.find((item) => item.id === section)?.label || 'esta sección'}</strong><small>Agrega bloques, edítalos y arrástralos para cambiar su orden.</small></div>
+        <button type="button" onClick={onToggleMenu}><Plus size={14} /> Añadir bloque</button>
+      </div>
+      {menuOpen && (
+        <div className="admin-block-menu">
+          <strong>¿Qué quieres agregar?</strong>
+          {BUILDER_OPTIONS.map((option) => <button type="button" key={option.type} onClick={() => onAdd(option.type)}>{option.icon}<span><b>{option.label}</b><small>{option.description}</small></span></button>)}
+        </div>
+      )}
+      {blocks.length > 0 && (
+        <div className="admin-custom-blocks">
+          {blocks.map((block) => <AdminCustomBlock key={block.id} block={block} metrics={metrics} onChange={(patch) => onChange(block.id, patch)} onRemove={() => onRemove(block.id)} onDragStart={() => onDragStart(block.id)} onDragOver={() => onDragOver(block.id)} onDrop={() => onDrop(block.id)} />)}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function AdminCafeCard({ cafe, tiktoks = [], saving = false, onChange, onSave, onStatusChange, onUpload, onAssistant, onFindImage, onAddTikTok, onDeleteTikTok, onDelete }) {
+  const [schedule, setSchedule] = useState(() => parseAdminHours(cafe.opening_hours));
+  const [locationDirty, setLocationDirty] = useState(false);
+  const [locationField, setLocationField] = useState(null);
+
+  const changeField = (field, value) => {
+    onChange(cafe.id, field, value);
+    if (field === 'address' || field === 'link') {
+      setLocationDirty(true);
+      setLocationField(field);
+    }
+  };
+
+  const textField = (field, placeholder, multiline = false) => {
+    const Component = multiline ? 'textarea' : 'input';
+    return <Component value={cafe[field] || ''} placeholder={placeholder} onChange={(event) => changeField(field, event.target.value)} />;
+  };
+
+  const updateDay = (key, patch) => setSchedule((current) => ({ ...current, [key]: { ...current[key], ...patch } }));
+
+  return (
+    <article className="admin-cafe-card">
+      <div className="admin-cafe-card-media">
+        {cafe.image_url ? <img src={cafe.image_url} alt={cafe.nombre} /> : <Coffee size={34} />}
+        <span className="admin-cafe-status">{cafe.status === 'active' ? 'Activa' : cafe.status === 'closed' ? 'Cerrada' : 'Revisar'}</span>
+        <label title="Subir foto de portada"><Camera size={16} /><input hidden type="file" accept="image/*" onChange={(event) => onUpload(cafe, event.target.files?.[0])} /></label>
+      </div>
+      <div className="admin-cafe-card-body">
+        {textField('nombre', 'Nombre de la cafetería')}
+        {textField('address', 'Dirección completa', true)}
+        {textField('link', 'Enlace de Google Maps')}
+        <small className="admin-location-note"><MapPin size={12} /> Al guardar, el mapa actualiza automáticamente esta ubicación. Las coordenadas se calculan en segundo plano.</small>
+        <div className="admin-cafe-card-row">
+          <input value={cafe.neighborhood || ''} placeholder="Zona" onChange={(event) => changeField('neighborhood', event.target.value)} />
+          <select value={cafe.category || 'cafeteria'} onChange={(event) => changeField('category', event.target.value)}><option value="cafeteria">Cafetería</option><option value="panaderia">Panadería</option></select>
+        </div>
+        <fieldset className="admin-hours-editor">
+          <legend><Clock size={14} /> Horarios semanales</legend>
+          <small>Marca los días abiertos y elige la hora de apertura y cierre.</small>
+          {ADMIN_DAYS.map((day) => {
+            const value = schedule[day.key];
+            return <div className="admin-hours-row" key={day.key}>
+              <label className="admin-hours-day"><input type="checkbox" checked={value.open} onChange={(event) => updateDay(day.key, { open: event.target.checked })} /><strong>{day.label}</strong></label>
+              {value.open ? <><input type="time" value={value.from} onChange={(event) => updateDay(day.key, { from: event.target.value })} /><span>a</span><input type="time" value={value.to} onChange={(event) => updateDay(day.key, { to: event.target.value })} /></> : <em>Cerrada</em>}
+            </div>;
+          })}
+        </fieldset>
+        {textField('image_url', 'URL de foto de portada')}
+        <div className="admin-cafe-card-socials">
+          <label><Instagram size={14} /><input value={cafe.instagram_url || ''} placeholder="Instagram" onChange={(event) => changeField('instagram_url', event.target.value)} /></label>
+        </div>
+        <div className="admin-cafe-tiktoks">
+          <div className="admin-cafe-tiktoks-heading"><span><Music2 size={14} /> TikToks relacionados</span><small>{tiktoks.length}</small></div>
+          {tiktoks.map((tiktok) => <div className="admin-cafe-tiktok-row" key={tiktok.id}><a href={tiktok.url} target="_blank" rel="noreferrer" title={tiktok.title || tiktok.url}>{tiktok.title || tiktok.url}</a><button type="button" onClick={() => onDeleteTikTok(tiktok)} aria-label="Eliminar TikTok" title="Eliminar TikTok"><Trash2 size={13} /></button></div>)}
+          <button type="button" className="admin-add-tiktok" onClick={() => onAddTikTok(cafe)}><Plus size={13} /> Añadir TikTok</button>
+        </div>
+        <div className="admin-cafe-card-row">
+          <select value={cafe.status} onChange={(event) => onStatusChange(cafe, event.target.value)}><option value="active">Activa</option><option value="needs_review">Revisar</option><option value="closed">Cerrada</option></select>
+          <small className="admin-row-copy"><span>{cafe.source || 'manual'} · {cafe.neighborhood || 'Zona por confirmar'}</span></small>
+        </div>
+        <div className="admin-cafe-card-actions">
+          <button type="button" className="admin-cafe-save" title="Guardar cambios" onClick={() => { onSave(cafe, { locationDirty, locationField, opening_hours: serializeAdminHours(schedule) }); setLocationDirty(false); }} disabled={saving}><Database size={14} /> {saving ? 'Guardando…' : 'Guardar cambios'}</button>
           <button type="button" title="Revisar datos" onClick={() => onAssistant(cafe)}><Sparkles size={14} /> Revisar</button>
           <button type="button" title="Buscar foto con licencia abierta" onClick={() => onFindImage(cafe)}><Search size={14} /> Foto</button>
           {cafe.link && <a href={cafe.link} target="_blank" rel="noreferrer" title="Abrir ubicación"><MapPin size={14} /> Maps</a>}
@@ -540,6 +756,14 @@ function AdminDashboardPage() {
     } catch { return ['metrics', 'welcome']; }
   });
   const [draggedOverviewBlock, setDraggedOverviewBlock] = useState(null);
+  const [customBlocksBySection, setCustomBlocksBySection] = useState(() => {
+    try {
+      const saved = JSON.parse(window.localStorage.getItem('coffee-map:admin-custom-blocks'));
+      return saved && typeof saved === 'object' ? saved : {};
+    } catch { return {}; }
+  });
+  const [openBuilderMenu, setOpenBuilderMenu] = useState(null);
+  const [draggedCustomBlock, setDraggedCustomBlock] = useState(null);
 
   const profileMap = useMemo(() => new Map(users.map((profile) => [profile.id, profile])), [users]);
   const cafeMap = useMemo(() => new Map(cafes.map((cafe) => [cafe.id, cafe])), [cafes]);
@@ -587,7 +811,7 @@ function AdminDashboardPage() {
         supabase.from('posts').select('id', { count: 'exact', head: true }),
         supabase.from('cafe_photos').select('id', { count: 'exact', head: true }),
         supabase.from('user_cafes').select('id', { count: 'exact', head: true }).not('review_text', 'eq', ''),
-        supabase.from('cafes').select('id,nombre,lat,lng,address,link,source_url,neighborhood,image_url,image_source_url,image_attribution,image_license,instagram_url,tiktok_url,opening_hours,opening_hours_source,opening_hours_source_url,opening_hours_verified_at,source,source_id,status,submitted_by,created_at,last_verified_at').order('nombre').limit(1000),
+        supabase.from('cafes').select('id,nombre,lat,lng,address,link,source_url,neighborhood,category,image_url,image_source_url,image_attribution,image_license,instagram_url,tiktok_url,opening_hours,opening_hours_source,opening_hours_source_url,opening_hours_verified_at,source,source_id,status,submitted_by,created_at,last_verified_at').order('nombre').limit(1000),
         supabase.from('cafe_tiktoks').select('id,cafe_id,url,thumbnail_url,title,position,created_at').order('position').order('created_at'),
         supabase.from('cafe_photos').select('id,cafe_id,user_id,post_id,storage_path,public_url,status,is_cover,rights_confirmed,rights_basis,rights_note,created_at').eq('status', 'pending').is('post_id', null).order('created_at', { ascending: false }).limit(100),
         supabase.from('posts').select('id,user_id,cafe_id,content,image_url,status,created_at').order('created_at', { ascending: false }).limit(1000),
@@ -616,6 +840,7 @@ function AdminDashboardPage() {
   useEffect(() => { loadDashboard(); }, [loadDashboard]);
   useEffect(() => { window.localStorage.setItem('coffee-map:admin-theme', JSON.stringify(adminTheme)); }, [adminTheme]);
   useEffect(() => { window.localStorage.setItem('coffee-map:admin-blocks', JSON.stringify(overviewBlocks)); }, [overviewBlocks]);
+  useEffect(() => { window.localStorage.setItem('coffee-map:admin-custom-blocks', JSON.stringify(customBlocksBySection)); }, [customBlocksBySection]);
 
   const moveOverviewBlock = (targetBlock) => {
     if (!draggedOverviewBlock || draggedOverviewBlock === targetBlock) return;
@@ -627,7 +852,37 @@ function AdminDashboardPage() {
     setDraggedOverviewBlock(null);
   };
 
-  const addOverviewGuide = () => setOverviewBlocks((current) => current.includes('guide') ? current : [...current, 'guide']);
+  const addCustomBlock = (section, type) => {
+    setCustomBlocksBySection((current) => ({
+      ...current,
+      [section]: [...(current[section] || []), { id: `${type}-${Date.now()}`, type, label: '', value: '', content: '', url: '' }],
+    }));
+    setOpenBuilderMenu(null);
+  };
+
+  const updateCustomBlock = (section, id, patch) => setCustomBlocksBySection((current) => ({
+    ...current,
+    [section]: (current[section] || []).map((block) => block.id === id ? { ...block, ...patch } : block),
+  }));
+
+  const removeCustomBlock = (section, id) => setCustomBlocksBySection((current) => ({
+    ...current,
+    [section]: (current[section] || []).filter((block) => block.id !== id),
+  }));
+
+  const moveCustomBlock = (section, targetId) => {
+    if (!draggedCustomBlock || draggedCustomBlock.section !== section || draggedCustomBlock.id === targetId) return;
+    setCustomBlocksBySection((current) => {
+      const blocks = [...(current[section] || [])];
+      const sourceIndex = blocks.findIndex((block) => block.id === draggedCustomBlock.id);
+      const targetIndex = blocks.findIndex((block) => block.id === targetId);
+      if (sourceIndex < 0 || targetIndex < 0) return current;
+      const [moved] = blocks.splice(sourceIndex, 1);
+      blocks.splice(targetIndex, 0, moved);
+      return { ...current, [section]: blocks };
+    });
+    setDraggedCustomBlock(null);
+  };
 
   const runAction = async (key, action, successMessage) => {
     setActionLoading(key);
@@ -986,7 +1241,7 @@ function AdminDashboardPage() {
     setCafes((current) => current.map((cafe) => cafe.id === cafeId ? { ...cafe, [field]: value } : cafe));
   };
 
-  const saveCafeField = (cafe, field, value) => {
+  const saveCafeFieldLegacy = (cafe, field, value) => {
     const numericField = field === 'lat' || field === 'lng';
     const nextValue = numericField ? Number(value) : (typeof value === 'string' ? value.trim() || null : value);
     if (numericField && !Number.isFinite(nextValue)) return;
@@ -1001,6 +1256,44 @@ function AdminDashboardPage() {
       if (error) throw error;
     }, 'Cafetería actualizada.');
   };
+
+  void saveCafeFieldLegacy;
+
+  const saveCafe = (cafe, options = {}) => runAction(`cafe-save:${cafe.id}`, async () => {
+    const timestamp = new Date().toISOString();
+    const patch = {
+      nombre: String(cafe.nombre || '').trim(),
+      address: String(cafe.address || '').trim() || null,
+      link: String(cafe.link || '').trim() || null,
+      neighborhood: String(cafe.neighborhood || '').trim() || null,
+      category: cafe.category || 'cafeteria',
+      opening_hours: options.opening_hours || null,
+      opening_hours_source: options.opening_hours ? 'admin' : null,
+      opening_hours_source_url: null,
+      opening_hours_verified_at: options.opening_hours ? timestamp : null,
+      image_url: String(cafe.image_url || '').trim() || null,
+      instagram_url: String(cafe.instagram_url || '').trim() || null,
+      updated_at: timestamp,
+    };
+    if (!patch.nombre) throw new Error('El nombre de la cafetería es obligatorio.');
+    if (options.locationDirty) {
+      const locationInput = options.locationField === 'address'
+        ? { ...cafe, ...patch, link: null, source_url: null }
+        : { ...cafe, ...patch };
+      const location = await geocodeCafeLocation(locationInput);
+      if (!location || !isInsideMerida(location)) {
+        throw new Error('No pudimos encontrar una ubicación válida dentro de Mérida. Revisa la dirección o el enlace de Google Maps.');
+      }
+      patch.lat = location.lat;
+      patch.lng = location.lng;
+      patch.neighborhood = location.neighborhood || patch.neighborhood;
+      patch.last_verified_at = timestamp;
+    }
+    const { error } = await supabase.from('cafes').update(patch).eq('id', cafe.id);
+    if (error) throw error;
+    setCafes((current) => current.map((item) => item.id === cafe.id ? { ...item, ...patch } : item));
+    await refreshCafes();
+  }, 'Cafetería guardada. El mapa ya usa la nueva ubicación.');
 
   const updateCafeStatus = (cafe, status) => runAction(`cafe:${cafe.id}`, async () => {
     const { error } = await supabase.from('cafes').update({ status, updated_at: new Date().toISOString() }).eq('id', cafe.id);
@@ -1071,6 +1364,19 @@ function AdminDashboardPage() {
       {notice && <p className="admin-notice">{notice}</p>}
 
       <div className="admin-content">
+        <AdminSectionBuilder
+          section={tab}
+          blocks={customBlocksBySection[tab] || []}
+          metrics={metrics}
+          menuOpen={openBuilderMenu === tab}
+          onToggleMenu={() => setOpenBuilderMenu((current) => current === tab ? null : tab)}
+          onAdd={(type) => addCustomBlock(tab, type)}
+          onChange={(id, patch) => updateCustomBlock(tab, id, patch)}
+          onRemove={(id) => removeCustomBlock(tab, id)}
+          onDragStart={(id) => setDraggedCustomBlock({ section: tab, id })}
+          onDragOver={() => undefined}
+          onDrop={(id) => moveCustomBlock(tab, id)}
+        />
         {tab === 'overview' && (
           <section>
             <article className="admin-panel admin-visual-editor">
@@ -1078,7 +1384,6 @@ function AdminDashboardPage() {
               <label>Fondo <input type="color" value={adminTheme.background} onChange={(event) => setAdminTheme((current) => ({ ...current, background: event.target.value }))} /></label>
               <label>Paneles <input type="color" value={adminTheme.panel} onChange={(event) => setAdminTheme((current) => ({ ...current, panel: event.target.value }))} /></label>
               <label>Acento <input type="color" value={adminTheme.accent} onChange={(event) => setAdminTheme((current) => ({ ...current, accent: event.target.value }))} /></label>
-              <button type="button" onClick={addOverviewGuide}>+ Añadir bloque</button>
               <button type="button" onClick={() => setAdminTheme({ background: '#191511', panel: '#27211b', accent: '#e6dac1' })}>Restaurar</button>
             </article>
             <div className="admin-overview-blocks">
@@ -1181,7 +1486,7 @@ function AdminDashboardPage() {
             </div>
             <div className="admin-cafe-grid">
               {visibleCafes.map((cafe) => (
-                <AdminCafeCard key={cafe.id} cafe={cafe} tiktoks={cafeTiktoksByCafeId.get(cafe.id) || []} onChange={updateCafeDraft} onSave={saveCafeField} onStatusChange={updateCafeStatus} onUpload={uploadCafeCover} onAssistant={openCafeAssistant} onFindImage={findOpenImages} onAddTikTok={addCafeTikTok} onDeleteTikTok={deleteCafeTikTok} onDelete={deleteCafe} />
+                <AdminCafeCard key={`${cafe.id}:${cafe.opening_hours || ''}`} cafe={cafe} tiktoks={cafeTiktoksByCafeId.get(cafe.id) || []} saving={actionLoading === `cafe-save:${cafe.id}`} onChange={updateCafeDraft} onSave={saveCafe} onStatusChange={updateCafeStatus} onUpload={uploadCafeCover} onAssistant={openCafeAssistant} onFindImage={findOpenImages} onAddTikTok={addCafeTikTok} onDeleteTikTok={deleteCafeTikTok} onDelete={deleteCafe} />
               ))}
               {visibleCafes.length === 0 && <p className="admin-empty">No encontramos cafeterías con esa búsqueda.</p>}
             </div>
