@@ -1,23 +1,58 @@
-function CoffeeBeanIcon({ size = 18, className = '', filled = false, strokeWidth = 1.8, title, style }) {
+const SHEET_URL = '/ratings.png';
+const SHEET_WIDTH = 247;
+const SHEET_HEIGHT = 637;
+const BEAN_SOURCE_SIZE = 24;
+const BEAN_SOURCE_X = 4;
+const BEAN_SOURCE_Y = 6;
+const RATING_ROW_HEIGHT = 56.7;
+const RATING_SOURCE_TOP = 4;
+const RATING_SOURCE_WIDTH = 205;
+const RATING_SOURCE_HEIGHT = 31;
+
+const clampRating = (value) => Math.max(0, Math.min(5, Math.round(Number(value || 0) * 2) / 2));
+
+function CoffeeBeanIcon({ size = 18, className = '', filled = false, title, style }) {
+  const scale = size / BEAN_SOURCE_SIZE;
+  const backgroundPosition = filled
+    ? `${-BEAN_SOURCE_X * scale}px ${-BEAN_SOURCE_Y * scale}px`
+    : `${-(169 + BEAN_SOURCE_X) * scale}px ${-(57 + BEAN_SOURCE_Y) * scale}px`;
+
   return (
-    <svg
-      className={className}
-      style={style}
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill={filled ? 'currentColor' : 'none'}
-      stroke="currentColor"
-      strokeWidth={strokeWidth}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden={title ? undefined : true}
+    <span
+      className={`coffee-bean-icon ${className}`}
+      style={{
+        width: size,
+        height: size,
+        backgroundImage: `url("${SHEET_URL}")`,
+        backgroundSize: `${SHEET_WIDTH * scale}px ${SHEET_HEIGHT * scale}px`,
+        backgroundPosition,
+        ...style,
+      }}
       role={title ? 'img' : undefined}
-    >
-      {title && <title>{title}</title>}
-      <path d="M17.9 3.8C14.7 1.3 9.2 2.1 5.7 5.6c-3.8 3.8-4.1 9.6-.7 13 3.4 3.4 9.2 3.1 13-.7 3.5-3.5 4.4-9 .7-12.1Z" />
-      <path d="M7.1 17.8c2.6-1.8 4.5-4.4 5.1-7.2.5-2.2.2-4.3-.5-6.1" />
-    </svg>
+      aria-label={title}
+      title={title}
+    />
+  );
+}
+
+export function CoffeeBeanRating({ value = 0, size = 24, className = '', label = 'Calificación' }) {
+  const rating = clampRating(value);
+  const row = rating > 0 ? Math.max(0, Math.min(9, Math.round((5 - rating) * 2))) : 9;
+  const scale = size / RATING_SOURCE_HEIGHT;
+
+  return (
+    <span
+      className={`coffee-bean-rating ${className}`}
+      style={{
+        width: RATING_SOURCE_WIDTH * scale,
+        height: RATING_SOURCE_HEIGHT * scale,
+        backgroundImage: `url("${SHEET_URL}")`,
+        backgroundSize: `${SHEET_WIDTH * scale}px ${SHEET_HEIGHT * scale}px`,
+        backgroundPosition: `0 ${-(RATING_SOURCE_TOP + (row * RATING_ROW_HEIGHT)) * scale}px`,
+      }}
+      role="img"
+      aria-label={`${label}: ${rating.toFixed(1)} de 5`}
+    />
   );
 }
 

@@ -95,12 +95,45 @@ create table if not exists public.user_cafes (
   is_visited boolean not null default false,
   is_favorite boolean not null default false,
   in_waitlist boolean not null default false,
-  rating smallint check (rating is null or rating between 1 and 5),
+  rating numeric(2,1) check (rating is null or (rating between 0.5 and 5 and mod(rating * 2, 1) = 0)),
   review_text text not null default '',
   visited_on date,
   updated_at timestamptz not null default now(),
   unique (user_id, cafe_id, visited_on)
 );
+
+create table if not exists public.cafe_tiktoks (
+  id uuid primary key default gen_random_uuid(),
+  cafe_id text not null references public.cafes(id) on delete cascade,
+  url text not null,
+  thumbnail_url text,
+  title text,
+  position integer not null default 0,
+  created_at timestamptz not null default now(),
+  unique (cafe_id, url)
+);
+
+create index if not exists cafe_tiktoks_cafe_id_idx on public.cafe_tiktoks(cafe_id, position, created_at);
+
+alter table public.cafe_tiktoks enable row level security;
+drop policy if exists "cafe_tiktoks_select_public" on public.cafe_tiktoks;
+create policy "cafe_tiktoks_select_public"
+on public.cafe_tiktoks for select
+to anon
+using (exists (select 1 from public.cafes where cafes.id = cafe_tiktoks.cafe_id and cafes.status = 'active'));
+drop policy if exists "cafe_tiktoks_select_authenticated" on public.cafe_tiktoks;
+create policy "cafe_tiktoks_select_authenticated"
+on public.cafe_tiktoks for select
+to authenticated
+using (exists (select 1 from public.cafes where cafes.id = cafe_tiktoks.cafe_id and cafes.status = 'active') or exists (select 1 from public.profiles where profiles.id = auth.uid() and profiles.role = 'administrador'));
+drop policy if exists "cafe_tiktoks_admin_write" on public.cafe_tiktoks;
+create policy "cafe_tiktoks_admin_write"
+on public.cafe_tiktoks for all
+to authenticated
+using (exists (select 1 from public.profiles where profiles.id = auth.uid() and profiles.role = 'administrador'))
+with check (exists (select 1 from public.profiles where profiles.id = auth.uid() and profiles.role = 'administrador'));
+grant select on public.cafe_tiktoks to anon, authenticated;
+grant insert, update, delete on public.cafe_tiktoks to authenticated;
 
 alter table public.profiles enable row level security;
 alter table public.cafes enable row level security;

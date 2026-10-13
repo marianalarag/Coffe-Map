@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import CoffeeBeanIcon from './CoffeeBeanIcon';
+import { CoffeeBeanRating } from './CoffeeBeanIcon';
 
 const clampRating = (value) => Math.min(5, Math.max(0.5, Math.round(Number(value || 0.5) * 2) / 2));
 
@@ -58,23 +58,7 @@ function HalfStarRating({ value = 0, onChange, readOnly = false, size = 24, labe
       onPointerCancel={stopDragging}
       onLostPointerCapture={stopDragging}
     >
-      {[0, 1, 2, 3, 4].map((index) => {
-        const fill = Math.min(1, Math.max(0, Number(value || 0) - index)) * 100;
-        return (
-          <span className="half-star" key={index} style={{ '--star-fill': `${fill}%`, '--star-size': `${size}px`, width: size, height: size }}>
-            {fill >= 100 ? (
-              <CoffeeBeanIcon className="half-star-full" size={size} filled strokeWidth={1.3} />
-            ) : fill <= 0 ? (
-              <CoffeeBeanIcon className="half-star-empty" size={size} strokeWidth={1.6} />
-            ) : (
-              <>
-                <CoffeeBeanIcon className="half-star-empty" size={size} strokeWidth={1.6} />
-                <span className="half-star-fill"><CoffeeBeanIcon size={size} filled strokeWidth={1.3} /></span>
-              </>
-            )}
-          </span>
-        );
-      })}
+      <CoffeeBeanRating value={value} size={size} label={label} />
     </div>
   );
 }

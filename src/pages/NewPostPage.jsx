@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Eye, FileText, Heart, ImagePlus, Link2, MapPin, RefreshCw, Trash2, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Eye, FileText, Heart, ImagePlus, MapPin, RefreshCw, Trash2, X } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import BottomNav from '../components/BottomNav';
 import HalfStarRating from '../components/HalfStarRating';
@@ -392,7 +392,7 @@ function NewPostPage() {
               <span><strong>{visitMode === 'returning' ? 'Ya fuiste antes' : 'Primera visita'}</strong><small>Toca para cambiar este estado antes de publicar.</small></span>
             </button>
           )}
-          <div className="new-post-toolbar"><button type="button" aria-label="Elegir imágenes de la galería" onClick={() => fileInputRef.current?.click()}><ImagePlus size={19} /></button><MapPin size={18} aria-hidden="true" /><Link2 size={18} aria-hidden="true" /><span>{text.length}/1000</span></div>
+          <div className="new-post-toolbar"><button type="button" aria-label="Elegir imágenes de la galería" onClick={() => fileInputRef.current?.click()}><ImagePlus size={19} /></button><span>{text.length}/1000</span></div>
           <input ref={fileInputRef} hidden type="file" accept="image/*" multiple onChange={choosePhotos} />
         </section>
         {showCloseDialog && (

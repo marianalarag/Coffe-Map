@@ -2,11 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
-  BookOpen,
   Camera,
   Coffee,
-  Heart,
-  ListPlus,
   Loader2,
   LogOut,
   MapPin,
@@ -158,6 +155,53 @@ function ProfileImageCropper({ file, kind, onCancel, onConfirm }) {
   );
 }
 
+function ProfileRatingChart({ interactions, textStyle }) {
+  const rows = [5, 4, 3, 2, 1].map((rating) => ({
+    rating,
+    count: interactions.filter((interaction) => Math.ceil(Number(interaction.rating || 0)) === rating).length,
+  }));
+  const maxCount = Math.max(1, ...rows.map((row) => row.count));
+
+  return (
+    <section className="profile-rating-chart" aria-label="Distribución de tus calificaciones">
+      <div className="profile-rating-heading"><div><small>REPARTO DE CALIFICACIONES</small><h2 style={textStyle}>Tus granitos</h2></div><CoffeeBeanIcon size={22} filled /></div>
+      <div className="profile-rating-rows">
+        {rows.map((row) => (
+          <div className="profile-rating-row" key={row.rating}>
+            <span>{row.rating}</span>
+            <div className="profile-rating-beans" aria-hidden="true">
+              {[1, 2, 3, 4, 5].map((bean) => <CoffeeBeanIcon key={bean} size={13} filled={bean <= row.rating} />)}
+            </div>
+            <div className="profile-rating-track"><span style={{ width: `${(row.count / maxCount) * 100}%` }} /></div>
+            <strong>{row.count}</strong>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ProfileVisitRanking({ places, textStyle, navigate, onRegisterVisit }) {
+  return (
+    <section className="profile-visit-ranking">
+      <div className="profile-rating-heading"><div><small>HISTORIAL</small><h2 style={textStyle}>Cafés más visitados</h2></div><Coffee size={20} /></div>
+      {places.length > 0 ? (
+        <div className="profile-visit-ranking-list">
+          {places.slice(0, 6).map(({ cafe, count, rating }) => (
+            <article className="profile-visit-ranking-card" key={cafe.id}>
+              <button type="button" className="profile-visit-ranking-main" onClick={() => navigate(`/cafe/${cafe.id}`)}>
+                {cafe.imageUrl ? <img src={cafe.imageUrl} alt={cafe.nombre} /> : <span className="profile-cafe-placeholder"><Coffee size={20} /></span>}
+                <span><strong>{cafe.nombre}</strong><small><Coffee size={12} /> {count} {count === 1 ? 'visita' : 'visitas'}{rating ? ` · ${rating.toFixed(1)}` : ''}</small></span>
+              </button>
+              <button type="button" className="profile-visit-add" onClick={(event) => onRegisterVisit(event, cafe)} aria-label={`Registrar visita a ${cafe.nombre}`} title="Registrar visita"><Plus size={14} /></button>
+            </article>
+          ))}
+        </div>
+      ) : <p className="profile-ranking-empty">Marca una cafetería como visitada para comenzar tu historial.</p>}
+    </section>
+  );
+}
+
 function ProfilePage() {
   const { user, userProfile, logout, updateCachedProfile } = useAuth();
   const {
@@ -168,6 +212,7 @@ function ProfilePage() {
     interactions,
     interactionsLoaded,
     interactionsLoading,
+    saveCafeInteraction,
   } = useCoffeeData();
   const navigate = useNavigate();
   const location = useLocation();
@@ -231,7 +276,6 @@ function ProfilePage() {
     visited: interactions.filter((interaction) => interaction.is_visited).length,
     favorites: interactions.filter((interaction) => interaction.is_favorite).length,
     waitingList: interactions.filter((interaction) => interaction.in_waitlist).length,
-    reviews: interactions.filter((interaction) => interaction.review_text?.trim()).length,
     rated: interactions.filter((interaction) => interaction.rating && interaction.rating > 0).length,
   }), [interactions]);
 
@@ -267,6 +311,32 @@ function ProfilePage() {
       .map((interaction) => interaction.cafe || cafeById.get(interaction.cafe_id))
       .filter(Boolean);
   }, [cafeById, interactions]);
+
+  const visitedCafeStats = useMemo(() => {
+    const grouped = new Map();
+    interactions.filter((interaction) => interaction.is_visited).forEach((interaction) => {
+      const cafe = interaction.cafe || cafeById.get(interaction.cafe_id);
+      if (!cafe) return;
+      const current = grouped.get(cafe.id) || { cafe, count: 0, rating: 0, lastVisited: '' };
+      current.count += 1;
+      current.rating = Number(interaction.rating || current.rating || cafe.rating || 0);
+      current.lastVisited = [interaction.visited_on, interaction.updated_at, current.lastVisited].sort().pop() || '';
+      grouped.set(cafe.id, current);
+    });
+    return [...grouped.values()].sort((first, second) => second.count - first.count || second.lastVisited.localeCompare(first.lastVisited));
+  }, [cafeById, interactions]);
+
+  const removeFavorite = async (event, cafe) => {
+    event.stopPropagation();
+    await saveCafeInteraction(cafe.id, { is_favorite: false });
+  };
+
+  const registerVisit = async (event, cafe) => {
+    event.stopPropagation();
+    const today = new Date().toISOString().slice(0, 10);
+    const alreadyRegisteredToday = interactions.some((interaction) => interaction.cafe_id === cafe.id && interaction.is_visited && interaction.visited_on === today);
+    await saveCafeInteraction(cafe.id, { is_visited: true, visited_on: today }, { createNewVisit: !alreadyRegisteredToday });
+  };
 
   const topVisitedPlaces = visitedPlaces.slice(0, 5);
   const recentCafes = topVisitedPlaces.length > 0
@@ -560,9 +630,6 @@ function ProfilePage() {
               <button type="button" onClick={() => navigate('/favorites')}>
                 <strong>{profile.stats.favorites}</strong><span>Favoritas</span>
               </button>
-              <button type="button" onClick={() => navigate('/reviews')}>
-                <strong>{profile.stats.reviews}</strong><span>Reviews</span>
-              </button>
               <button type="button" onClick={() => navigate('/list')}>
                 <strong>{profile.stats.waitingList}</strong><span>Lista</span>
               </button>
@@ -578,7 +645,6 @@ function ProfilePage() {
           <button type="button" className={activeTab === 'activity' ? 'is-active' : ''} onClick={() => openProfileTab('activity')}>Actividad</button>
           <button type="button" className={activeTab === 'visited' ? 'is-active' : ''} onClick={() => openProfileTab('visited')}>Visitadas</button>
           <button type="button" className={activeTab === 'friends' ? 'is-active' : ''} onClick={() => openProfileTab('friends')}>Amigos</button>
-          <button type="button" onClick={() => navigate('/reviews')}>Reviews</button>
           <button type="button" onClick={() => navigate('/list')}>Lista</button>
           <button type="button" onClick={() => navigate('/favorites')}>Favoritos</button>
         </nav>
@@ -622,56 +688,22 @@ function ProfilePage() {
           </div>
         </section>
 
-        <section className="profile-shortcuts-section">
-          <div className="profile-shortcuts">
-            <button className="profile-shortcut profile-shortcut-dark" onClick={() => navigate('/favorites')}>
-              <Heart className="fill-current" size={34} style={textStyle} />
-              <span className="text-sm font-medium" style={textStyle}>Favoritos</span>
-              <span className="sr-only">{profile.stats.favorites}</span>
-            </button>
+        <ProfileRatingChart interactions={interactions} textStyle={textStyle} />
 
-            <button className="profile-shortcut profile-shortcut-mid" onClick={() => navigate('/reviews')}>
-              <BookOpen size={34} style={textStyle} />
-              <span className="text-sm font-medium" style={textStyle}>Reviews</span>
-              <span className="sr-only">{profile.stats.reviews}</span>
-            </button>
-
-            <button className="profile-shortcut profile-shortcut-light" onClick={() => navigate('/list')}>
-              <ListPlus size={34} style={textStyle} />
-              <span className="text-sm font-medium" style={textStyle}>Lista</span>
-              <span className="sr-only">{profile.stats.waitingList}</span>
-            </button>
-
-            <button className="profile-shortcut profile-shortcut-light" onClick={() => navigate('/ratings')}>
-              <CoffeeBeanIcon filled size={34} style={textStyle} />
-              <span className="text-sm font-medium" style={textStyle}>Calificadas</span>
-              <span className="sr-only">{profile.stats.rated}</span>
-            </button>
-          </div>
-        </section>
+        <ProfileVisitRanking places={visitedCafeStats} textStyle={textStyle} navigate={navigate} onRegisterVisit={registerVisit} />
 
         {favoritePlaces.length > 0 && (
           <section className="profile-favorites-section">
             <h2 className="text-base font-semibold mb-3" style={textStyle}>Favoritos recientes</h2>
             <div className="flex gap-3 overflow-x-auto pb-2 hide-scrollbar">
               {favoritePlaces.slice(0, 8).map((cafe) => (
-                <button
-                  key={cafe.id}
-                  type="button"
-                  onClick={() => navigate(`/cafe/${cafe.id}`)}
-                  className="w-30 h-20 rounded-2xl bg-[#372821] overflow-hidden shrink-0 relative"
-                >
-                  {cafe.imageUrl ? (
-                    <img src={cafe.imageUrl} alt={cafe.nombre} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="h-full flex items-center justify-center">
-                      <Coffee className="opacity-40" size={24} />
-                    </div>
-                  )}
-                  <div className="absolute inset-x-0 bottom-0 p-2 bg-linear-to-t from-black/70 to-transparent">
-                    <p className="text-[10px] text-white font-bold truncate">{cafe.nombre}</p>
-                  </div>
-                </button>
+                <div key={cafe.id} className="profile-favorite-card">
+                  <button type="button" onClick={() => navigate(`/cafe/${cafe.id}`)} className="profile-favorite-open">
+                    {cafe.imageUrl ? <img src={cafe.imageUrl} alt={cafe.nombre} /> : <div className="profile-favorite-placeholder"><Coffee className="opacity-40" size={24} /></div>}
+                    <div><p>{cafe.nombre}</p></div>
+                  </button>
+                  <button type="button" className="profile-favorite-remove" onClick={(event) => removeFavorite(event, cafe)} aria-label={`Quitar ${cafe.nombre} de favoritos`} title="Quitar de favoritos"><X size={13} /></button>
+                </div>
               ))}
             </div>
           </section>

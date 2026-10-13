@@ -47,6 +47,7 @@ function CafePage({ cafeId }) {
   const [savingInteraction, setSavingInteraction] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [communityPhotos, setCommunityPhotos] = useState([]);
+  const [communityTiktoks, setCommunityTiktoks] = useState([]);
 
   useEffect(() => {
     if (!cafesLoaded) {
@@ -56,15 +57,25 @@ function CafePage({ cafeId }) {
 
   useEffect(() => {
     if (!id) return;
-    supabase
-      .from('cafe_photos')
-      .select('id,public_url,is_cover,created_at')
-      .eq('cafe_id', id)
-      .eq('status', 'approved')
-      .order('is_cover', { ascending: false })
-      .order('created_at', { ascending: false })
-      .limit(12)
-      .then(({ data }) => setCommunityPhotos(data || []));
+    Promise.all([
+      supabase
+        .from('cafe_photos')
+        .select('id,public_url,is_cover,created_at')
+        .eq('cafe_id', id)
+        .eq('status', 'approved')
+        .order('is_cover', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(12),
+      supabase
+        .from('cafe_tiktoks')
+        .select('id,url,thumbnail_url,title,position,created_at')
+        .eq('cafe_id', id)
+        .order('position')
+        .order('created_at'),
+    ]).then(([photosResult, tiktoksResult]) => {
+      setCommunityPhotos(photosResult.data || []);
+      setCommunityTiktoks(tiktoksResult.data || []);
+    });
   }, [id]);
 
   useEffect(() => {
@@ -242,10 +253,9 @@ function CafePage({ cafeId }) {
             </button>
           </div>
 
-          {(cafe.instagramUrl || cafe.tiktokUrl) && (
+          {cafe.instagramUrl && (
             <div className="cafe-social-links" aria-label="Redes sociales de la cafetería">
-              {cafe.instagramUrl && <a href={cafe.instagramUrl} target="_blank" rel="noreferrer" aria-label="Instagram de la cafetería" title="Instagram"><Instagram size={16} /><span>Instagram</span></a>}
-              {cafe.tiktokUrl && <a href={cafe.tiktokUrl} target="_blank" rel="noreferrer" aria-label="TikTok de la cafetería" title="TikTok"><Music2 size={16} /><span>TikTok</span></a>}
+              <a href={cafe.instagramUrl} target="_blank" rel="noreferrer" aria-label="Instagram de la cafetería" title="Abrir Instagram de la cafetería"><Instagram size={18} /></a>
             </div>
           )}
           {saveError && <p className="mt-3 text-center text-xs text-red-300" role="alert">{saveError}</p>}
@@ -259,6 +269,23 @@ function CafePage({ cafeId }) {
             <div className="grid grid-cols-3 gap-2 cafe-community-gallery">
               {communityPhotos.map((photo) => (
                 <img key={photo.id} src={photo.public_url} alt={cafe.nombre} className="w-full aspect-square object-cover rounded-2xl" loading="lazy" decoding="async" />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {communityTiktoks.length > 0 && (
+          <section className="cafe-tiktok-section">
+            <div className="cafe-tiktok-heading"><h3>TikToks de la comunidad</h3><Music2 size={17} /></div>
+            <div className="cafe-tiktok-grid">
+              {communityTiktoks.map((tiktok) => (
+                <a key={tiktok.id} href={tiktok.url} target="_blank" rel="noreferrer" className="cafe-tiktok-card">
+                  <div className="cafe-tiktok-cover">
+                    {tiktok.thumbnail_url ? <img src={tiktok.thumbnail_url} alt={tiktok.title || 'TikTok relacionado'} loading="lazy" /> : <Music2 size={28} />}
+                    <span><Music2 size={12} /> Ver TikTok</span>
+                  </div>
+                  <strong>{tiktok.title || 'TikTok relacionado'}</strong>
+                </a>
               ))}
             </div>
           </section>

@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, BarChart3, Camera, ChevronLeft, ChevronRight, ClipboardList, Clock, Coffee, Database, Download, ExternalLink, FileUp, Image, Instagram, MapPin, MapPinned, Music2, RefreshCw, ScanSearch, Search, Shield, Sparkles, Trash2, Users, X } from 'lucide-react';
+import { ArrowLeft, BarChart3, Camera, ChevronLeft, ChevronRight, ClipboardList, Clock, Coffee, Database, Download, ExternalLink, FileUp, GripVertical, Image, Instagram, MapPin, MapPinned, Music2, Palette, Plus, RefreshCw, ScanSearch, Search, Shield, Sparkles, Trash2, Users, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCoffeeData } from '../context/CoffeeDataContext';
 import { supabase } from '../supabase';
-import { areDuplicateCafes, distanceBetweenCafes } from '../utils/cafeDeduplication';
+import { areDuplicateCafes, deduplicateCafes, distanceBetweenCafes, repairCafeText } from '../utils/cafeDeduplication';
 import { geocodeCafeLocation } from '../utils/cafeLocation';
 
 const MERIDA_BBOX = { south: 20.86, west: -89.75, north: 21.08, east: -89.52 };
@@ -449,7 +449,7 @@ function MetricCard({ label, value, icon }) {
   );
 }
 
-function AdminCafeCard({ cafe, onChange, onSave, onStatusChange, onUpload, onAssistant, onFindImage }) {
+function AdminCafeCard({ cafe, tiktoks = [], onChange, onSave, onStatusChange, onUpload, onAssistant, onFindImage, onAddTikTok, onDeleteTikTok, onDelete }) {
   const textField = (field, placeholder, multiline = false) => {
     const Component = multiline ? 'textarea' : 'input';
     return <Component value={cafe[field] || ''} placeholder={placeholder} onChange={(event) => onChange(cafe.id, field, event.target.value)} onBlur={() => onSave(cafe, field, cafe[field] || null)} />;
@@ -465,15 +465,24 @@ function AdminCafeCard({ cafe, onChange, onSave, onStatusChange, onUpload, onAss
       <div className="admin-cafe-card-body">
         {textField('nombre', 'Nombre de la cafetería')}
         {textField('address', 'Dirección completa', true)}
+        {textField('link', 'Enlace de Google Maps')}
         <div className="admin-cafe-card-row">
           <input value={cafe.lat ?? ''} placeholder="Latitud" onChange={(event) => onChange(cafe.id, 'lat', event.target.value)} onBlur={() => onSave(cafe, 'lat', cafe.lat)} />
           <input value={cafe.lng ?? ''} placeholder="Longitud" onChange={(event) => onChange(cafe.id, 'lng', event.target.value)} onBlur={() => onSave(cafe, 'lng', cafe.lng)} />
+        </div>
+        <div className="admin-cafe-card-row">
+          <input value={cafe.neighborhood || ''} placeholder="Zona" onChange={(event) => onChange(cafe.id, 'neighborhood', event.target.value)} onBlur={() => onSave(cafe, 'neighborhood', cafe.neighborhood || null)} />
+          <select value={cafe.category || 'cafeteria'} onChange={(event) => { onChange(cafe.id, 'category', event.target.value); onSave(cafe, 'category', event.target.value); }}><option value="cafeteria">Cafetería</option><option value="panaderia">Panadería</option></select>
         </div>
         {textField('opening_hours', 'Horarios (Mo-Fr 08:00-20:00)', true)}
         {textField('image_url', 'URL de foto de portada')}
         <div className="admin-cafe-card-socials">
           <label><Instagram size={14} /><input value={cafe.instagram_url || ''} placeholder="Instagram" onChange={(event) => onChange(cafe.id, 'instagram_url', event.target.value)} onBlur={() => onSave(cafe, 'instagram_url', cafe.instagram_url || null)} /></label>
-          <label><Music2 size={14} /><input value={cafe.tiktok_url || ''} placeholder="TikTok" onChange={(event) => onChange(cafe.id, 'tiktok_url', event.target.value)} onBlur={() => onSave(cafe, 'tiktok_url', cafe.tiktok_url || null)} /></label>
+        </div>
+        <div className="admin-cafe-tiktoks">
+          <div className="admin-cafe-tiktoks-heading"><span><Music2 size={14} /> TikToks relacionados</span><small>{tiktoks.length}</small></div>
+          {tiktoks.map((tiktok) => <div className="admin-cafe-tiktok-row" key={tiktok.id}><a href={tiktok.url} target="_blank" rel="noreferrer" title={tiktok.title || tiktok.url}>{tiktok.title || tiktok.url}</a><button type="button" onClick={() => onDeleteTikTok(tiktok)} aria-label="Eliminar TikTok" title="Eliminar TikTok"><Trash2 size={13} /></button></div>)}
+          <button type="button" className="admin-add-tiktok" onClick={() => onAddTikTok(cafe)}><Plus size={13} /> Añadir TikTok</button>
         </div>
         <div className="admin-cafe-card-row">
           <select value={cafe.status} onChange={(event) => onStatusChange(cafe, event.target.value)}><option value="active">Activa</option><option value="needs_review">Revisar</option><option value="closed">Cerrada</option></select>
@@ -483,6 +492,7 @@ function AdminCafeCard({ cafe, onChange, onSave, onStatusChange, onUpload, onAss
           <button type="button" title="Revisar datos" onClick={() => onAssistant(cafe)}><Sparkles size={14} /> Revisar</button>
           <button type="button" title="Buscar foto con licencia abierta" onClick={() => onFindImage(cafe)}><Search size={14} /> Foto</button>
           {cafe.link && <a href={cafe.link} target="_blank" rel="noreferrer" title="Abrir ubicación"><MapPin size={14} /> Maps</a>}
+          <button type="button" className="is-danger" title="Eliminar cafetería" onClick={() => onDelete(cafe)}><Trash2 size={14} /> Eliminar</button>
         </div>
       </div>
     </article>
@@ -500,6 +510,7 @@ function AdminDashboardPage() {
   const [metrics, setMetrics] = useState({});
   const [cafes, setCafes] = useState([]);
   const [photos, setPhotos] = useState([]);
+  const [cafeTiktoks, setCafeTiktoks] = useState([]);
   const [postPhotos, setPostPhotos] = useState([]);
   const [posts, setPosts] = useState([]);
   const [users, setUsers] = useState([]);
@@ -518,6 +529,17 @@ function AdminDashboardPage() {
   const [assistantCollapsed, setAssistantCollapsed] = useState(false);
   const [assistantInput, setAssistantInput] = useState('');
   const [assistantMessages, setAssistantMessages] = useState([]);
+  const [cafeSearch, setCafeSearch] = useState('');
+  const [adminTheme, setAdminTheme] = useState(() => {
+    try { return JSON.parse(window.localStorage.getItem('coffee-map:admin-theme')) || { background: '#191511', panel: '#27211b', accent: '#e6dac1' }; } catch { return { background: '#191511', panel: '#27211b', accent: '#e6dac1' }; }
+  });
+  const [overviewBlocks, setOverviewBlocks] = useState(() => {
+    try {
+      const saved = JSON.parse(window.localStorage.getItem('coffee-map:admin-blocks'));
+      return Array.isArray(saved) && saved.length ? saved : ['metrics', 'welcome'];
+    } catch { return ['metrics', 'welcome']; }
+  });
+  const [draggedOverviewBlock, setDraggedOverviewBlock] = useState(null);
 
   const profileMap = useMemo(() => new Map(users.map((profile) => [profile.id, profile])), [users]);
   const cafeMap = useMemo(() => new Map(cafes.map((cafe) => [cafe.id, cafe])), [cafes]);
@@ -541,18 +563,32 @@ function AdminDashboardPage() {
       .filter((cafe) => cafe.source === 'community' && cafe.status === 'needs_review')
       .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
   ), [cafes]);
+  const cafeTiktoksByCafeId = useMemo(() => {
+    const grouped = new Map();
+    cafeTiktoks.forEach((tiktok) => {
+      if (!grouped.has(tiktok.cafe_id)) grouped.set(tiktok.cafe_id, []);
+      grouped.get(tiktok.cafe_id).push(tiktok);
+    });
+    return grouped;
+  }, [cafeTiktoks]);
+  const visibleCafes = useMemo(() => {
+    const search = normalizeName(cafeSearch);
+    if (!search) return cafes;
+    return cafes.filter((cafe) => normalizeName([cafe.nombre, cafe.address, cafe.neighborhood].filter(Boolean).join(' ')).includes(search));
+  }, [cafeSearch, cafes]);
 
   const loadDashboard = useCallback(async () => {
     setLoading(true);
     setNotice('');
     try {
-      const [cafeCount, userCount, postCount, photoCount, reviewCount, cafeRows, photoRows, postRows, postImageRows, profileRows] = await Promise.all([
+      const [cafeCount, userCount, postCount, photoCount, reviewCount, cafeRows, tiktokRows, photoRows, postRows, postImageRows, profileRows] = await Promise.all([
         supabase.from('cafes').select('id', { count: 'exact', head: true }).eq('status', 'active'),
         supabase.from('profiles').select('id', { count: 'exact', head: true }),
         supabase.from('posts').select('id', { count: 'exact', head: true }),
         supabase.from('cafe_photos').select('id', { count: 'exact', head: true }),
         supabase.from('user_cafes').select('id', { count: 'exact', head: true }).not('review_text', 'eq', ''),
         supabase.from('cafes').select('id,nombre,lat,lng,address,link,source_url,neighborhood,image_url,image_source_url,image_attribution,image_license,instagram_url,tiktok_url,opening_hours,opening_hours_source,opening_hours_source_url,opening_hours_verified_at,source,source_id,status,submitted_by,created_at,last_verified_at').order('nombre').limit(1000),
+        supabase.from('cafe_tiktoks').select('id,cafe_id,url,thumbnail_url,title,position,created_at').order('position').order('created_at'),
         supabase.from('cafe_photos').select('id,cafe_id,user_id,post_id,storage_path,public_url,status,is_cover,rights_confirmed,rights_basis,rights_note,created_at').eq('status', 'pending').is('post_id', null).order('created_at', { ascending: false }).limit(100),
         supabase.from('posts').select('id,user_id,cafe_id,content,image_url,status,created_at').order('created_at', { ascending: false }).limit(1000),
         supabase.from('post_images').select('id,post_id,user_id,storage_path,public_url,position,created_at').order('created_at', { ascending: false }).limit(1000),
@@ -560,8 +596,12 @@ function AdminDashboardPage() {
       ]);
       const firstError = [cafeCount, userCount, postCount, photoCount, reviewCount, cafeRows, photoRows, postRows, postImageRows, profileRows].find((result) => result.error)?.error;
       if (firstError) throw firstError;
-      setMetrics({ cafes: cafeCount.count, users: userCount.count, posts: postCount.count, photos: photoCount.count, reviews: reviewCount.count });
+      const activeMapCafes = deduplicateCafes((cafeRows.data || [])
+        .filter((cafe) => cafe.status === 'active')
+        .map((cafe) => ({ ...cafe, nombre: repairCafeText(cafe.nombre), address: repairCafeText(cafe.address) })));
+      setMetrics({ cafes: activeMapCafes.length, users: userCount.count, posts: postCount.count, photos: photoCount.count, reviews: reviewCount.count });
       setCafes(cafeRows.data || []);
+      setCafeTiktoks(tiktokRows.error ? [] : (tiktokRows.data || []));
       setPhotos(photoRows.data || []);
       setPosts(postRows.data || []);
       setPostPhotos(postImageRows.data || []);
@@ -574,6 +614,20 @@ function AdminDashboardPage() {
   }, []);
 
   useEffect(() => { loadDashboard(); }, [loadDashboard]);
+  useEffect(() => { window.localStorage.setItem('coffee-map:admin-theme', JSON.stringify(adminTheme)); }, [adminTheme]);
+  useEffect(() => { window.localStorage.setItem('coffee-map:admin-blocks', JSON.stringify(overviewBlocks)); }, [overviewBlocks]);
+
+  const moveOverviewBlock = (targetBlock) => {
+    if (!draggedOverviewBlock || draggedOverviewBlock === targetBlock) return;
+    setOverviewBlocks((current) => {
+      const next = current.filter((block) => block !== draggedOverviewBlock);
+      next.splice(Math.max(0, next.indexOf(targetBlock)), 0, draggedOverviewBlock);
+      return next;
+    });
+    setDraggedOverviewBlock(null);
+  };
+
+  const addOverviewGuide = () => setOverviewBlocks((current) => current.includes('guide') ? current : [...current, 'guide']);
 
   const runAction = async (key, action, successMessage) => {
     setActionLoading(key);
@@ -765,7 +819,6 @@ function AdminDashboardPage() {
 
   const uploadCafeCover = (cafe, file) => {
     if (!file) return undefined;
-    if (!window.confirm('Confirma que esta foto es tuya o que tienes permiso para publicarla en Coffee Map.')) return undefined;
     return runAction(`cover:${cafe.id}`, async () => {
     if (!file?.type.startsWith('image/') || file.size > 8 * 1024 * 1024) throw new Error('La foto debe pesar máximo 8 MB.');
     const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
@@ -952,7 +1005,46 @@ function AdminDashboardPage() {
   const updateCafeStatus = (cafe, status) => runAction(`cafe:${cafe.id}`, async () => {
     const { error } = await supabase.from('cafes').update({ status, updated_at: new Date().toISOString() }).eq('id', cafe.id);
     if (error) throw error;
+    await refreshCafes();
   }, 'Estado actualizado.');
+
+  const addCafeTikTok = (cafe, suppliedUrl = '') => {
+    const url = suppliedUrl || window.prompt('Pega el enlace del TikTok relacionado con esta cafetería:');
+    if (!url?.trim()) return;
+    return runAction(`tiktok:add:${cafe.id}`, async () => {
+      const cleanUrl = url.trim();
+      if (!/^https?:\/\/([a-z]+\.)?tiktok\.com\//i.test(cleanUrl)) throw new Error('Agrega un enlace válido de TikTok.');
+      let metadata = {};
+      try {
+        const response = await fetch(`https://www.tiktok.com/oembed?url=${encodeURIComponent(cleanUrl)}`);
+        if (response.ok) metadata = await response.json();
+      } catch {
+        // The link is still useful when TikTok blocks oEmbed from the browser.
+      }
+      const { error } = await supabase.from('cafe_tiktoks').insert({
+        cafe_id: cafe.id,
+        url: cleanUrl,
+        thumbnail_url: metadata.thumbnail_url || null,
+        title: metadata.title || null,
+        position: (cafeTiktoksByCafeId.get(cafe.id) || []).length,
+      });
+      if (error) throw error;
+    }, 'TikTok relacionado agregado.');
+  };
+
+  const deleteCafeTikTok = (tiktok) => runAction(`tiktok:delete:${tiktok.id}`, async () => {
+    const { error } = await supabase.from('cafe_tiktoks').delete().eq('id', tiktok.id);
+    if (error) throw error;
+  }, 'TikTok eliminado.');
+
+  const deleteCafe = (cafe) => {
+    if (!window.confirm(`¿Eliminar definitivamente “${cafe.nombre}” y todos sus datos asociados?`)) return;
+    return runAction(`cafe:delete:${cafe.id}`, async () => {
+      const { error } = await supabase.from('cafes').delete().eq('id', cafe.id);
+      if (error) throw error;
+      await refreshCafes();
+    }, 'Cafetería eliminada.');
+  };
 
   const updateRole = (profile, role) => runAction(`user:${profile.id}`, async () => {
     if (profile.id === user.id && role !== 'administrador') throw new Error('No puedes quitarte tu propio acceso admin.');
@@ -961,7 +1053,7 @@ function AdminDashboardPage() {
   }, 'Rol actualizado.');
 
   return (
-    <main className="admin-page">
+    <main className="admin-page" style={{ '--admin-page-bg': adminTheme.background, '--admin-panel-bg': adminTheme.panel, '--admin-accent': adminTheme.accent }}>
       <div className="admin-topbar">
       <header className="admin-header">
         <button type="button" onClick={() => navigate('/')} aria-label="Volver"><ArrowLeft size={22} /></button>
@@ -981,16 +1073,38 @@ function AdminDashboardPage() {
       <div className="admin-content">
         {tab === 'overview' && (
           <section>
-            <div className="admin-metrics">
-              <MetricCard label="Cafeterías" value={metrics.cafes} icon={<Coffee size={18} />} />
-              <MetricCard label="Usuarios" value={metrics.users} icon={<Users size={18} />} />
-              <MetricCard label="Publicaciones" value={metrics.posts} icon={<Camera size={18} />} />
-              <MetricCard label="Fotos" value={metrics.photos} icon={<Image size={18} />} />
-              <MetricCard label="Reseñas" value={metrics.reviews} icon={<BarChart3 size={18} />} />
-            </div>
-            <article className="admin-panel admin-welcome">
-              <Shield size={28} /><div><h2>Moderación centralizada</h2><p>Las fotos de usuarios llegan pendientes. Apruébalas y elige cuáles pueden convertirse en portada de una cafetería.</p></div>
+            <article className="admin-panel admin-visual-editor">
+              <div><Palette size={18} /><strong>Personaliza tu centro</strong><small>Arrastra los bloques y ajusta los colores sin tocar código.</small></div>
+              <label>Fondo <input type="color" value={adminTheme.background} onChange={(event) => setAdminTheme((current) => ({ ...current, background: event.target.value }))} /></label>
+              <label>Paneles <input type="color" value={adminTheme.panel} onChange={(event) => setAdminTheme((current) => ({ ...current, panel: event.target.value }))} /></label>
+              <label>Acento <input type="color" value={adminTheme.accent} onChange={(event) => setAdminTheme((current) => ({ ...current, accent: event.target.value }))} /></label>
+              <button type="button" onClick={addOverviewGuide}>+ Añadir bloque</button>
+              <button type="button" onClick={() => setAdminTheme({ background: '#191511', panel: '#27211b', accent: '#e6dac1' })}>Restaurar</button>
             </article>
+            <div className="admin-overview-blocks">
+              {overviewBlocks.map((block) => (
+                <div key={block} className="admin-overview-block" draggable onDragStart={() => setDraggedOverviewBlock(block)} onDragOver={(event) => event.preventDefault()} onDrop={() => moveOverviewBlock(block)}>
+                  <div className="admin-block-handle" title="Arrastrar bloque"><GripVertical size={15} /></div>
+                  {block === 'metrics' ? (
+                    <div className="admin-metrics">
+                      <MetricCard label="Cafeterías en mapa" value={metrics.cafes} icon={<Coffee size={18} />} />
+                      <MetricCard label="Usuarios" value={metrics.users} icon={<Users size={18} />} />
+                      <MetricCard label="Publicaciones" value={metrics.posts} icon={<Camera size={18} />} />
+                      <MetricCard label="Fotos" value={metrics.photos} icon={<Image size={18} />} />
+                      <MetricCard label="Reseñas" value={metrics.reviews} icon={<BarChart3 size={18} />} />
+                    </div>
+                  ) : block === 'welcome' ? (
+                    <article className="admin-panel admin-welcome">
+                      <Shield size={28} /><div><h2>Moderación centralizada</h2><p>Las fotos de usuarios llegan pendientes. Apruébalas y elige cuáles pueden convertirse en portada de una cafetería.</p></div>
+                    </article>
+                  ) : (
+                    <article className="admin-panel admin-welcome">
+                      <Coffee size={28} /><div><h2>Guía rápida</h2><p>Usa la búsqueda para encontrar una cafetería, arrastra los bloques del resumen y cambia los colores desde este editor visual.</p></div>
+                    </article>
+                  )}
+                </div>
+              ))}
+            </div>
           </section>
         )}
 
@@ -1038,6 +1152,10 @@ function AdminDashboardPage() {
               <small className="admin-manual-location-note">La ubicación se obtiene automáticamente desde la dirección o el enlace de Maps.</small>
               <button type="submit" disabled={Boolean(actionLoading)}>Guardar cafetería</button>
             </form>
+            <div className="admin-cafe-toolbar">
+              <label className="admin-cafe-search"><Search size={16} /><input value={cafeSearch} onChange={(event) => setCafeSearch(event.target.value)} placeholder="Buscar por nombre, dirección o zona" /></label>
+              <span>{visibleCafes.length} de {cafes.length} registros administrables</span>
+            </div>
             {exactLocationCandidates.length > 0 && (
               <article className="admin-panel admin-duplicate-warning">
                 <strong>Posibles duplicados por nombre y ubicación</strong>
@@ -1062,9 +1180,10 @@ function AdminDashboardPage() {
               ))}
             </div>
             <div className="admin-cafe-grid">
-              {cafes.map((cafe) => (
-                <AdminCafeCard key={cafe.id} cafe={cafe} onChange={updateCafeDraft} onSave={saveCafeField} onStatusChange={updateCafeStatus} onUpload={uploadCafeCover} onAssistant={openCafeAssistant} onFindImage={findOpenImages} />
+              {visibleCafes.map((cafe) => (
+                <AdminCafeCard key={cafe.id} cafe={cafe} tiktoks={cafeTiktoksByCafeId.get(cafe.id) || []} onChange={updateCafeDraft} onSave={saveCafeField} onStatusChange={updateCafeStatus} onUpload={uploadCafeCover} onAssistant={openCafeAssistant} onFindImage={findOpenImages} onAddTikTok={addCafeTikTok} onDeleteTikTok={deleteCafeTikTok} onDelete={deleteCafe} />
               ))}
+              {visibleCafes.length === 0 && <p className="admin-empty">No encontramos cafeterías con esa búsqueda.</p>}
             </div>
           </section>
         )}
