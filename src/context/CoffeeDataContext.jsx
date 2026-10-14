@@ -4,6 +4,7 @@ import { supabase } from '../supabase';
 import { useAuth } from './AuthContext';
 import { areDuplicateCafes, deduplicateCafes, repairCafeText } from '../utils/cafeDeduplication';
 import { geocodeCafeLocation, getCafeCoordinates } from '../utils/cafeLocation';
+import { toCafeDbRow } from '../utils/cafeDatabase';
 
 const CoffeeDataContext = createContext(null);
 
@@ -325,7 +326,7 @@ export function CoffeeDataProvider({ children }) {
       for (let index = 0; index < accepted.length; index += 100) {
         const { error } = await supabase
           .from('cafes')
-          .upsert(accepted.slice(index, index + 100), { onConflict: 'id' });
+          .upsert(accepted.slice(index, index + 100).map(toCafeDbRow), { onConflict: 'id' });
         if (error) throw error;
       }
 

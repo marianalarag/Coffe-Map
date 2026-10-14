@@ -7,6 +7,7 @@ import {
   Loader2,
   LogOut,
   MapPin,
+  Plus,
   Settings,
   Share2,
   SlidersHorizontal,

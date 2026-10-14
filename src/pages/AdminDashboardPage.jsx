@@ -6,6 +6,7 @@ import { useCoffeeData } from '../context/CoffeeDataContext';
 import { supabase } from '../supabase';
 import { areDuplicateCafes, deduplicateCafes, distanceBetweenCafes, repairCafeText } from '../utils/cafeDeduplication';
 import { geocodeCafeLocation } from '../utils/cafeLocation';
+import { toCafeDbRow } from '../utils/cafeDatabase';
 
 const MERIDA_BBOX = { south: 20.86, west: -89.75, north: 21.08, east: -89.52 };
 const OVERPASS_URLS = [
@@ -477,7 +478,7 @@ const upsertDiscoveredCafes = async (incoming) => {
       : cafe;
   });
   for (let index = 0; index < accepted.length; index += 250) {
-    const { error } = await supabase.from('cafes').upsert(accepted.slice(index, index + 250), { onConflict: 'id' });
+    const { error } = await supabase.from('cafes').upsert(accepted.slice(index, index + 250).map(toCafeDbRow), { onConflict: 'id' });
     if (error) throw error;
   }
   Object.keys(window.sessionStorage)
