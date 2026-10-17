@@ -613,6 +613,8 @@ html.is-app-mode .map-scan-control {
 .admin-post-row .admin-delete { color: #f0b5a7; background: #4d2923; }
 .admin-empty { grid-column: 1 / -1; padding: 50px 20px; color: rgba(238,229,210,.5); text-align: center; font-size: 11px; }
 .admin-cafe-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 14px; }
+.admin-cafe-load-more { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 50px; padding: 12px; color: rgba(238,229,210,.5); font-size: 9px; }
+.admin-cafe-load-more button { padding: 8px 12px; color: #2d241d; background: #e6dac1; border: 0; border-radius: 9px; font: 700 9px "Inria Serif", Georgia, serif; cursor: pointer; }
 .admin-cafe-legacy-list { display: none; }
 .admin-cafe-card { overflow: hidden; background: #27211b; border: 1px solid rgba(238,229,210,.08); border-radius: 17px; }
 .admin-cafe-card-media { position: relative; height: 145px; background: #3b3026; }
@@ -620,6 +622,8 @@ html.is-app-mode .map-scan-control {
 .admin-cafe-card-media > svg { position: absolute; inset: 50% auto auto 50%; color: #bca47f; transform: translate(-50%, -50%); }
 .admin-cafe-card-media .admin-cafe-status { position: absolute; top: 9px; left: 9px; padding: 5px 8px; color: #2d241d; background: #e6dac1; border-radius: 999px; font-size: 8px; font-weight: 800; text-transform: uppercase; }
 .admin-cafe-card-media label { position: absolute; right: 9px; bottom: 9px; width: 32px; height: 32px; display: grid; place-items: center; color: #2d241d; background: #e6dac1; border-radius: 50%; cursor: pointer; }
+.admin-cafe-card-media .admin-cafe-cover-remove { position: absolute; right: 50px; bottom: 9px; width: 32px; height: 32px; display: grid; place-items: center; padding: 0; color: #f0d4ca; background: #4d2923; border: 0; border-radius: 50%; cursor: pointer; }
+.admin-cafe-card-media .admin-cafe-cover-remove:hover { background: #64352c; }
 .admin-cafe-card-body { display: grid; gap: 7px; padding: 12px; }
 .admin-cafe-card-body input, .admin-cafe-card-body textarea, .admin-cafe-card-body select { width: 100%; min-width: 0; padding: 8px 9px; color: #eee5d2; background: #1b1713; border: 1px solid rgba(238,229,210,.1); border-radius: 9px; outline: 0; font: 10px "Inria Serif", Georgia, serif; }
 .admin-cafe-card-body textarea { min-height: 46px; resize: vertical; }
@@ -632,14 +636,17 @@ html.is-app-mode .map-scan-control {
 .admin-hours-editor legend svg { color: var(--admin-accent); }
 .admin-hours-editor legend, .admin-hours-editor > small { grid-column: 1 / -1; }
 .admin-hours-editor > small { margin: -2px 0 2px; color: rgba(238,229,210,.45); font-size: 8px; }
-.admin-hours-row { display: grid; grid-template-columns: minmax(62px, 1fr) 55px 8px 55px; align-items: center; gap: 4px; min-height: 26px; color: rgba(238,229,210,.65); font-size: 8px; }
+.admin-hours-row { display: grid; grid-template-columns: minmax(0, 1fr) 8px minmax(0, 1fr); grid-template-rows: auto auto; align-items: center; gap: 3px; min-height: 43px; padding: 3px 4px; color: rgba(238,229,210,.65); background: rgba(29,25,21,.22); border-radius: 7px; font-size: 8px; }
 .admin-hours-day { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.admin-hours-day { grid-column: 1 / -1; }
 .admin-hours-day input { width: 13px !important; height: 13px; flex: 0 0 auto; padding: 0 !important; accent-color: var(--admin-accent); }
 .admin-hours-day strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.admin-hours-row input[type="time"] { min-width: 0; padding: 5px 4px; font-size: 8px; }
-.admin-hours-row > span { text-align: center; }
-.admin-hours-row > em { grid-column: 2 / -1; color: rgba(238,229,210,.38); font-style: normal; }
-@media (max-width: 380px) { .admin-hours-editor { grid-template-columns: 1fr; } .admin-hours-editor legend, .admin-hours-editor > small { grid-column: auto; } .admin-hours-row { grid-template-columns: minmax(82px, 1fr) 70px 8px 70px; } }
+.admin-hours-row input[type="time"] { min-width: 0; width: 100%; padding: 5px 3px; font-size: 8px; }
+.admin-hours-row input[type="time"]:first-of-type { grid-column: 1; grid-row: 2; }
+.admin-hours-row input[type="time"]:last-of-type { grid-column: 3; grid-row: 2; }
+.admin-hours-row > span { grid-column: 2; grid-row: 2; text-align: center; }
+.admin-hours-row > em { grid-column: 1 / -1; grid-row: 2; color: rgba(238,229,210,.38); font-style: normal; }
+@media (max-width: 380px) { .admin-hours-editor { grid-template-columns: 1fr; } .admin-hours-editor legend, .admin-hours-editor > small { grid-column: auto; } }
 .admin-cafe-card-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 .admin-cafe-save { flex-basis: 100%; }
 .admin-cafe-card-actions button, .admin-cafe-card-actions a { min-height: 30px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 7px 9px; color: #2d241d; background: #e6dac1; border: 0; border-radius: 9px; font: 600 9px "Inria Serif", Georgia, serif; cursor: pointer; text-decoration: none; }

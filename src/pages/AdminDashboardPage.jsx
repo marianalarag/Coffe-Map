@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, BarChart3, Camera, ChevronLeft, ChevronRight, ClipboardList, Clock, Coffee, Database, Download, ExternalLink, FileUp, GripVertical, Image, Instagram, MapPin, MapPinned, Music2, Palette, Plus, RefreshCw, ScanSearch, Search, Shield, Sparkles, Trash2, Users, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -20,6 +20,7 @@ const OPEN_IMAGE_CACHE = new Map();
 const OPENVERSE_API_URL = 'https://api.openverse.org/v1/images/';
 const OPENVERSE_LICENSES = new Set(['by', 'by-sa', 'cc0', 'pdm']);
 const CAFE_ASSISTANT_URL = import.meta.env.VITE_CAFE_ASSISTANT_URL || '';
+const ADMIN_CAFE_PAGE_SIZE = 24;
 const TABS = [
   { id: 'overview', label: 'Resumen', icon: <BarChart3 size={17} /> },
   { id: 'requests', label: 'Solicitudes', icon: <ClipboardList size={17} /> },
@@ -644,7 +645,7 @@ function AdminSectionBuilder({ section, blocks, metrics, menuOpen, onToggleMenu,
   );
 }
 
-function AdminCafeCard({ cafe, tiktoks = [], saving = false, onChange, onSave, onStatusChange, onUpload, onAssistant, onFindImage, onAddTikTok, onDeleteTikTok, onDelete }) {
+function AdminCafeCard({ cafe, tiktoks = [], saving = false, onChange, onSave, onStatusChange, onUpload, onDeleteCover, onAssistant, onFindImage, onAddTikTok, onDeleteTikTok, onDelete }) {
   const [schedule, setSchedule] = useState(() => parseAdminHours(cafe.opening_hours));
   const [locationDirty, setLocationDirty] = useState(false);
   const [locationField, setLocationField] = useState(null);
@@ -669,7 +670,8 @@ function AdminCafeCard({ cafe, tiktoks = [], saving = false, onChange, onSave, o
       <div className="admin-cafe-card-media">
         {cafe.image_url ? <img src={cafe.image_url} alt={cafe.nombre} /> : <Coffee size={34} />}
         <span className="admin-cafe-status">{cafe.status === 'active' ? 'Activa' : cafe.status === 'closed' ? 'Cerrada' : 'Revisar'}</span>
-        <label title="Subir foto de portada"><Camera size={16} /><input hidden type="file" accept="image/*" onChange={(event) => onUpload(cafe, event.target.files?.[0])} /></label>
+        <label title="Subir foto de portada"><Camera size={16} /><input hidden type="file" accept="image/*" onChange={(event) => { onUpload(cafe, event.target.files?.[0]); event.target.value = ''; }} /></label>
+        {cafe.image_url && <button type="button" className="admin-cafe-cover-remove" title="Eliminar portada" aria-label={`Eliminar portada de ${cafe.nombre}`} onClick={() => onDeleteCover(cafe)}><Trash2 size={15} /></button>}
       </div>
       <div className="admin-cafe-card-body">
         {textField('nombre', 'Nombre de la cafetería')}
@@ -716,6 +718,80 @@ function AdminCafeCard({ cafe, tiktoks = [], saving = false, onChange, onSave, o
   );
 }
 
+function AdminCoverCropper({ file, onCancel, onConfirm }) {
+  const previewUrl = useMemo(() => URL.createObjectURL(file), [file]);
+  const [zoom, setZoom] = useState(1);
+  const [position, setPosition] = useState({ x: 50, y: 50 });
+  const dragRef = useRef(null);
+  const viewportRef = useRef(null);
+
+  useEffect(() => () => URL.revokeObjectURL(previewUrl), [previewUrl]);
+
+  const handlePointerDown = (event) => {
+    dragRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  };
+
+  const handlePointerMove = (event) => {
+    const drag = dragRef.current;
+    const viewport = viewportRef.current;
+    if (!drag || drag.pointerId !== event.pointerId || !viewport) return;
+    const rect = viewport.getBoundingClientRect();
+    setPosition((current) => ({
+      x: Math.max(0, Math.min(100, current.x - ((event.clientX - drag.x) / rect.width) * 100)),
+      y: Math.max(0, Math.min(100, current.y - ((event.clientY - drag.y) / rect.height) * 100)),
+    }));
+    dragRef.current = { ...drag, x: event.clientX, y: event.clientY };
+  };
+
+  const exportCrop = async () => {
+    const image = new window.Image();
+    image.src = previewUrl;
+    await new Promise((resolve, reject) => { image.onload = resolve; image.onerror = reject; });
+
+    const outputWidth = 2400;
+    const outputHeight = 960;
+    const scale = Math.max(outputWidth / image.naturalWidth, outputHeight / image.naturalHeight) * zoom;
+    const renderedWidth = image.naturalWidth * scale;
+    const renderedHeight = image.naturalHeight * scale;
+    const sourceLeft = ((renderedWidth - outputWidth) * (position.x / 100)) / scale;
+    const sourceTop = ((renderedHeight - outputHeight) * (position.y / 100)) / scale;
+    const sourceWidth = outputWidth / scale;
+    const sourceHeight = outputHeight / scale;
+    const canvas = document.createElement('canvas');
+    canvas.width = outputWidth;
+    canvas.height = outputHeight;
+    const context = canvas.getContext('2d');
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = 'high';
+    context.drawImage(image, sourceLeft, sourceTop, sourceWidth, sourceHeight, 0, 0, outputWidth, outputHeight);
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/webp', 0.92));
+    if (blob) onConfirm(new File([blob], 'cafe-cover-cropped.webp', { type: 'image/webp', lastModified: Date.now() }));
+  };
+
+  return (
+    <div className="profile-crop-backdrop" role="dialog" aria-modal="true" aria-label="Ajustar portada de cafetería">
+      <section className="profile-crop-modal">
+        <header><div><small>AJUSTAR PORTADA</small><h2>Recorta la portada</h2></div><button type="button" onClick={onCancel} aria-label="Cerrar"><X size={18} /></button></header>
+        <div
+          ref={viewportRef}
+          className="profile-crop-viewport is-cover"
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={() => { dragRef.current = null; }}
+          onPointerCancel={() => { dragRef.current = null; }}
+        >
+          <img src={previewUrl} alt="Vista previa de portada" style={{ objectPosition: `${position.x}% ${position.y}%`, transform: `scale(${zoom})` }} />
+          <div className="profile-crop-grid" aria-hidden="true" />
+        </div>
+        <label className="profile-crop-zoom">Zoom <input type="range" min="1" max="3" step="0.01" value={zoom} onChange={(event) => setZoom(Number(event.target.value))} /></label>
+        <p className="profile-crop-help">Arrastra la imagen para elegir qué parte aparecerá en la portada.</p>
+        <div className="profile-crop-actions"><button type="button" className="is-secondary" onClick={onCancel}>Cancelar</button><button type="button" onClick={exportCrop}>Usar portada</button></div>
+      </section>
+    </div>
+  );
+}
+
 function AdminDashboardPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -747,6 +823,9 @@ function AdminDashboardPage() {
   const [assistantInput, setAssistantInput] = useState('');
   const [assistantMessages, setAssistantMessages] = useState([]);
   const [cafeSearch, setCafeSearch] = useState('');
+  const [cafeVisibleCount, setCafeVisibleCount] = useState(ADMIN_CAFE_PAGE_SIZE);
+  const [coverCropRequest, setCoverCropRequest] = useState(null);
+  const cafeLoadMoreRef = useRef(null);
   const [adminTheme, setAdminTheme] = useState(() => {
     try { return JSON.parse(window.localStorage.getItem('coffee-map:admin-theme')) || { background: '#191511', panel: '#27211b', accent: '#e6dac1' }; } catch { return { background: '#191511', panel: '#27211b', accent: '#e6dac1' }; }
   });
@@ -796,11 +875,12 @@ function AdminDashboardPage() {
     });
     return grouped;
   }, [cafeTiktoks]);
-  const visibleCafes = useMemo(() => {
+  const filteredCafes = useMemo(() => {
     const search = normalizeName(cafeSearch);
     if (!search) return cafes;
     return cafes.filter((cafe) => normalizeName([cafe.nombre, cafe.address, cafe.neighborhood].filter(Boolean).join(' ')).includes(search));
   }, [cafeSearch, cafes]);
+  const visibleCafes = useMemo(() => filteredCafes.slice(0, cafeVisibleCount), [cafeVisibleCount, filteredCafes]);
 
   const loadDashboard = useCallback(async () => {
     setLoading(true);
@@ -839,6 +919,17 @@ function AdminDashboardPage() {
   }, []);
 
   useEffect(() => { loadDashboard(); }, [loadDashboard]);
+  useEffect(() => { setCafeVisibleCount(ADMIN_CAFE_PAGE_SIZE); }, [cafeSearch]);
+  useEffect(() => {
+    if (tab !== 'cafes' || visibleCafes.length >= filteredCafes.length || !cafeLoadMoreRef.current || !('IntersectionObserver' in window)) return undefined;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        setCafeVisibleCount((current) => Math.min(current + ADMIN_CAFE_PAGE_SIZE, filteredCafes.length));
+      }
+    }, { rootMargin: '700px 0px' });
+    observer.observe(cafeLoadMoreRef.current);
+    return () => observer.disconnect();
+  }, [filteredCafes.length, tab, visibleCafes.length]);
   useEffect(() => { window.localStorage.setItem('coffee-map:admin-theme', JSON.stringify(adminTheme)); }, [adminTheme]);
   useEffect(() => { window.localStorage.setItem('coffee-map:admin-blocks', JSON.stringify(overviewBlocks)); }, [overviewBlocks]);
   useEffect(() => { window.localStorage.setItem('coffee-map:admin-custom-blocks', JSON.stringify(customBlocksBySection)); }, [customBlocksBySection]);
@@ -1074,9 +1165,7 @@ function AdminDashboardPage() {
     if (nextStatus === 'active') await refreshCafes();
   }, nextStatus === 'active' ? `Solicitud aceptada: ${cafe.nombre}.` : `Solicitud rechazada: ${cafe.nombre}.`);
 
-  const uploadCafeCover = (cafe, file) => {
-    if (!file) return undefined;
-    return runAction(`cover:${cafe.id}`, async () => {
+  const saveCafeCover = (cafe, file) => runAction(`cover:${cafe.id}`, async () => {
     if (!file?.type.startsWith('image/') || file.size > 8 * 1024 * 1024) throw new Error('La foto debe pesar máximo 8 MB.');
     const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
     const storagePath = `${user.id}/covers/${Date.now()}-${normalizeName(cafe.nombre).replaceAll(' ', '-')}.${extension}`;
@@ -1090,6 +1179,8 @@ function AdminDashboardPage() {
       image_license: null,
     }).eq('id', cafe.id);
     if (cafeError) throw cafeError;
+    const { error: resetCoverError } = await supabase.from('cafe_photos').update({ is_cover: false }).eq('cafe_id', cafe.id);
+    if (resetCoverError) throw resetCoverError;
     const { error: photoError } = await supabase.from('cafe_photos').insert({
       cafe_id: cafe.id,
       user_id: user.id,
@@ -1108,7 +1199,39 @@ function AdminDashboardPage() {
       item.id === cafe.id ? { ...item, image_url: data.publicUrl } : item
     )));
     await refreshCafes();
-    }, `Portada de ${cafe.nombre} actualizada.`);
+  }, `Portada de ${cafe.nombre} actualizada.`);
+
+  const uploadCafeCover = (cafe, file) => {
+    if (!file) return undefined;
+    if (!file.type.startsWith('image/') || file.size > 8 * 1024 * 1024) {
+      setNotice('Error: la foto debe ser una imagen de máximo 8 MB.');
+      return undefined;
+    }
+    setCoverCropRequest({ cafe, file });
+    return undefined;
+  };
+
+  const confirmCafeCoverCrop = (file) => {
+    const request = coverCropRequest;
+    setCoverCropRequest(null);
+    if (!request) return undefined;
+    return saveCafeCover(request.cafe, file);
+  };
+
+  const deleteCafeCover = (cafe) => {
+    if (!cafe.image_url || !window.confirm(`¿Eliminar la portada de ${cafe.nombre}?`)) return undefined;
+    return runAction(`cover-delete:${cafe.id}`, async () => {
+      const { error } = await supabase.from('cafes').update({
+        image_url: null,
+        image_source_url: null,
+        image_attribution: null,
+        image_license: null,
+        updated_at: new Date().toISOString(),
+      }).eq('id', cafe.id);
+      if (error) throw error;
+      const { error: photoError } = await supabase.from('cafe_photos').update({ is_cover: false }).eq('cafe_id', cafe.id);
+      if (photoError) throw photoError;
+    }, `Portada de ${cafe.nombre} eliminada.`);
   };
 
   const editCafeHours = (cafe) => {
@@ -1465,7 +1588,7 @@ function AdminDashboardPage() {
             </form>
             <div className="admin-cafe-toolbar">
               <label className="admin-cafe-search"><Search size={16} /><input value={cafeSearch} onChange={(event) => setCafeSearch(event.target.value)} placeholder="Buscar por nombre, dirección o zona" /></label>
-              <span>{visibleCafes.length} de {cafes.length} registros administrables</span>
+              <span>{visibleCafes.length} de {filteredCafes.length} registros administrables</span>
             </div>
             {exactLocationCandidates.length > 0 && (
               <article className="admin-panel admin-duplicate-warning">
@@ -1492,10 +1615,16 @@ function AdminDashboardPage() {
             </div>
             <div className="admin-cafe-grid">
               {visibleCafes.map((cafe) => (
-                <AdminCafeCard key={`${cafe.id}:${cafe.opening_hours || ''}`} cafe={cafe} tiktoks={cafeTiktoksByCafeId.get(cafe.id) || []} saving={actionLoading === `cafe-save:${cafe.id}`} onChange={updateCafeDraft} onSave={saveCafe} onStatusChange={updateCafeStatus} onUpload={uploadCafeCover} onAssistant={openCafeAssistant} onFindImage={findOpenImages} onAddTikTok={addCafeTikTok} onDeleteTikTok={deleteCafeTikTok} onDelete={deleteCafe} />
+                <AdminCafeCard key={`${cafe.id}:${cafe.opening_hours || ''}`} cafe={cafe} tiktoks={cafeTiktoksByCafeId.get(cafe.id) || []} saving={actionLoading === `cafe-save:${cafe.id}`} onChange={updateCafeDraft} onSave={saveCafe} onStatusChange={updateCafeStatus} onUpload={uploadCafeCover} onDeleteCover={deleteCafeCover} onAssistant={openCafeAssistant} onFindImage={findOpenImages} onAddTikTok={addCafeTikTok} onDeleteTikTok={deleteCafeTikTok} onDelete={deleteCafe} />
               ))}
-              {visibleCafes.length === 0 && <p className="admin-empty">No encontramos cafeterías con esa búsqueda.</p>}
             </div>
+            {visibleCafes.length === 0 && <p className="admin-empty">No encontramos cafeterías con esa búsqueda.</p>}
+            {visibleCafes.length < filteredCafes.length && (
+              <div className="admin-cafe-load-more" ref={cafeLoadMoreRef}>
+                <span>Cargando más cafeterías…</span>
+                <button type="button" onClick={() => setCafeVisibleCount((current) => Math.min(current + ADMIN_CAFE_PAGE_SIZE, filteredCafes.length))}>Cargar más</button>
+              </div>
+            )}
           </section>
         )}
 
@@ -1683,6 +1812,8 @@ function AdminDashboardPage() {
           </section>
         </div>
       )}
+
+      {coverCropRequest && <AdminCoverCropper file={coverCropRequest.file} onCancel={() => setCoverCropRequest(null)} onConfirm={confirmCafeCoverCrop} />}
     </main>
   );
 }
