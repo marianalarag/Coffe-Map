@@ -1,14 +1,10 @@
 const SHEET_URL = '/ratings.png';
 const SHEET_WIDTH = 247;
 const SHEET_HEIGHT = 637;
-const BEAN_SOURCE_WIDTH = 31;
-const BEAN_SOURCE_HEIGHT = 25;
-// The bottom pair in the sprite contains standalone, complete beans. Using
-// those cells avoids accidentally showing a half-rating cell in light cards.
-const BEAN_SOURCE_X = 5;
-const BEAN_SOURCE_Y = 574;
-const DARK_BEAN_SOURCE_X = 5;
-const DARK_BEAN_SOURCE_Y = 606;
+const LIGHT_BEAN_URL = '/coffee-bean-light.png';
+const DARK_BEAN_URL = '/coffee-bean-dark.png';
+const BEAN_ASSET_WIDTH = 41;
+const BEAN_ASSET_HEIGHT = 33;
 const RATING_ROW_HEIGHT = 56.7;
 const RATING_SOURCE_LEFT = 5;
 const RATING_SOURCE_TOP = 7;
@@ -17,21 +13,21 @@ const RATING_SOURCE_HEIGHT = 25;
 
 const clampRating = (value) => Math.max(0, Math.min(5, Math.round(Number(value || 0) * 2) / 2));
 
-function CoffeeBeanIcon({ size = 18, className = '', filled = false, title, style, tone = 'dark' }) {
-  const scale = size / BEAN_SOURCE_WIDTH;
-  const useDarkBean = tone === 'light' ? filled : !filled;
-  const sourceX = useDarkBean ? DARK_BEAN_SOURCE_X : BEAN_SOURCE_X;
-  const sourceY = useDarkBean ? DARK_BEAN_SOURCE_Y : BEAN_SOURCE_Y;
+function CoffeeBeanIcon({ size = 18, className = '', filled = false, fill, title, style, tone = 'dark' }) {
+  const isFilled = typeof fill === 'string' ? fill !== 'none' : filled;
+  const useDarkBean = tone === 'light' ? isFilled : !isFilled;
+  const beanHeight = size * (BEAN_ASSET_HEIGHT / BEAN_ASSET_WIDTH);
+  const beanUrl = useDarkBean ? DARK_BEAN_URL : LIGHT_BEAN_URL;
 
   return (
     <span
       className={`coffee-bean-icon ${className}`}
       style={{
         width: size,
-        height: BEAN_SOURCE_HEIGHT * scale,
-        backgroundImage: `url("${SHEET_URL}")`,
-        backgroundSize: `${SHEET_WIDTH * scale}px ${SHEET_HEIGHT * scale}px`,
-        backgroundPosition: `${-sourceX * scale}px ${-sourceY * scale}px`,
+        height: beanHeight,
+        backgroundImage: `url("${beanUrl}")`,
+        backgroundSize: `${size}px ${beanHeight}px`,
+        backgroundPosition: 'center',
         ...style,
       }}
       role={title ? 'img' : undefined}

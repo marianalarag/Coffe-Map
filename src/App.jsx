@@ -1193,7 +1193,7 @@ function App() {
                   </div>
                   <div className="map-result-copy">
                     <strong>{cafe.nombre}</strong>
-                    <span className="map-result-meta"><CoffeeBeanIcon size={12} filled /> {Number(cafe.rating || 0).toFixed(1)} · {getCafeZone(cafe)}</span>
+                    <span className="map-result-meta"><CoffeeBeanIcon size={12} filled tone="light" /> {Number(cafe.rating || 0).toFixed(1)} · {getCafeZone(cafe)}</span>
                     <span className={`map-result-status ${status.state === 'open' ? 'is-open' : ''}`}>
                       {status.state === 'open' ? status.label : status.state === 'closed' ? 'Cerrado ahora' : 'Horario por confirmar'}
                     </span>
