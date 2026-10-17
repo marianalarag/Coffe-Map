@@ -844,6 +844,7 @@ function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState('');
   const [notice, setNotice] = useState('');
+  const [photoFeedback, setPhotoFeedback] = useState({});
   const [metrics, setMetrics] = useState({});
   const [cafes, setCafes] = useState([]);
   const [photos, setPhotos] = useState([]);
@@ -1348,54 +1349,59 @@ function AdminDashboardPage() {
     }
   }, status === 'approved' ? 'Foto aprobada.' : 'Foto rechazada.');
 
-  const moderatePostPhoto = (photo, action) => runAction('post-photo:' + photo.id + ':' + action, async () => {
-    const post = postMap.get(photo.post_id);
-    const cafeId = post?.cafe_id;
+  const moderatePostPhoto = (photo, action) => {
+    const actionKey = 'post-photo:' + photo.id + ':' + action;
+    setPhotoFeedback((current) => ({ ...current, [photo.id]: '' }));
+    return runAction(actionKey, async () => {
+      const post = postMap.get(photo.post_id);
+      const cafeId = post?.cafe_id;
 
-    if (action === 'cover') {
-      if (!cafeId) throw new Error('Esta publicación no está relacionada con una cafetería.');
-      const { error: cafeError } = await supabase.from('cafes').update({
-        image_url: photo.public_url,
-        image_source_url: null,
-        image_attribution: 'Foto aprobada de una publicación de Coffee Map',
-        image_license: null,
-      }).eq('id', cafeId);
-      if (cafeError) throw cafeError;
-      const { error: resetCoverError } = await supabase.from('cafe_photos').update({ is_cover: false }).eq('cafe_id', cafeId);
-      if (resetCoverError) throw resetCoverError;
-      const { error: coverError } = await supabase.from('cafe_photos').update({
-        status: 'approved',
-        is_cover: true,
-        moderated_at: new Date().toISOString(),
-        moderated_by: user.id,
-      }).eq('storage_path', photo.storage_path);
-      if (coverError) throw coverError;
-      await refreshCafes();
-      return;
-    }
+      if (action === 'cover') {
+        if (!cafeId) throw new Error('Esta publicación no está relacionada con una cafetería.');
+        const { error: cafeError } = await supabase.from('cafes').update({
+          image_url: photo.public_url,
+          image_source_url: null,
+          image_attribution: 'Foto aprobada de una publicación de Coffee Map',
+          image_license: null,
+        }).eq('id', cafeId);
+        if (cafeError) throw cafeError;
+        const { error: resetCoverError } = await supabase.from('cafe_photos').update({ is_cover: false }).eq('cafe_id', cafeId);
+        if (resetCoverError) throw resetCoverError;
+        const { error: coverError } = await supabase.from('cafe_photos').update({
+          status: 'approved',
+          is_cover: true,
+          moderated_at: new Date().toISOString(),
+          moderated_by: user.id,
+        }).eq('storage_path', photo.storage_path);
+        if (coverError) throw coverError;
+        await refreshCafes();
+        setPhotoFeedback((current) => ({ ...current, [photo.id]: 'Portada actualizada correctamente.' }));
+        return 'Portada actualizada correctamente.';
+      }
 
-    const { data: replacement, error: replacementError } = await supabase
-      .from('post_images')
-      .select('public_url')
-      .eq('post_id', photo.post_id)
-      .neq('id', photo.id)
-      .order('position')
-      .limit(1)
-      .maybeSingle();
-    if (replacementError) throw replacementError;
-    const { error: deleteImageError } = await supabase.from('post_images').delete().eq('id', photo.id);
-    if (deleteImageError) throw deleteImageError;
-    const { error: postError } = await supabase.from('posts').update({
-      image_url: replacement?.public_url || null,
-      updated_at: new Date().toISOString(),
-    }).eq('id', photo.post_id);
-    if (postError) throw postError;
-    const { error: cafePhotoError } = await supabase.from('cafe_photos').delete()
-      .eq('post_id', photo.post_id)
-      .eq('storage_path', photo.storage_path);
-    if (cafePhotoError) throw cafePhotoError;
-    await supabase.storage.from('cafe-photos').remove([photo.storage_path]);
-  }, 'Foto bloqueada y retirada de la publicación.');
+      const { data: replacement, error: replacementError } = await supabase
+        .from('post_images')
+        .select('public_url')
+        .eq('post_id', photo.post_id)
+        .neq('id', photo.id)
+        .order('position')
+        .limit(1)
+        .maybeSingle();
+      if (replacementError) throw replacementError;
+      const { error: deleteImageError } = await supabase.from('post_images').delete().eq('id', photo.id);
+      if (deleteImageError) throw deleteImageError;
+      const { error: postError } = await supabase.from('posts').update({
+        image_url: replacement?.public_url || null,
+        updated_at: new Date().toISOString(),
+      }).eq('id', photo.post_id);
+      if (postError) throw postError;
+      const { error: cafePhotoError } = await supabase.from('cafe_photos').delete()
+        .eq('post_id', photo.post_id)
+        .eq('storage_path', photo.storage_path);
+      if (cafePhotoError) throw cafePhotoError;
+      await supabase.storage.from('cafe-photos').remove([photo.storage_path]);
+    }, 'Foto bloqueada y retirada de la publicación.');
+  };
 
   const updatePost = (post, status) => runAction(`post:${post.id}`, async () => {
     const { error } = await supabase.from('posts').update({ status }).eq('id', post.id);
@@ -1712,15 +1718,18 @@ function AdminDashboardPage() {
               const post = postMap.get(photo.post_id);
               const cafe = post?.cafe_id ? cafeMap.get(post.cafe_id) : null;
               return (
-                <article className="admin-photo-card" key={photo.id}>
+                <article className={`admin-photo-card ${photoFeedback[photo.id] ? 'is-success' : ''}`} key={photo.id}>
                   <img src={photo.public_url} alt={cafe?.nombre || 'Foto de publicación'} />
                   <div><strong>{cafe?.nombre || 'Publicación general'}</strong><small>{profileMap.get(photo.user_id)?.username || 'Usuario'} · Publicación</small></div>
                   <div className="admin-photo-rights">{post?.content || 'Sin texto en la publicación.'}</div>
                   <div className="admin-photo-actions">
-                    <button disabled={!cafe} onClick={() => moderatePostPhoto(photo, 'cover')}>Usar como portada</button>
+                    <button disabled={!cafe || Boolean(actionLoading)} onClick={() => moderatePostPhoto(photo, 'cover')}>
+                      {actionLoading === `post-photo:${photo.id}:cover` ? 'Guardando portada…' : photoFeedback[photo.id] || 'Usar como portada'}
+                    </button>
                     <button className="danger" onClick={() => moderatePostPhoto(photo, 'block')}>Bloquear</button>
                     <a className="admin-photo-download" href={photo.public_url} download target="_blank" rel="noreferrer" aria-label="Descargar foto" title="Descargar"><Download size={15} /></a>
                   </div>
+                  {photoFeedback[photo.id] && <p className="admin-photo-success" role="status">✓ Esta foto ya es la portada de {cafe?.nombre || 'la cafetería'}.</p>}
                 </article>
               );
             })}

@@ -599,6 +599,7 @@ html.is-app-mode .map-scan-control {
 .admin-photo-guide { display: flex; align-items: flex-start; gap: 12px; color: #d4bd96; }
 .admin-photo-guide p { max-width: 760px; }
 .admin-photo-card { overflow: hidden; background: #27211b; border: 1px solid rgba(238,229,210,.07); border-radius: 16px; }
+.admin-photo-card.is-success { border-color: rgba(207,225,179,.62); box-shadow: 0 0 0 2px rgba(207,225,179,.12), 0 10px 24px rgba(0,0,0,.18); }
 .admin-photo-card > img { width: 100%; height: 140px; display: block; object-fit: cover; }
 .admin-photo-card > div { display: flex; flex-direction: column; gap: 3px; padding: 10px; }
 .admin-photo-card strong { overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
@@ -607,6 +608,8 @@ html.is-app-mode .map-scan-control {
 .admin-photo-actions button { padding: 7px 5px; }
 .admin-photo-actions .danger { grid-column: 1 / -1; color: #f0b5a7; background: #4d2923; }
 .admin-photo-actions button:disabled { opacity: .4; cursor: not-allowed; }
+.admin-photo-card.is-success .admin-photo-actions button:first-child { color: #25321f; background: #cfe1b3; }
+.admin-photo-success { margin: 0; padding: 0 10px 10px; color: #cfe1b3 !important; font-size: 9px !important; font-weight: 700; line-height: 1.35; }
 .admin-photo-rights { padding: 0 10px 2px !important; color: rgba(238,229,210,.5); font-size: 8px; }
 .admin-post-row > img { width: 58px; height: 58px; flex: 0 0 auto; object-fit: cover; border-radius: 11px; }
 .admin-post-row > button { padding: 8px; }
