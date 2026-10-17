@@ -24,6 +24,33 @@ const decodeMapLink = (value) => {
   return decoded;
 };
 
+const isGoogleMapsHost = (hostname) => (
+  hostname === 'maps.app.goo.gl'
+  || hostname === 'goo.gl'
+  || hostname === 'maps.google.com'
+  || hostname === 'www.google.com'
+  || hostname.endsWith('.google.com')
+);
+
+export const isGoogleMapsLink = (value) => {
+  try {
+    const cleanValue = String(value || '').trim();
+    const candidate = /^https?:\/\//i.test(cleanValue) ? cleanValue : `https://${cleanValue}`;
+    const url = new URL(candidate);
+    return isGoogleMapsHost(url.hostname)
+      && (url.hostname === 'maps.app.goo.gl' || url.hostname === 'goo.gl' || url.hostname === 'maps.google.com' || url.pathname.includes('/maps'));
+  } catch {
+    return false;
+  }
+};
+
+export const normalizeGoogleMapsLink = (value) => {
+  const cleanValue = String(value || '').trim();
+  if (!cleanValue) return '';
+  const candidate = /^https?:\/\//i.test(cleanValue) ? cleanValue : `https://${cleanValue}`;
+  return isGoogleMapsLink(candidate) ? candidate : cleanValue;
+};
+
 export const extractGoogleMapsCoordinates = (value) => {
   const link = decodeMapLink(value);
   if (!link) return null;
@@ -63,6 +90,8 @@ const extractExplicitGoogleMapsCoordinates = (value) => {
 export const extractGoogleMapsSearchQuery = (value) => {
   const link = decodeMapLink(value);
   if (!link) return null;
+
+  if (!isGoogleMapsLink(link)) return null;
 
   try {
     const url = new URL(link);
@@ -152,15 +181,7 @@ export const geocodeCafeAddress = async (address) => {
 };
 
 const resolveGoogleMapsLink = async (link) => {
-  if (!link || typeof window === 'undefined') return null;
-  try {
-    const mapsUrl = new URL(link);
-    const isShortLink = mapsUrl.hostname === 'maps.app.goo.gl' || mapsUrl.hostname === 'goo.gl';
-    const isPlaceLink = mapsUrl.pathname.includes('/maps/place/');
-    if (!isShortLink && !isPlaceLink) return null;
-  } catch {
-    return null;
-  }
+  if (!link || typeof window === 'undefined' || !isGoogleMapsLink(link)) return null;
   try {
     const response = await fetch(`/api/maps-location?url=${encodeURIComponent(link)}`);
     if (!response.ok) return null;
@@ -172,9 +193,17 @@ const resolveGoogleMapsLink = async (link) => {
 };
 
 export const geocodeCafeLocation = async (cafe) => {
-  const mapLinks = [cafe?.link, cafe?.source_url, cafe?.sourceUrl].filter(Boolean);
+  const mapLinks = [cafe?.link].filter((link) => isGoogleMapsLink(link));
   const coordinatesFromMapLink = mapLinks.map(extractExplicitGoogleMapsCoordinates).find(Boolean);
   if (coordinatesFromMapLink) return coordinatesFromMapLink;
+
+  // Resolve the Google Maps place itself before falling back to address search.
+  // This keeps the in-app map aligned with the place selected in Google Maps
+  // instead of choosing a similarly named OpenStreetMap result.
+  for (const mapLink of mapLinks) {
+    const resolvedCoordinates = await resolveGoogleMapsLink(mapLink);
+    if (resolvedCoordinates) return resolvedCoordinates;
+  }
 
   const mapQuery = mapLinks.map(extractGoogleMapsSearchQuery).find(Boolean);
   for (const searchText of [mapQuery, cafe?.address]) {
@@ -185,11 +214,6 @@ export const geocodeCafeLocation = async (cafe) => {
     } catch {
       // Try the next available source before falling back to stored data.
     }
-  }
-
-  for (const mapLink of mapLinks) {
-    const resolvedCoordinates = await resolveGoogleMapsLink(mapLink);
-    if (resolvedCoordinates) return resolvedCoordinates;
   }
 
   // @lat,lng is only a last resort. It can represent the map viewport rather

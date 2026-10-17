@@ -627,17 +627,19 @@ html.is-app-mode .map-scan-control {
 .admin-cafe-card-row { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
 .admin-location-note { display: flex; align-items: flex-start; gap: 5px; color: rgba(238,229,210,.48); font-size: 8px; line-height: 1.35; }
 .admin-location-note svg { flex: 0 0 auto; color: #d4bd96; }
-.admin-hours-editor { display: grid; gap: 6px; margin: 0; padding: 9px; border: 1px solid rgba(238,229,210,.1); border-radius: 11px; }
+.admin-hours-editor { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 8px; row-gap: 6px; margin: 0; padding: 9px; border: 1px solid rgba(238,229,210,.1); border-radius: 11px; }
 .admin-hours-editor legend { display: inline-flex; align-items: center; gap: 5px; padding: 0 4px; color: #d4bd96; font-size: 9px; font-weight: 700; }
 .admin-hours-editor legend svg { color: var(--admin-accent); }
+.admin-hours-editor legend, .admin-hours-editor > small { grid-column: 1 / -1; }
 .admin-hours-editor > small { margin: -2px 0 2px; color: rgba(238,229,210,.45); font-size: 8px; }
-.admin-hours-row { display: grid; grid-template-columns: minmax(82px, 1fr) 70px 8px 70px; align-items: center; gap: 5px; min-height: 26px; color: rgba(238,229,210,.65); font-size: 8px; }
+.admin-hours-row { display: grid; grid-template-columns: minmax(62px, 1fr) 55px 8px 55px; align-items: center; gap: 4px; min-height: 26px; color: rgba(238,229,210,.65); font-size: 8px; }
 .admin-hours-day { display: flex; align-items: center; gap: 5px; min-width: 0; }
 .admin-hours-day input { width: 13px !important; height: 13px; flex: 0 0 auto; padding: 0 !important; accent-color: var(--admin-accent); }
 .admin-hours-day strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .admin-hours-row input[type="time"] { min-width: 0; padding: 5px 4px; font-size: 8px; }
 .admin-hours-row > span { text-align: center; }
 .admin-hours-row > em { grid-column: 2 / -1; color: rgba(238,229,210,.38); font-style: normal; }
+@media (max-width: 380px) { .admin-hours-editor { grid-template-columns: 1fr; } .admin-hours-editor legend, .admin-hours-editor > small { grid-column: auto; } .admin-hours-row { grid-template-columns: minmax(82px, 1fr) 70px 8px 70px; } }
 .admin-cafe-card-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 .admin-cafe-save { flex-basis: 100%; }
 .admin-cafe-card-actions button, .admin-cafe-card-actions a { min-height: 30px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 7px 9px; color: #2d241d; background: #e6dac1; border: 0; border-radius: 9px; font: 600 9px "Inria Serif", Georgia, serif; cursor: pointer; text-decoration: none; }

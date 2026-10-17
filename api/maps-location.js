@@ -35,10 +35,27 @@ const getCoordinatesFromHtml = (html) => {
   return null;
 };
 
+const getCoordinatesFromUrl = (value) => {
+  const decoded = decodeURIComponent(String(value || '').replaceAll('+', ' '));
+  const patterns = [
+    new RegExp(`!3d${COORDINATE_PATTERN}!4d${COORDINATE_PATTERN}`, 'i'),
+    new RegExp(`3d${COORDINATE_PATTERN}[!&,]${COORDINATE_PATTERN}`, 'i'),
+    new RegExp(`@${COORDINATE_PATTERN},${COORDINATE_PATTERN}`, 'i'),
+    new RegExp(`(?:[?&](?:q|query|ll|destination|daddr)=)${COORDINATE_PATTERN}[,+\\s]+${COORDINATE_PATTERN}`, 'i'),
+  ];
+  for (const pattern of patterns) {
+    const match = decoded.match(pattern);
+    const coordinates = match && toCoordinatePair(match[1], match[2]);
+    if (coordinates) return coordinates;
+  }
+  return null;
+};
+
 const isAllowedMapsHost = (hostname) => (
   hostname === 'maps.app.goo.gl'
   || hostname === 'goo.gl'
   || hostname === 'maps.google.com'
+  || hostname === 'google.com'
   || hostname === 'www.google.com'
   || hostname.endsWith('.google.com')
 );
@@ -64,8 +81,10 @@ export default async function mapsLocation(request, response) {
   }
 
   const isShortLink = mapsUrl.hostname === 'maps.app.goo.gl' || mapsUrl.hostname === 'goo.gl';
-  const isPlaceLink = mapsUrl.pathname.includes('/maps/place/');
-  if (!isShortLink && !isPlaceLink) {
+  const isMapsPath = mapsUrl.pathname === '/maps' || mapsUrl.pathname.startsWith('/maps/');
+  const isMapsHost = mapsUrl.hostname === 'maps.google.com';
+  const hasPlaceQuery = ['query', 'q', 'destination', 'daddr'].some((key) => mapsUrl.searchParams.has(key));
+  if (!isShortLink && !isMapsHost && (!isMapsPath || (!hasPlaceQuery && !mapsUrl.pathname.includes('/place/')))) {
     response.status(400).json({ error: 'Maps URL does not identify a place.' });
     return;
   }
@@ -79,7 +98,10 @@ export default async function mapsLocation(request, response) {
       response.status(502).json({ error: 'Maps did not return a location.' });
       return;
     }
-    const coordinates = getCoordinatesFromHtml(await result.text());
+    const html = await result.text();
+    const coordinates = getCoordinatesFromUrl(mapsUrl.href)
+      || getCoordinatesFromUrl(result.url)
+      || getCoordinatesFromHtml(html);
     if (!coordinates) {
       response.status(404).json({ error: 'Location not found in Maps response.' });
       return;

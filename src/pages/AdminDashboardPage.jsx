@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useCoffeeData } from '../context/CoffeeDataContext';
 import { supabase } from '../supabase';
 import { areDuplicateCafes, deduplicateCafes, distanceBetweenCafes, repairCafeText } from '../utils/cafeDeduplication';
-import { geocodeCafeLocation } from '../utils/cafeLocation';
+import { geocodeCafeLocation, isGoogleMapsLink, normalizeGoogleMapsLink } from '../utils/cafeLocation';
 import { toCafeDbRow } from '../utils/cafeDatabase';
 
 const MERIDA_BBOX = { south: 20.86, west: -89.75, north: 21.08, east: -89.52 };
@@ -675,7 +675,7 @@ function AdminCafeCard({ cafe, tiktoks = [], saving = false, onChange, onSave, o
         {textField('nombre', 'Nombre de la cafetería')}
         {textField('address', 'Dirección completa', true)}
         {textField('link', 'Enlace de Google Maps')}
-        <small className="admin-location-note"><MapPin size={12} /> Al guardar, el mapa actualiza automáticamente esta ubicación. Las coordenadas se calculan en segundo plano.</small>
+        <small className="admin-location-note"><MapPin size={12} /> Usa un enlace de Google Maps. Al guardar, el mapa toma esa ubicación y calcula las coordenadas automáticamente.</small>
         <div className="admin-cafe-card-row">
           <input value={cafe.neighborhood || ''} placeholder="Zona" onChange={(event) => changeField('neighborhood', event.target.value)} />
           <select value={cafe.category || 'cafeteria'} onChange={(event) => changeField('category', event.target.value)}><option value="cafeteria">Cafetería</option><option value="panaderia">Panadería</option></select>
@@ -1018,7 +1018,8 @@ function AdminDashboardPage() {
     event.preventDefault();
     return runAction('manual', async () => {
       const address = manualCafe.address.trim();
-      const link = manualCafe.link.trim();
+      const link = normalizeGoogleMapsLink(manualCafe.link);
+      if (link && !isGoogleMapsLink(link)) throw new Error('El enlace debe ser una URL válida de Google Maps.');
       const location = await geocodeCafeLocation({ address, link });
       const lat = Number(location?.lat);
       const lng = Number(location?.lng);
@@ -1262,10 +1263,14 @@ function AdminDashboardPage() {
 
   const saveCafe = (cafe, options = {}) => runAction(`cafe-save:${cafe.id}`, async () => {
     const timestamp = new Date().toISOString();
+    const normalizedLink = normalizeGoogleMapsLink(cafe.link);
+    if (options.locationDirty && options.locationField === 'link' && normalizedLink && !isGoogleMapsLink(normalizedLink)) {
+      throw new Error('El enlace debe ser una URL válida de Google Maps.');
+    }
     const patch = {
       nombre: String(cafe.nombre || '').trim(),
       address: String(cafe.address || '').trim() || null,
-      link: String(cafe.link || '').trim() || null,
+      link: normalizedLink || null,
       neighborhood: String(cafe.neighborhood || '').trim() || null,
       category: cafe.category || 'cafeteria',
       opening_hours: options.opening_hours || null,
@@ -1454,8 +1459,8 @@ function AdminDashboardPage() {
               <h2><MapPinned size={19} /> Agregar cafetería faltante</h2>
               <input placeholder="Nombre" value={manualCafe.nombre} onChange={(event) => setManualCafe({ ...manualCafe, nombre: event.target.value })} />
               <input placeholder="Dirección" value={manualCafe.address} onChange={(event) => setManualCafe({ ...manualCafe, address: event.target.value })} />
-              <input placeholder="Enlace de Maps (opcional)" value={manualCafe.link} onChange={(event) => setManualCafe({ ...manualCafe, link: event.target.value })} />
-              <small className="admin-manual-location-note">La ubicación se obtiene automáticamente desde la dirección o el enlace de Maps.</small>
+              <input type="url" inputMode="url" placeholder="Enlace de Google Maps (opcional)" value={manualCafe.link} onChange={(event) => setManualCafe({ ...manualCafe, link: event.target.value })} />
+              <small className="admin-manual-location-note">La ubicación se obtiene primero del enlace de Google Maps y después de la dirección.</small>
               <button type="submit" disabled={Boolean(actionLoading)}>Guardar cafetería</button>
             </form>
             <div className="admin-cafe-toolbar">
