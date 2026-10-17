@@ -5,9 +5,9 @@ const BEAN_SOURCE_WIDTH = 31;
 const BEAN_SOURCE_HEIGHT = 25;
 // The bottom pair in the sprite contains standalone, complete beans. Using
 // those cells avoids accidentally showing a half-rating cell in light cards.
-const BEAN_SOURCE_X = 10;
+const BEAN_SOURCE_X = 5;
 const BEAN_SOURCE_Y = 574;
-const DARK_BEAN_SOURCE_X = 10;
+const DARK_BEAN_SOURCE_X = 5;
 const DARK_BEAN_SOURCE_Y = 606;
 const RATING_ROW_HEIGHT = 56.7;
 const RATING_SOURCE_LEFT = 5;

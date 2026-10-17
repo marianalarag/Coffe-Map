@@ -110,7 +110,7 @@ function CafeCard({ cafe, interaction, onOpen }) {
       <div className="home-cafe-copy">
         <strong>{cafe.nombre}</strong>
         <div className="home-cafe-details">
-          <span><CoffeeBeanIcon size={10} filled tone="light" /> {rating.toFixed(1)}</span>
+          <span><CoffeeBeanIcon size={12} filled tone="dark" /> {rating.toFixed(1)}</span>
           <span title={getCafeAddress(cafe)}><MapPin size={14} strokeWidth={2.4} /> {getCompactAddress(cafe)}</span>
         </div>
       </div>

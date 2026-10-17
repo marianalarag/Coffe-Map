@@ -176,7 +176,7 @@ function ProfileRatingChart({ interactions, textStyle, navigate }) {
             aria-label={`Ver cafeterías calificadas con ${row.rating.toFixed(1)} de 5`}
           >
             <span>{row.rating}</span>
-            <CoffeeBeanRating value={row.rating} size={10} />
+            <CoffeeBeanRating value={row.rating} size={12} />
             <div className="profile-rating-track"><span style={{ width: `${(row.count / maxCount) * 100}%` }} /></div>
             <strong>{row.count}</strong>
           </button>
@@ -703,7 +703,7 @@ function ProfilePage() {
                     )}
                     <div className="profile-cafe-copy">
                       <strong>{cafe.nombre}</strong>
-                      <span><CoffeeBeanIcon size={11} filled tone="light" /> {Number(cafe.rating || 4.5).toFixed(1)}</span>
+                      <span><CoffeeBeanIcon size={13} filled tone="light" /> {Number(cafe.rating || 4.5).toFixed(1)}</span>
                       <span title={cafe.address || 'Dirección no disponible'}><MapPin size={13} strokeWidth={2.4} /> {getCafeNeighborhood(cafe)}</span>
                     </div>
                   </button>
@@ -749,7 +749,7 @@ function ProfilePage() {
                 <button type="button" key={visitId} onClick={() => navigate(`/cafe/${cafe.id}`)}>
                   {cafe.imageUrl ? <img src={cafe.imageUrl} alt={cafe.nombre} /> : <div className="profile-cafe-placeholder"><Coffee size={26} /></div>}
                   <strong>{cafe.nombre}</strong>
-                  <span><CoffeeBeanIcon size={12} filled tone="light" /> {Number(visitRating || cafe.rating || 0).toFixed(1)} <b><MapPin size={10} /> {getCafeNeighborhood(cafe)}</b></span>
+                  <span><CoffeeBeanIcon size={14} filled tone="light" /> {Number(visitRating || cafe.rating || 0).toFixed(1)} <b><MapPin size={10} /> {getCafeNeighborhood(cafe)}</b></span>
                 </button>
               ))}
             </div>

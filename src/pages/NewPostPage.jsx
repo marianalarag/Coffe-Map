@@ -376,7 +376,7 @@ function NewPostPage() {
           <div className="new-post-cafe-picker"><MapPin size={16} /><button type="button" onClick={() => navigate('/search?selectCafe=1&returnTo=%2Fnew-post')}>{selectedCafe?.nombre || 'Relacionar una cafetería (opcional)'}</button>{selectedCafe && <button type="button" className="new-post-cafe-clear" onClick={() => setCafeId('')} aria-label="Quitar cafetería relacionada"><X size={15} /></button>}</div>
           {selectedCafe && (
             <div className="new-post-review-options">
-              <label className="new-post-rating"><CoffeeBeanIcon size={17} /><span>Calificación</span><HalfStarRating value={rating} onChange={setRating} size={23} /></label>
+              <label className="new-post-rating"><CoffeeBeanIcon size={17} filled tone="dark" /><span>Calificación</span><HalfStarRating value={rating} onChange={setRating} size={23} /></label>
               <label className="new-post-favorite"><input type="checkbox" checked={isFavorite} onChange={(event) => setIsFavorite(event.target.checked)} /><Heart size={18} fill={isFavorite ? 'currentColor' : 'none'} /> Agregar a favoritos</label>
             </div>
           )}

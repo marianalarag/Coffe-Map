@@ -229,7 +229,7 @@ html.is-app-mode #root {
 .home-cafe-image { width: 100%; height: 100%; display: block; object-fit: cover; }
 .home-cafe-copy { padding: 5px 2px 0; }
 .home-cafe-copy strong { display: block; overflow: hidden; font-size: 11px; font-weight: 700; line-height: 1.1; text-overflow: ellipsis; white-space: nowrap; }
-.home-cafe-details { display: flex; align-items: center; justify-content: space-between; gap: 4px; margin-top: 3px; color: rgba(238,229,210,.6); font-size: 8px; }
+.home-cafe-details { display: flex; align-items: center; justify-content: space-between; gap: 4px; margin-top: 3px; color: rgba(238,229,210,.6); font-size: 10px; }
 .home-cafe-details span { display: flex; align-items: center; gap: 2px; }
 .home-cafe-details span:first-child { color: #eee5d2; }
 
@@ -1058,7 +1058,7 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 .profile-cafe-placeholder { display: grid; place-items: center; color: #493a33; background: #d7c9af; }
 .profile-cafe-copy { position: relative; display: grid; grid-template-columns: 1fr auto; grid-template-rows: 15px 13px; column-gap: 3px; padding: 4px 6px 3px; background: #eee5d2; }
 .profile-cafe-copy strong { grid-column: 1 / -1; overflow: hidden; font: 11px/1.1 "Lancelot", Georgia, serif; text-overflow: ellipsis; white-space: nowrap; }
-.profile-cafe-copy span { min-width: 0; display: flex; align-items: flex-start; gap: 2px; font: 8px/1.1 "Inria Serif", Georgia, serif; }
+.profile-cafe-copy span { min-width: 0; display: flex; align-items: flex-start; gap: 3px; font: 10px/1.1 "Inria Serif", Georgia, serif; }
 .profile-cafe-copy span:last-child { justify-self: end; max-width: 100%; text-align: right; white-space: normal; overflow-wrap: anywhere; }
 .profile-empty-recent { grid-column: 1 / -1; min-height: 113px; display: grid; place-items: center; padding: 15px; text-align: center; background: #372821; border-radius: 14px; }
 .profile-shortcuts-section { padding: 0 20px; margin-top: 28px; }
@@ -1075,12 +1075,13 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 .profile-rating-heading small { color: rgba(238,229,210,.45); font-size: 8px; letter-spacing: .09em; }
 .profile-rating-heading h2 { margin: 3px 0 0; font: 400 18px/1 "Lancelot", Georgia, serif; }
 .profile-rating-rows { display: grid; gap: 8px; }
-.profile-rating-row { width: 100%; display: grid; grid-template-columns: 25px auto minmax(50px, 1fr) 20px; align-items: center; gap: 6px; padding: 0; color: inherit; text-align: left; background: transparent; border: 0; border-radius: 6px; font: inherit; cursor: pointer; }
+.profile-rating-row { width: 100%; display: grid; grid-template-columns: 34px auto minmax(50px, 1fr) 24px; align-items: center; gap: 6px; padding: 0; color: inherit; text-align: left; background: transparent; border: 0; border-radius: 6px; font: inherit; cursor: pointer; }
 .profile-rating-row:hover { background: rgba(230,218,193,.06); }
 .profile-rating-row:focus-visible { outline: 2px solid #d4bd96; outline-offset: 3px; }
 .profile-rating-track { height: 7px; overflow: hidden; background: #3a2a22; border-radius: 999px; }
 .profile-rating-track span { display: block; height: 100%; background: #d4bd96; border-radius: inherit; transition: width .25s ease; }
-.profile-rating-row strong { color: rgba(238,229,210,.62); text-align: right; font-size: 9px; }
+.profile-rating-row > span { color: #eee5d2; font-size: 12px; font-weight: 700; }
+.profile-rating-row strong { color: rgba(238,229,210,.75); text-align: right; font-size: 11px; }
 .profile-visit-ranking-list { display: grid; gap: 7px; }
 .profile-visit-ranking-card { display: flex; align-items: center; gap: 7px; padding: 6px; background: #1d1915; border-radius: 13px; }
 .profile-visit-ranking-main { min-width: 0; display: flex; flex: 1; align-items: center; gap: 9px; padding: 0; color: #eee5d2; text-align: left; background: transparent; border: 0; cursor: pointer; }
@@ -1194,7 +1195,7 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
   .profile-cafe-card { height: 166px; border-radius: 17px; }
   .profile-cafe-copy { grid-template-rows: 18px 15px; padding: 5px 8px; }
   .profile-cafe-copy strong { font-size: 13px; }
-  .profile-cafe-copy span { font-size: 9px; }
+  .profile-cafe-copy span { font-size: 10px; }
   .profile-empty-recent { min-height: 166px; }
   .profile-shortcuts-section { padding: 0 32px; margin-top: 32px; }
   .profile-shortcuts { gap: 20px; }
@@ -1258,7 +1259,7 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 .collection-heart svg { display: block; margin: 0; transform: none; }
 .collection-cafe-copy { display: grid; grid-template-columns: 1fr auto; grid-template-rows: 17px 13px; column-gap: 3px; padding: 4px 6px 5px; }
 .collection-cafe-copy strong { grid-column: 1 / -1; overflow: hidden; font: 11px/1.1 "Lancelot", Georgia, serif; text-overflow: ellipsis; white-space: nowrap; }
-.collection-cafe-copy span { display: flex; align-items: center; gap: 2px; font: 8px/1 "Inria Serif", Georgia, serif; }
+.collection-cafe-copy span { display: flex; align-items: center; gap: 3px; font: 10px/1 "Inria Serif", Georgia, serif; }
 .collection-cafe-copy span:last-child { justify-self: end; }
 .collection-reviews-list { display: flex; flex-direction: column; gap: 10px; padding: 0 10px; }
 .collection-review-card { padding: 19px 17px 20px; color: #eee5d2; text-align: left; background: #493a33; border: 0; border-radius: 25px; cursor: pointer; }
@@ -1268,7 +1269,7 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 .collection-review-body { display: grid; grid-template-columns: 92px 1fr; gap: 12px; align-items: start; }
 .collection-review-body img { width: 92px; height: 119px; object-fit: cover; border-radius: 22px; }
 .collection-review-rating { display: flex; align-items: center; gap: 7px; min-height: 18px; margin: 2px 0 8px; color: #eee5d2; font-size: 10px; }
-.collection-review-rating span { margin-left: 4px; color: #d9c8a8; font-size: 9px; letter-spacing: 2px; }
+.collection-review-rating span { margin-left: 4px; color: #d9c8a8; font-size: 11px; font-weight: 700; letter-spacing: .02em; }
 .collection-review-body p { display: -webkit-box; overflow: hidden; margin: 0; color: rgba(238,229,210,.75); font-size: 9px; line-height: 1.43; -webkit-box-orient: vertical; -webkit-line-clamp: 7; }
 .collection-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 55vh; padding: 24px; color: rgba(238,229,210,.7); text-align: center; }
 .collection-empty svg { margin-bottom: 14px; color: #d9c8a8; }
@@ -1454,7 +1455,7 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 /* Activity cards generated by reviews and posts */
 .activity-cafe-link { display: block; margin: 14px 0 5px; padding: 0; color: #eee5d2; text-align: left; background: transparent; border: 0; font: 400 22px "Lancelot", Georgia, serif; }
 .activity-rating { display: flex; align-items: center; gap: 7px; margin: 3px 0 8px; }
-.activity-rating > span { color: rgba(238,229,210,.55); font-size: 9px; }
+.activity-rating > span { color: #d9c8a8; font-size: 12px; font-weight: 700; }
 .activity-image-carousel { position: relative; margin-top: 13px; }
 .activity-image-track { display: flex; overflow-x: auto; overflow-y: hidden; background: #1d1a15; border-radius: 15px; scroll-behavior: smooth; scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior-x: auto; touch-action: pan-x pan-y; -webkit-overflow-scrolling: touch; }
 .activity-image-track::-webkit-scrollbar { display: none; }
@@ -1528,7 +1529,7 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 .profile-visited-grid > button { min-width: 0; overflow: hidden; padding: 0 0 9px; color: #302820; text-align: left; background: #eee8dc; border: 0; border-radius: 15px; }
 .profile-visited-grid img, .profile-visited-grid .profile-cafe-placeholder { width: 100%; height: 125px; object-fit: cover; }
 .profile-visited-grid strong { display: block; overflow: hidden; padding: 7px 9px 3px; font: 16px/1.05 "Lancelot", serif; text-overflow: ellipsis; white-space: nowrap; }
-.profile-visited-grid span { display: flex; align-items: flex-start; gap: 3px; padding: 0 9px; font-size: 9px; }
+.profile-visited-grid span { display: flex; align-items: center; gap: 4px; padding: 0 9px; font-size: 11px; }
 .profile-visited-grid span > b { min-width: 0; max-width: 62%; display: flex; align-items: flex-start; gap: 2px; margin-left: auto; font-weight: 400; text-align: right; line-height: 1.1; white-space: normal; overflow-wrap: anywhere; }
 .profile-tab-empty, .friends-empty { min-height: 180px; display: grid; place-items: center; align-content: center; gap: 8px; color: rgba(230,218,193,.52); text-align: center; }
 .profile-tab-empty p, .friends-empty p { margin: 0; font-size: 10px; }
@@ -1571,6 +1572,8 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 .profile-cafe-copy strong, .profile-cafe-copy span { grid-column: 1; }
 .profile-cafe-copy span { min-height: 13px; line-height: 1.2; }
 .profile-cafe-copy span:last-child { width: 100%; max-width: none; justify-self: stretch; justify-content: flex-end; line-height: 1.2; }
+.home-cafe-image, .profile-cafe-card > img, .profile-visited-grid img, .collection-cafe-image-wrap img, .cafe-hero-image { transform: scale(1.025); transform-origin: center center; }
+.cafe-hero-image { transform: scale(1.01); }
 .admin-photo-actions a.admin-photo-download { display: inline-flex; align-items: center; justify-content: center; padding: 7px 5px; color: #2d241d; background: #e6dac1; border-radius: 11px; font: 600 10px "Inria Serif", Georgia, serif; text-decoration: none; }
 .admin-photo-actions a.admin-photo-download:hover { background: #f0e5cf; }
 

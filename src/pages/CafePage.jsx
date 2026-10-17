@@ -208,10 +208,10 @@ function CafePage({ cafeId }) {
         <ArrowLeft className="text-[#E6DAC1]" size={24} />
       </button>
 
-      <div className="h-[40vh] w-full relative shrink-0">
+      <div className="h-[40vh] w-full relative shrink-0 overflow-hidden">
         {cafe.imageUrl ? (
           <>
-            <img src={cafe.imageUrl} alt={cafe.nombre} className="w-full h-full object-cover" fetchPriority="high" decoding="async" />
+            <img src={cafe.imageUrl} alt={cafe.nombre} className="cafe-hero-image w-full h-full object-cover" fetchPriority="high" decoding="async" />
             {cafe.imageSourceUrl && (
               <a href={cafe.imageSourceUrl} target="_blank" rel="noreferrer" className="cafe-image-credit">
                 Foto: {cafe.imageAttribution || 'Wikimedia Commons'}{cafe.imageLicense ? ` · ${cafe.imageLicense}` : ''}
