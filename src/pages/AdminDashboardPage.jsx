@@ -552,7 +552,7 @@ function LegacyAdminCafeCard({ cafe, tiktoks = [], onChange, onSave, onStatusCha
     <article className="admin-cafe-card">
       <div className="admin-cafe-card-media">
         {cafe.image_url ? <>
-          <span className="admin-cafe-card-media-backdrop" style={{ backgroundImage: `url("${cafe.image_url}")` }} aria-hidden="true" />
+          <img className="admin-cafe-card-media-backdrop" src={cafe.image_url} alt="" aria-hidden="true" />
           <div className="admin-cafe-card-media-foreground">
             <img src={cafe.image_url} alt={cafe.nombre} />
           </div>
