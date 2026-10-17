@@ -63,6 +63,7 @@ function CafePage({ cafeId }) {
         .select('id,public_url,is_cover,created_at')
         .eq('cafe_id', id)
         .eq('status', 'approved')
+        .not('post_id', 'is', null)
         .order('is_cover', { ascending: false })
         .order('created_at', { ascending: false })
         .limit(12),
@@ -228,9 +229,16 @@ function CafePage({ cafeId }) {
 
       <div className="flex flex-col -mt-10 relative z-10 px-4">
         <div className="bg-[#27201A] rounded-4xl p-6 shadow-xl w-full border border-white/5 mb-6">
-          <h1 className="text-2xl font-black text-[#E6DAC1] mb-2 leading-tight uppercase font-lancelot truncate">
-            {cafe.nombre}
-          </h1>
+          <div className="cafe-detail-heading">
+            <h1 className="text-2xl font-black text-[#E6DAC1] leading-tight uppercase font-lancelot truncate">
+              {cafe.nombre}
+            </h1>
+            {cafe.instagramUrl && (
+              <a className="cafe-instagram-link" href={cafe.instagramUrl} target="_blank" rel="noreferrer" aria-label="Instagram de la cafetería" title="Abrir Instagram de la cafetería">
+                <Instagram size={24} strokeWidth={1.8} />
+              </a>
+            )}
+          </div>
 
           <div className="flex flex-wrap items-center gap-2 mt-2 mb-4">
             <div className="flex items-center gap-1 bg-[#372821] px-3 py-1.5 rounded-full">
@@ -278,11 +286,6 @@ function CafePage({ cafeId }) {
             </button>
           )}
 
-          {cafe.instagramUrl && (
-            <div className="cafe-social-links" aria-label="Redes sociales de la cafetería">
-              <a href={cafe.instagramUrl} target="_blank" rel="noreferrer" aria-label="Instagram de la cafetería" title="Abrir Instagram de la cafetería"><Instagram size={18} /></a>
-            </div>
-          )}
           {saveError && <p className="mt-3 text-center text-xs text-red-300" role="alert">{saveError}</p>}
         </div>
 

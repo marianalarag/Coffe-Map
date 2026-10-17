@@ -1221,26 +1221,12 @@ function AdminDashboardPage() {
     const { error: cafeError } = await supabase.from('cafes').update({
       image_url: data.publicUrl,
       image_source_url: null,
-      image_attribution: 'Foto de la comunidad de Coffee Map',
+      image_attribution: 'Foto añadida por la administración de Coffee Map',
       image_license: null,
     }).eq('id', cafe.id);
     if (cafeError) throw cafeError;
     const { error: resetCoverError } = await supabase.from('cafe_photos').update({ is_cover: false }).eq('cafe_id', cafe.id);
     if (resetCoverError) throw resetCoverError;
-    const { error: photoError } = await supabase.from('cafe_photos').insert({
-      cafe_id: cafe.id,
-      user_id: user.id,
-      storage_path: storagePath,
-      public_url: data.publicUrl,
-      status: 'approved',
-      is_cover: true,
-      rights_confirmed: true,
-      rights_basis: 'permission',
-      rights_note: 'La administración confirmó que cuenta con derechos o permiso para publicar esta portada.',
-      moderated_at: new Date().toISOString(),
-      moderated_by: user.id,
-    });
-    if (photoError) throw photoError;
     setCafes((current) => current.map((item) => (
       item.id === cafe.id ? { ...item, image_url: data.publicUrl } : item
     )));

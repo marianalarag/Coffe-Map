@@ -685,9 +685,10 @@ html.is-app-mode .map-scan-control {
 .admin-photo-actions { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; }
 .admin-photo-actions .danger { grid-column: auto; }
 .admin-photo-download { width: 34px; padding-inline: 0 !important; }
-.cafe-social-links { display: flex; flex-wrap: wrap; gap: 7px; margin: 0 0 15px; }
-.cafe-social-links a { display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; color: #e6dac1; background: #372821; border: 1px solid rgba(230,218,193,.12); border-radius: 999px; font-size: 10px; text-decoration: none; }
-.cafe-social-links a:hover { background: #493a33; }
+.cafe-detail-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.cafe-detail-heading h1 { min-width: 0; flex: 1; }
+.cafe-instagram-link { width: 46px; height: 46px; display: grid; flex: 0 0 46px; place-items: center; color: #e6dac1; background: #372821; border: 1px solid rgba(230,218,193,.16); border-radius: 50%; text-decoration: none; }
+.cafe-instagram-link:hover { background: #493a33; }
 .cafe-add-visit-button { width: 100%; display: flex; align-items: center; gap: 9px; margin-top: 12px; padding: 11px 13px; color: #302820; text-align: left; background: #e6dac1; border: 0; border-radius: 13px; cursor: pointer; }
 .cafe-add-visit-button:hover { filter: brightness(1.05); }
 .cafe-add-visit-button:disabled { opacity: .6; cursor: wait; }
@@ -1254,13 +1255,13 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 .collection-filter-panel button { min-height: 38px; display: flex; align-items: center; justify-content: space-between; padding: 0 11px; color: rgba(238,229,210,.68); text-align: left; background: transparent; border: 0; border-radius: 10px; font: 11px "Inria Serif", Georgia, serif; cursor: pointer; }
 .collection-filter-panel button.is-active { color: #271d18; background: #e6dac1; }
 .collection-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 11px; padding: 0 8px; }
-.collection-cafe-card { min-width: 0; overflow: hidden; padding: 0; color: #302820; text-align: left; background: #eee8dc; border: 0; border-radius: 12px; cursor: pointer; box-shadow: 0 7px 13px rgba(0,0,0,.15); }
+.collection-cafe-card { min-width: 0; display: flex; flex-direction: column; overflow: visible; padding: 0; color: #eee5d2; text-align: left; background: transparent; border: 0; border-radius: 0; cursor: pointer; box-shadow: none; }
 .collection-cafe-card:active, .collection-review-card:active { transform: scale(.98); }
-.collection-cafe-image-wrap { position: relative; height: 83px; overflow: hidden; }
-.collection-cafe-image-wrap img { position: absolute; inset: -3px 0; width: 100%; height: calc(100% + 6px); display: block; object-fit: cover; transform: none; }
-.collection-cafe-copy { display: grid; grid-template-columns: 1fr auto; grid-template-rows: 17px 13px; column-gap: 3px; padding: 4px 6px 5px; }
-.collection-cafe-copy strong { grid-column: 1 / -1; overflow: hidden; font: 11px/1.1 "Lancelot", Georgia, serif; text-overflow: ellipsis; white-space: nowrap; }
-.collection-cafe-copy span { display: flex; align-items: center; gap: 3px; font: 10px/1 "Inria Serif", Georgia, serif; }
+.collection-cafe-image-wrap { position: relative; height: 83px; overflow: hidden; background: #3a3027; border-radius: 12px; }
+.collection-cafe-image-wrap img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; object-fit: cover; transform: scale(1.025); }
+.collection-cafe-copy { display: grid; grid-template-columns: 1fr auto; grid-template-rows: 17px 13px; column-gap: 3px; padding: 6px 4px 5px; background: transparent; }
+.collection-cafe-copy strong { grid-column: 1 / -1; overflow: hidden; color: #eee5d2; font: 11px/1.1 "Lancelot", Georgia, serif; text-overflow: ellipsis; white-space: nowrap; }
+.collection-cafe-copy span { display: flex; align-items: center; gap: 3px; color: rgba(238,229,210,.76); font: 10px/1 "Inria Serif", Georgia, serif; }
 .collection-cafe-copy span:last-child { justify-self: end; }
 .collection-reviews-list { display: flex; flex-direction: column; gap: 10px; padding: 0 10px; }
 .collection-review-card { padding: 19px 17px 20px; color: #eee5d2; text-align: left; background: #493a33; border: 0; border-radius: 25px; cursor: pointer; }
