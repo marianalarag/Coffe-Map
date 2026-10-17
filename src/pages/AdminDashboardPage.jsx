@@ -152,7 +152,7 @@ const ADMIN_TIME_OPTIONS = Array.from({ length: 48 }, (_, index) => {
 
 const createEmptyAdminSchedule = () => ADMIN_DAYS.reduce((schedule, day) => ({
   ...schedule,
-  [day.key]: { open: false, from: '08:00', to: '18:00' },
+  [day.key]: { open: false, from: '08:00', to: '18:00', split: false, from2: '16:00', to2: '20:00' },
 }), {});
 
 const parseAdminTime = (value, suffix = '') => {
@@ -212,9 +212,58 @@ const parseAdminHours = (value) => {
   return schedule;
 };
 
+const parseAdminHoursWithSplits = (value) => {
+  const text = String(value || '').trim();
+  if (!text.includes(',')) return parseAdminHours(value);
+  const schedule = createEmptyAdminSchedule();
+  if (!text) return schedule;
+
+  text.split(/[;\n]+/).forEach((part) => {
+    const cleanPart = part.trim();
+    if (!cleanPart) return;
+    const rangePattern = /(\d{1,2}(?::\d{2})?\s*(?:a\.?\s*m\.?|p\.?\s*m\.?)?)\s*[-\u2013]\s*(\d{1,2}(?::\d{2})?\s*(?:a\.?\s*m\.?|p\.?\s*m\.?)?)/gi;
+    const rangeMatches = [...cleanPart.matchAll(rangePattern)];
+    const dayText = rangeMatches.length > 0
+      ? cleanPart.slice(0, rangeMatches[0].index).replace(/[:|]/g, '').trim()
+      : cleanPart.replace(/\b(?:off|closed|cerrad[oa]s?)\b/gi, '').trim();
+    const dayKeys = getAdminDayKeys(dayText);
+    if (dayKeys.length === 0) return;
+    if (/24\s*\/\s*7/i.test(cleanPart)) {
+      dayKeys.forEach((key) => { schedule[key] = { ...schedule[key], open: true, from: '00:00', to: '23:59', split: false }; });
+      return;
+    }
+    if (rangeMatches.length === 0) {
+      dayKeys.forEach((key) => { schedule[key] = { ...schedule[key], open: false, split: false }; });
+      return;
+    }
+    const ranges = rangeMatches.slice(0, 2).map((match) => ({
+      from: parseAdminTime(match[1], match[2]),
+      to: parseAdminTime(match[2]),
+    })).filter((range) => range.from && range.to);
+    if (ranges.length === 0) return;
+    dayKeys.forEach((key) => {
+      schedule[key] = {
+        ...schedule[key],
+        open: true,
+        from: ranges[0].from,
+        to: ranges[0].to,
+        split: Boolean(ranges[1]),
+        from2: ranges[1]?.from || schedule[key].from2,
+        to2: ranges[1]?.to || schedule[key].to2,
+      };
+    });
+  });
+  return schedule;
+};
+
 const serializeAdminHours = (schedule) => ADMIN_DAYS
   .filter((day) => schedule?.[day.key]?.open)
-  .map((day) => `${day.short} ${schedule[day.key].from}-${schedule[day.key].to}`)
+  .map((day) => {
+    const value = schedule[day.key];
+    const ranges = [`${value.from}-${value.to}`];
+    if (value.split && value.from2 && value.to2) ranges.push(`${value.from2}-${value.to2}`);
+    return `${day.short} ${ranges.join(',')}`;
+  })
   .join('; ') || null;
 
 function AdminTimeSelect({ value, onChange, ariaLabel }) {
@@ -665,7 +714,7 @@ function AdminSectionBuilder({ section, blocks, metrics, menuOpen, onToggleMenu,
 }
 
 function AdminCafeCard({ cafe, tiktoks = [], saving = false, onChange, onSave, onStatusChange, onUpload, onDeleteCover, onAssistant, onFindImage, onAddTikTok, onDeleteTikTok, onDelete }) {
-  const [schedule, setSchedule] = useState(() => parseAdminHours(cafe.opening_hours));
+  const [schedule, setSchedule] = useState(() => parseAdminHoursWithSplits(cafe.opening_hours));
   const [bulkHours, setBulkHours] = useState({ from: '08:00', to: '18:00' });
   const [locationDirty, setLocationDirty] = useState(false);
   const [locationField, setLocationField] = useState(null);
@@ -701,7 +750,10 @@ function AdminCafeCard({ cafe, tiktoks = [], saving = false, onChange, onSave, o
   return (
     <article className="admin-cafe-card">
       <div className="admin-cafe-card-media">
-        {cafe.image_url ? <img src={cafe.image_url} alt={cafe.nombre} /> : <Coffee size={34} />}
+        {cafe.image_url ? <>
+          <img className="admin-cafe-card-media-backdrop" src={cafe.image_url} alt="" aria-hidden="true" />
+          <div className="admin-cafe-card-media-foreground"><img src={cafe.image_url} alt={cafe.nombre} /></div>
+        </> : <Coffee size={34} />}
         <span className="admin-cafe-status">{cafe.status === 'active' ? 'Activa' : cafe.status === 'closed' ? 'Cerrada' : 'Revisar'}</span>
         <label title="Subir foto de portada"><Camera size={16} /><input hidden type="file" accept="image/*" onChange={(event) => { onUpload(cafe, event.target.files?.[0]); event.target.value = ''; }} /></label>
         {cafe.image_url && <button type="button" className="admin-cafe-cover-remove" title="Eliminar portada" aria-label={`Eliminar portada de ${cafe.nombre}`} onClick={() => onDeleteCover(cafe)}><Trash2 size={15} /></button>}
@@ -738,7 +790,22 @@ function AdminCafeCard({ cafe, tiktoks = [], saving = false, onChange, onSave, o
             const value = schedule[day.key];
             return <div className="admin-hours-row" key={day.key}>
               <label className="admin-hours-day"><input type="checkbox" checked={value.open} onChange={(event) => updateDay(day.key, { open: event.target.checked })} /><strong>{day.label}</strong></label>
-              {value.open ? <><AdminTimeSelect value={value.from} onChange={(nextValue) => updateDay(day.key, { from: nextValue })} ariaLabel={`Hora de apertura ${day.label}`} /><span>a</span><AdminTimeSelect value={value.to} onChange={(nextValue) => updateDay(day.key, { to: nextValue })} ariaLabel={`Hora de cierre ${day.label}`} /></> : <em>Cerrada</em>}
+              {value.open ? (
+                <div className="admin-hours-ranges">
+                  <div className="admin-hours-range">
+                    <AdminTimeSelect value={value.from} onChange={(nextValue) => updateDay(day.key, { from: nextValue })} ariaLabel={`Hora de apertura ${day.label}`} />
+                    <span>a</span>
+                    <AdminTimeSelect value={value.to} onChange={(nextValue) => updateDay(day.key, { to: nextValue })} ariaLabel={`Hora de cierre ${day.label}`} />
+                  </div>
+                  {value.split && <div className="admin-hours-range">
+                    <AdminTimeSelect value={value.from2 || '16:00'} onChange={(nextValue) => updateDay(day.key, { from2: nextValue })} ariaLabel={`Segunda hora de apertura ${day.label}`} />
+                    <span>a</span>
+                    <AdminTimeSelect value={value.to2 || '20:00'} onChange={(nextValue) => updateDay(day.key, { to2: nextValue })} ariaLabel={`Segunda hora de cierre ${day.label}`} />
+                    <button type="button" className="admin-hours-remove-split" onClick={() => updateDay(day.key, { split: false })} aria-label={`Quitar segundo horario de ${day.label}`} title="Quitar segundo horario">×</button>
+                  </div>}
+                  {!value.split && <button type="button" className="admin-hours-add-split" onClick={() => updateDay(day.key, { split: true, from2: '16:00', to2: '20:00' })}>+ Segundo horario</button>}
+                </div>
+              ) : <em>Cerrada</em>}
             </div>;
           })}
         </fieldset>
