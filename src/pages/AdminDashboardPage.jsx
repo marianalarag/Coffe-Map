@@ -551,7 +551,10 @@ function LegacyAdminCafeCard({ cafe, tiktoks = [], onChange, onSave, onStatusCha
   return (
     <article className="admin-cafe-card">
       <div className="admin-cafe-card-media">
-        {cafe.image_url ? <img src={cafe.image_url} alt={cafe.nombre} /> : <Coffee size={34} />}
+        {cafe.image_url ? <>
+          <span className="admin-cafe-card-media-backdrop" style={{ backgroundImage: `url("${cafe.image_url}")` }} aria-hidden="true" />
+          <img src={cafe.image_url} alt={cafe.nombre} />
+        </> : <Coffee size={34} />}
         <span className="admin-cafe-status">{cafe.status === 'active' ? 'Activa' : cafe.status === 'closed' ? 'Cerrada' : 'Revisar'}</span>
         <label title="Subir foto de portada"><Camera size={16} /><input hidden type="file" accept="image/*" onChange={(event) => onUpload(cafe, event.target.files?.[0])} /></label>
       </div>

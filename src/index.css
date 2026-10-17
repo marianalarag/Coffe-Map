@@ -622,12 +622,13 @@ html.is-app-mode .map-scan-control {
 .admin-cafe-load-more button { padding: 8px 12px; color: #2d241d; background: #e6dac1; border: 0; border-radius: 9px; font: 700 9px "Inria Serif", Georgia, serif; cursor: pointer; }
 .admin-cafe-legacy-list { display: none; }
 .admin-cafe-card { overflow: hidden; background: #27211b; border: 1px solid rgba(238,229,210,.08); border-radius: 17px; }
-.admin-cafe-card-media { position: relative; height: 145px; background: #3b3026; }
-.admin-cafe-card-media img { width: 100%; height: 100%; display: block; object-fit: cover; }
-.admin-cafe-card-media > svg { position: absolute; inset: 50% auto auto 50%; color: #bca47f; transform: translate(-50%, -50%); }
-.admin-cafe-card-media .admin-cafe-status { position: absolute; top: 9px; left: 9px; padding: 5px 8px; color: #2d241d; background: #e6dac1; border-radius: 999px; font-size: 8px; font-weight: 800; text-transform: uppercase; }
-.admin-cafe-card-media label { position: absolute; right: 9px; bottom: 9px; width: 32px; height: 32px; display: grid; place-items: center; color: #2d241d; background: #e6dac1; border-radius: 50%; cursor: pointer; }
-.admin-cafe-card-media .admin-cafe-cover-remove { position: absolute; right: 50px; bottom: 9px; width: 32px; height: 32px; display: grid; place-items: center; padding: 0; color: #f0d4ca; background: #4d2923; border: 0; border-radius: 50%; cursor: pointer; }
+.admin-cafe-card-media { position: relative; height: 145px; overflow: hidden; background: #3b3026; }
+.admin-cafe-card-media-backdrop { position: absolute; inset: -28px; background-position: center; background-size: cover; filter: blur(22px) saturate(1.08); opacity: .82; transform: scale(1.08); }
+.admin-cafe-card-media img { position: relative; z-index: 1; width: 100%; height: 100%; display: block; object-fit: contain; }
+.admin-cafe-card-media > svg { position: absolute; z-index: 1; inset: 50% auto auto 50%; color: #bca47f; transform: translate(-50%, -50%); }
+.admin-cafe-card-media .admin-cafe-status { position: absolute; z-index: 2; top: 9px; left: 9px; padding: 5px 8px; color: #2d241d; background: #e6dac1; border-radius: 999px; font-size: 8px; font-weight: 800; text-transform: uppercase; }
+.admin-cafe-card-media label { position: absolute; z-index: 2; right: 9px; bottom: 9px; width: 32px; height: 32px; display: grid; place-items: center; color: #2d241d; background: #e6dac1; border-radius: 50%; cursor: pointer; }
+.admin-cafe-card-media .admin-cafe-cover-remove { position: absolute; z-index: 2; right: 50px; bottom: 9px; width: 32px; height: 32px; display: grid; place-items: center; padding: 0; color: #f0d4ca; background: #4d2923; border: 0; border-radius: 50%; cursor: pointer; }
 .admin-cafe-card-media .admin-cafe-cover-remove:hover { background: #64352c; }
 .admin-cafe-card-body { display: grid; gap: 7px; padding: 12px; }
 .admin-cafe-card-body input, .admin-cafe-card-body textarea, .admin-cafe-card-body select { width: 100%; min-width: 0; padding: 8px 9px; color: #eee5d2; background: #1b1713; border: 1px solid rgba(238,229,210,.1); border-radius: 9px; outline: 0; font: 10px "Inria Serif", Georgia, serif; }
