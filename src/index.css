@@ -719,19 +719,21 @@ html.is-app-mode .map-scan-control {
 .cafe-tiktok-card > strong { display: block; overflow: hidden; margin: 6px 2px 0; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
 .cafe-community-gallery img { aspect-ratio: 1.35; border-radius: 12px !important; }
 .profile-crop-backdrop { position: fixed; inset: 0; z-index: 5200; display: grid; place-items: center; padding: 16px; background: rgba(8,6,5,.84); backdrop-filter: blur(9px); }
-.profile-crop-modal { width: min(560px, 100%); padding: 16px; color: #eee5d2; background: #27201a; border: 1px solid rgba(238,229,210,.14); border-radius: 22px; box-shadow: 0 24px 80px rgba(0,0,0,.55); }
+.profile-crop-modal { width: min(860px, calc(100vw - 24px)); max-height: calc(100vh - 32px); overflow: auto; padding: 20px; color: #eee5d2; background: #27201a; border: 1px solid rgba(238,229,210,.14); border-radius: 22px; box-shadow: 0 24px 80px rgba(0,0,0,.55); }
 .profile-crop-modal > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
 .profile-crop-modal > header small { color: rgba(238,229,210,.5); font-size: 8px; letter-spacing: .1em; }
 .profile-crop-modal > header h2 { margin: 2px 0 0; font: 400 21px "Lancelot", Georgia, serif; }
 .profile-crop-modal > header button { width: 30px; height: 30px; display: grid; place-items: center; color: #eee5d2; background: #3a3027; border: 0; border-radius: 50%; cursor: pointer; }
 .profile-crop-viewport { position: relative; width: 100%; aspect-ratio: 1; overflow: hidden; background: #15110e; border-radius: 16px; cursor: grab; touch-action: none; }
-.profile-crop-viewport.is-cover { aspect-ratio: 2.5; }
+.profile-crop-viewport.is-cover { aspect-ratio: 16 / 9; min-height: 280px; }
 .profile-crop-viewport:active { cursor: grabbing; }
 .profile-crop-viewport img { width: 100%; height: 100%; display: block; object-fit: cover; transition: none; will-change: transform; backface-visibility: hidden; }
+.profile-crop-viewport.is-cover img { object-fit: contain; background: #15110e; }
 .profile-crop-grid { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(90deg, transparent 33.1%, rgba(255,255,255,.6) 33.3%, transparent 33.6%, transparent 66.1%, rgba(255,255,255,.6) 66.3%, transparent 66.6%), linear-gradient(0deg, transparent 33.1%, rgba(255,255,255,.6) 33.3%, transparent 33.6%, transparent 66.1%, rgba(255,255,255,.6) 66.3%, transparent 66.6%); box-shadow: inset 0 0 0 1px rgba(255,255,255,.5); }
 .profile-crop-zoom { display: flex; align-items: center; gap: 10px; margin-top: 14px; color: rgba(238,229,210,.72); font-size: 10px; }
 .profile-crop-zoom input { flex: 1; accent-color: #e6dac1; }
 .profile-crop-help { margin: 8px 0 14px; color: rgba(238,229,210,.5); font-size: 10px; }
+.profile-crop-original-note { color: rgba(238,229,210,.68); }
 .profile-crop-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .profile-crop-actions button { min-height: 34px; padding: 8px 13px; color: #2d241d; background: #e6dac1; border: 0; border-radius: 10px; font: 700 10px "Inria Serif", Georgia, serif; cursor: pointer; }
 .profile-crop-actions .is-secondary { color: #eee5d2; background: #3a3027; }
