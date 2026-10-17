@@ -837,50 +837,127 @@ function AdminCafeCard({ cafe, tiktoks = [], saving = false, onChange, onSave, o
 function AdminCoverCropper({ file, onCancel, onConfirm }) {
   const previewUrl = useMemo(() => URL.createObjectURL(file), [file]);
   const [zoom, setZoom] = useState(1);
-  const [position, setPosition] = useState({ x: 50, y: 50 });
-  const dragRef = useRef(null);
+  const [imageSize, setImageSize] = useState(null);
+  const [cropRect, setCropRect] = useState(null);
+  const cropInteractionRef = useRef(null);
   const viewportRef = useRef(null);
 
   useEffect(() => () => URL.revokeObjectURL(previewUrl), [previewUrl]);
 
-  const handlePointerDown = (event) => {
-    dragRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
+  const imageRect = imageSize ? {
+    width: imageSize.baseWidth * zoom,
+    height: imageSize.baseHeight * zoom,
+    left: (imageSize.viewportWidth - imageSize.baseWidth * zoom) / 2,
+    top: (imageSize.viewportHeight - imageSize.baseHeight * zoom) / 2,
+  } : null;
+
+  const getCropBounds = () => {
+    const viewport = viewportRef.current;
+    if (!viewport || !imageRect) return null;
+    const width = viewport.clientWidth;
+    const height = viewport.clientHeight;
+    return {
+      left: Math.max(0, imageRect.left),
+      top: Math.max(0, imageRect.top),
+      right: Math.min(width, imageRect.left + imageRect.width),
+      bottom: Math.min(height, imageRect.top + imageRect.height),
+    };
+  };
+
+  const handleImageLoad = (event) => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    const { naturalWidth, naturalHeight } = event.currentTarget;
+    const viewportWidth = viewport.clientWidth;
+    const viewportHeight = viewport.clientHeight;
+    const scale = Math.min(viewportWidth / naturalWidth, viewportHeight / naturalHeight);
+    const baseWidth = naturalWidth * scale;
+    const baseHeight = naturalHeight * scale;
+    const left = (viewportWidth - baseWidth) / 2;
+    const top = (viewportHeight - baseHeight) / 2;
+    setImageSize({ naturalWidth, naturalHeight, viewportWidth, viewportHeight, baseWidth, baseHeight });
+    setCropRect({ x: left, y: top, width: baseWidth, height: baseHeight });
+  };
+
+  const clampCropRect = (nextRect, bounds) => {
+    const minSize = 70;
+    const width = Math.max(minSize, Math.min(nextRect.width, bounds.right - bounds.left));
+    const height = Math.max(minSize, Math.min(nextRect.height, bounds.bottom - bounds.top));
+    return {
+      x: Math.max(bounds.left, Math.min(nextRect.x, bounds.right - width)),
+      y: Math.max(bounds.top, Math.min(nextRect.y, bounds.bottom - height)),
+      width,
+      height,
+    };
+  };
+
+  const beginCropInteraction = (event, type = 'move', handle = null) => {
+    if (!cropRect || !viewportRef.current) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const bounds = viewportRef.current.getBoundingClientRect();
+    cropInteractionRef.current = {
+      pointerId: event.pointerId,
+      type,
+      handle,
+      startX: event.clientX - bounds.left,
+      startY: event.clientY - bounds.top,
+      startRect: cropRect,
+    };
     event.currentTarget.setPointerCapture?.(event.pointerId);
   };
 
-  const handlePointerMove = (event) => {
-    const drag = dragRef.current;
+  const handleCropPointerMove = (event) => {
+    const interaction = cropInteractionRef.current;
     const viewport = viewportRef.current;
-    if (!drag || drag.pointerId !== event.pointerId || !viewport) return;
-    const rect = viewport.getBoundingClientRect();
-    setPosition((current) => ({
-      x: Math.max(0, Math.min(100, current.x - ((event.clientX - drag.x) / rect.width) * 100)),
-      y: Math.max(0, Math.min(100, current.y - ((event.clientY - drag.y) / rect.height) * 100)),
-    }));
-    dragRef.current = { ...drag, x: event.clientX, y: event.clientY };
+    const bounds = getCropBounds();
+    if (!interaction || interaction.pointerId !== event.pointerId || !viewport || !bounds) return;
+    const viewportBounds = viewport.getBoundingClientRect();
+    const dx = event.clientX - viewportBounds.left - interaction.startX;
+    const dy = event.clientY - viewportBounds.top - interaction.startY;
+    const start = interaction.startRect;
+    if (interaction.type === 'move') {
+      setCropRect(clampCropRect({ ...start, x: start.x + dx, y: start.y + dy }, bounds));
+    } else {
+      let left = start.x;
+      let top = start.y;
+      let right = start.x + start.width;
+      let bottom = start.y + start.height;
+      if (interaction.handle.includes('w')) left += dx;
+      if (interaction.handle.includes('e')) right += dx;
+      if (interaction.handle.includes('n')) top += dy;
+      if (interaction.handle.includes('s')) bottom += dy;
+      setCropRect(clampCropRect({ x: left, y: top, width: right - left, height: bottom - top }, bounds));
+    }
   };
 
+  const endCropInteraction = () => { cropInteractionRef.current = null; };
+
   const exportCrop = async () => {
+    if (!cropRect || !imageSize || !imageRect) return;
     const image = new window.Image();
     image.src = previewUrl;
     await new Promise((resolve, reject) => { image.onload = resolve; image.onerror = reject; });
 
-    const targetRatio = 2.5;
-    const baseCropWidth = Math.min(image.naturalWidth, image.naturalHeight * targetRatio);
-    const baseCropHeight = baseCropWidth / targetRatio;
-    const cropWidth = baseCropWidth / zoom;
-    const cropHeight = baseCropHeight / zoom;
-    const sourceLeft = (image.naturalWidth - cropWidth) * (position.x / 100);
-    const sourceTop = (image.naturalHeight - cropHeight) * (position.y / 100);
-    const outputWidth = Math.max(1, Math.round(cropWidth));
-    const outputHeight = Math.max(1, Math.round(cropHeight));
+    const left = Math.max(cropRect.x, imageRect.left);
+    const top = Math.max(cropRect.y, imageRect.top);
+    const right = Math.min(cropRect.x + cropRect.width, imageRect.left + imageRect.width);
+    const bottom = Math.min(cropRect.y + cropRect.height, imageRect.top + imageRect.height);
+    const cropWidth = Math.max(1, right - left);
+    const cropHeight = Math.max(1, bottom - top);
+    const sourceLeft = ((left - imageRect.left) / imageRect.width) * image.naturalWidth;
+    const sourceTop = ((top - imageRect.top) / imageRect.height) * image.naturalHeight;
+    const sourceWidth = (cropWidth / imageRect.width) * image.naturalWidth;
+    const sourceHeight = (cropHeight / imageRect.height) * image.naturalHeight;
+    const outputWidth = Math.max(1, Math.round(sourceWidth));
+    const outputHeight = Math.max(1, Math.round(sourceHeight));
     const canvas = document.createElement('canvas');
     canvas.width = outputWidth;
     canvas.height = outputHeight;
     const context = canvas.getContext('2d');
     context.imageSmoothingEnabled = true;
     context.imageSmoothingQuality = 'high';
-    context.drawImage(image, sourceLeft, sourceTop, cropWidth, cropHeight, 0, 0, outputWidth, outputHeight);
+    context.drawImage(image, sourceLeft, sourceTop, sourceWidth, sourceHeight, 0, 0, outputWidth, outputHeight);
     const outputType = file.type === 'image/png' ? 'image/png' : file.type === 'image/webp' ? 'image/webp' : 'image/jpeg';
     const blob = await new Promise((resolve) => canvas.toBlob(resolve, outputType, outputType === 'image/png' ? undefined : 0.98));
     if (!blob) return;
@@ -895,16 +972,18 @@ function AdminCoverCropper({ file, onCancel, onConfirm }) {
         <div
           ref={viewportRef}
           className="profile-crop-viewport is-cover"
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={() => { dragRef.current = null; }}
-          onPointerCancel={() => { dragRef.current = null; }}
+          onPointerMove={handleCropPointerMove}
+          onPointerUp={endCropInteraction}
+          onPointerCancel={endCropInteraction}
         >
-          <img draggable={false} src={previewUrl} alt="Vista previa de portada" style={{ objectPosition: 'center center', transform: `translate(${(50 - position.x) * (zoom - 1)}%, ${(50 - position.y) * (zoom - 1)}%) scale(${zoom})`, transformOrigin: 'center center', transition: 'none' }} />
-          <div className="profile-crop-grid" aria-hidden="true" />
+          <img draggable={false} src={previewUrl} alt="Vista previa de portada" onLoad={handleImageLoad} style={imageRect ? { left: `${imageRect.left}px`, top: `${imageRect.top}px`, width: `${imageRect.width}px`, height: `${imageRect.height}px` } : { visibility: 'hidden' }} />
+          {cropRect && <div className="profile-crop-selection" style={{ left: `${cropRect.x}px`, top: `${cropRect.y}px`, width: `${cropRect.width}px`, height: `${cropRect.height}px` }} onPointerDown={(event) => beginCropInteraction(event)}>
+            <div className="profile-crop-grid" aria-hidden="true" />
+            {['nw', 'ne', 'sw', 'se'].map((handle) => <span key={handle} className={`profile-crop-handle is-${handle}`} onPointerDown={(event) => beginCropInteraction(event, 'resize', handle)} aria-hidden="true" />)}
+          </div>}
         </div>
         <label className="profile-crop-zoom">Zoom <input type="range" min="1" max="3" step="0.01" value={zoom} onChange={(event) => setZoom(Number(event.target.value))} /></label>
-        <p className="profile-crop-help profile-crop-original-note">Arrastra y usa el zoom para elegir la parte exacta que aparecera en la portada.</p>
+        <p className="profile-crop-help profile-crop-original-note">Arrastra el marco, ajusta sus esquinas y usa el zoom. Lo que quede dentro sera la portada.</p>
         <div className="profile-crop-actions"><button type="button" className="is-secondary" onClick={onCancel}>Cancelar</button><button type="button" onClick={exportCrop}>Usar este recorte</button></div>
       </section>
     </div>
