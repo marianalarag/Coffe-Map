@@ -99,7 +99,7 @@ function CollectionPage({ collection: collectionProp }) {
         {entries.length > 0 ? (
           collection === 'reviews'
             ? <ReviewsList entries={entries} onOpen={(id) => navigate(`/cafe/${id}`)} />
-            : <CafeGrid entries={entries} collection={collection} onOpen={(id) => navigate(`/cafe/${id}`)} />
+            : <CafeGrid entries={entries} onOpen={(id) => navigate(`/cafe/${id}`)} />
         ) : (
           <div className="collection-empty">
             <Icon size={30} strokeWidth={1.4} />
@@ -114,18 +114,13 @@ function CollectionPage({ collection: collectionProp }) {
   );
 }
 
-function CafeGrid({ entries, collection, onOpen }) {
-  const BadgeIcon = COLLECTIONS[collection]?.icon || Heart;
-
+function CafeGrid({ entries, onOpen }) {
   return (
     <div className="collection-grid">
       {entries.map(({ cafe, interaction }) => (
         <button className="collection-cafe-card" type="button" key={interaction.id} onClick={() => onOpen(cafe.id)}>
           <div className="collection-cafe-image-wrap">
             <img src={getImage(cafe)} alt={cafe.nombre} loading="lazy" decoding="async" />
-            <span className="collection-heart">
-              <BadgeIcon size={16} fill={collection === 'favorites' || collection === 'ratings' ? 'currentColor' : 'none'} strokeWidth={2} />
-            </span>
           </div>
           <div className="collection-cafe-copy">
             <strong>{cafe.nombre}</strong>
