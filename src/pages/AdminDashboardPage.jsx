@@ -144,6 +144,12 @@ const ADMIN_DAYS = [
   { key: 'su', short: 'Su', label: 'Domingo' },
 ];
 
+const ADMIN_TIME_OPTIONS = Array.from({ length: 48 }, (_, index) => {
+  const hours = Math.floor(index / 2);
+  const minutes = index % 2 ? '30' : '00';
+  return `${String(hours).padStart(2, '0')}:${minutes}`;
+});
+
 const createEmptyAdminSchedule = () => ADMIN_DAYS.reduce((schedule, day) => ({
   ...schedule,
   [day.key]: { open: false, from: '08:00', to: '18:00' },
@@ -210,6 +216,14 @@ const serializeAdminHours = (schedule) => ADMIN_DAYS
   .filter((day) => schedule?.[day.key]?.open)
   .map((day) => `${day.short} ${schedule[day.key].from}-${schedule[day.key].to}`)
   .join('; ') || null;
+
+function AdminTimeSelect({ value, onChange, ariaLabel }) {
+  return (
+    <select className="admin-hours-time-select" value={value} onChange={(event) => onChange(event.target.value)} aria-label={ariaLabel}>
+      {ADMIN_TIME_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
+    </select>
+  );
+}
 
 const inferAssistantFields = (message) => {
   const normalized = normalizeName(message);
@@ -647,6 +661,7 @@ function AdminSectionBuilder({ section, blocks, metrics, menuOpen, onToggleMenu,
 
 function AdminCafeCard({ cafe, tiktoks = [], saving = false, onChange, onSave, onStatusChange, onUpload, onDeleteCover, onAssistant, onFindImage, onAddTikTok, onDeleteTikTok, onDelete }) {
   const [schedule, setSchedule] = useState(() => parseAdminHours(cafe.opening_hours));
+  const [bulkHours, setBulkHours] = useState({ from: '08:00', to: '18:00' });
   const [locationDirty, setLocationDirty] = useState(false);
   const [locationField, setLocationField] = useState(null);
 
@@ -664,6 +679,19 @@ function AdminCafeCard({ cafe, tiktoks = [], saving = false, onChange, onSave, o
   };
 
   const updateDay = (key, patch) => setSchedule((current) => ({ ...current, [key]: { ...current[key], ...patch } }));
+  const applySchedulePreset = (dayKeys) => {
+    const selectedDays = new Set(dayKeys);
+    setSchedule((current) => Object.fromEntries(ADMIN_DAYS.map((day) => [
+      day.key,
+      selectedDays.has(day.key)
+        ? { ...current[day.key], open: true, from: bulkHours.from, to: bulkHours.to }
+        : { ...current[day.key], open: false },
+    ])));
+  };
+  const applyBulkHours = () => setSchedule((current) => Object.fromEntries(ADMIN_DAYS.map((day) => [
+    day.key,
+    current[day.key].open ? { ...current[day.key], from: bulkHours.from, to: bulkHours.to } : current[day.key],
+  ])));
 
   return (
     <article className="admin-cafe-card">
@@ -685,11 +713,27 @@ function AdminCafeCard({ cafe, tiktoks = [], saving = false, onChange, onSave, o
         <fieldset className="admin-hours-editor">
           <legend><Clock size={14} /> Horarios semanales</legend>
           <small>Marca los días abiertos y elige la hora de apertura y cierre.</small>
+          <div className="admin-hours-tools">
+            <div className="admin-hours-presets">
+              <span>Atajos</span>
+              <button type="button" onClick={() => applySchedulePreset(ADMIN_DAYS.slice(0, 5).map((day) => day.key))}>Lun–Vie</button>
+              <button type="button" onClick={() => applySchedulePreset(ADMIN_DAYS.slice(0, 6).map((day) => day.key))}>Lun–Sáb</button>
+              <button type="button" onClick={() => applySchedulePreset(ADMIN_DAYS.map((day) => day.key))}>Todos</button>
+              <button type="button" onClick={() => applySchedulePreset([])}>Cerrar todo</button>
+            </div>
+            <div className="admin-hours-bulk">
+              <span>Aplicar horas a días abiertos</span>
+              <AdminTimeSelect value={bulkHours.from} onChange={(value) => setBulkHours((current) => ({ ...current, from: value }))} ariaLabel="Hora de apertura para días abiertos" />
+              <span>a</span>
+              <AdminTimeSelect value={bulkHours.to} onChange={(value) => setBulkHours((current) => ({ ...current, to: value }))} ariaLabel="Hora de cierre para días abiertos" />
+              <button type="button" onClick={applyBulkHours}>Aplicar</button>
+            </div>
+          </div>
           {ADMIN_DAYS.map((day) => {
             const value = schedule[day.key];
             return <div className="admin-hours-row" key={day.key}>
               <label className="admin-hours-day"><input type="checkbox" checked={value.open} onChange={(event) => updateDay(day.key, { open: event.target.checked })} /><strong>{day.label}</strong></label>
-              {value.open ? <><input type="time" value={value.from} onChange={(event) => updateDay(day.key, { from: event.target.value })} /><span>a</span><input type="time" value={value.to} onChange={(event) => updateDay(day.key, { to: event.target.value })} /></> : <em>Cerrada</em>}
+              {value.open ? <><AdminTimeSelect value={value.from} onChange={(nextValue) => updateDay(day.key, { from: nextValue })} ariaLabel={`Hora de apertura ${day.label}`} /><span>a</span><AdminTimeSelect value={value.to} onChange={(nextValue) => updateDay(day.key, { to: nextValue })} ariaLabel={`Hora de cierre ${day.label}`} /></> : <em>Cerrada</em>}
             </div>;
           })}
         </fieldset>
@@ -781,7 +825,7 @@ function AdminCoverCropper({ file, onCancel, onConfirm }) {
           onPointerUp={() => { dragRef.current = null; }}
           onPointerCancel={() => { dragRef.current = null; }}
         >
-          <img src={previewUrl} alt="Vista previa de portada" style={{ objectPosition: `${position.x}% ${position.y}%`, transform: `scale(${zoom})` }} />
+          <img draggable={false} src={previewUrl} alt="Vista previa de portada" style={{ objectPosition: `${position.x}% ${position.y}%`, transform: `scale(${zoom})`, transformOrigin: 'center center', transition: 'none' }} />
           <div className="profile-crop-grid" aria-hidden="true" />
         </div>
         <label className="profile-crop-zoom">Zoom <input type="range" min="1" max="3" step="0.01" value={zoom} onChange={(event) => setZoom(Number(event.target.value))} /></label>
@@ -849,6 +893,7 @@ function AdminDashboardPage() {
   const cafeMap = useMemo(() => new Map(cafes.map((cafe) => [cafe.id, cafe])), [cafes]);
   const postMap = useMemo(() => new Map(posts.map((post) => [post.id, post])), [posts]);
   const exactLocationCandidates = useMemo(() => {
+    if (tab !== 'cafes') return [];
     const candidates = [];
     for (let index = 0; index < cafes.length; index += 1) {
       for (let nextIndex = index + 1; nextIndex < cafes.length; nextIndex += 1) {
@@ -861,7 +906,7 @@ function AdminDashboardPage() {
       }
     }
     return candidates;
-  }, [cafes]);
+  }, [cafes, tab]);
   const pendingCafeRequests = useMemo(() => (
     cafes
       .filter((cafe) => cafe.source === 'community' && cafe.status === 'needs_review')
@@ -1600,7 +1645,7 @@ function AdminDashboardPage() {
                 {exactLocationCandidates.length > 4 && <small>+{exactLocationCandidates.length - 4} coincidencias más</small>}
               </article>
             )}
-            <div className="admin-cafe-legacy-list">
+            {tab === 'legacy-cafes' && <div className="admin-cafe-legacy-list">
               {cafes.map((cafe) => (
                 <article className="admin-row admin-cafe-row" key={cafe.id}>
                   <div className="admin-thumb">{cafe.image_url ? <img src={cafe.image_url} alt="" /> : <Coffee size={20} />}</div>
@@ -1612,7 +1657,7 @@ function AdminDashboardPage() {
                   <label className="admin-icon-action" title="Subir portada"><Camera size={17} /><input hidden type="file" accept="image/*" onChange={(event) => uploadCafeCover(cafe, event.target.files?.[0])} /></label>
                 </article>
               ))}
-            </div>
+            </div>}
             <div className="admin-cafe-grid">
               {visibleCafes.map((cafe) => (
                 <AdminCafeCard key={`${cafe.id}:${cafe.opening_hours || ''}`} cafe={cafe} tiktoks={cafeTiktoksByCafeId.get(cafe.id) || []} saving={actionLoading === `cafe-save:${cafe.id}`} onChange={updateCafeDraft} onSave={saveCafe} onStatusChange={updateCafeStatus} onUpload={uploadCafeCover} onDeleteCover={deleteCafeCover} onAssistant={openCafeAssistant} onFindImage={findOpenImages} onAddTikTok={addCafeTikTok} onDeleteTikTok={deleteCafeTikTok} onDelete={deleteCafe} />
