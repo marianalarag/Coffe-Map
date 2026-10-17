@@ -728,7 +728,7 @@ html.is-app-mode .map-scan-control {
 .profile-crop-viewport.is-cover { aspect-ratio: 16 / 9; min-height: 280px; }
 .profile-crop-viewport:active { cursor: grabbing; }
 .profile-crop-viewport img { width: 100%; height: 100%; display: block; object-fit: cover; transition: none; will-change: transform; backface-visibility: hidden; }
-.profile-crop-viewport.is-cover img { object-fit: contain; background: #15110e; }
+.profile-crop-viewport.is-cover img { object-fit: cover; background: #15110e; }
 .profile-crop-grid { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(90deg, transparent 33.1%, rgba(255,255,255,.6) 33.3%, transparent 33.6%, transparent 66.1%, rgba(255,255,255,.6) 66.3%, transparent 66.6%), linear-gradient(0deg, transparent 33.1%, rgba(255,255,255,.6) 33.3%, transparent 33.6%, transparent 66.1%, rgba(255,255,255,.6) 66.3%, transparent 66.6%); box-shadow: inset 0 0 0 1px rgba(255,255,255,.5); }
 .profile-crop-zoom { display: flex; align-items: center; gap: 10px; margin-top: 14px; color: rgba(238,229,210,.72); font-size: 10px; }
 .profile-crop-zoom input { flex: 1; accent-color: #e6dac1; }

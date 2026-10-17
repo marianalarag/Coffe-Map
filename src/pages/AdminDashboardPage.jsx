@@ -860,7 +860,33 @@ function AdminCoverCropper({ file, onCancel, onConfirm }) {
     dragRef.current = { ...drag, x: event.clientX, y: event.clientY };
   };
 
-  const useOriginalImage = () => onConfirm(file);
+  const exportCrop = async () => {
+    const image = new window.Image();
+    image.src = previewUrl;
+    await new Promise((resolve, reject) => { image.onload = resolve; image.onerror = reject; });
+
+    const targetRatio = 2.5;
+    const baseCropWidth = Math.min(image.naturalWidth, image.naturalHeight * targetRatio);
+    const baseCropHeight = baseCropWidth / targetRatio;
+    const cropWidth = baseCropWidth / zoom;
+    const cropHeight = baseCropHeight / zoom;
+    const sourceLeft = (image.naturalWidth - cropWidth) * (position.x / 100);
+    const sourceTop = (image.naturalHeight - cropHeight) * (position.y / 100);
+    const outputWidth = Math.max(1, Math.round(cropWidth));
+    const outputHeight = Math.max(1, Math.round(cropHeight));
+    const canvas = document.createElement('canvas');
+    canvas.width = outputWidth;
+    canvas.height = outputHeight;
+    const context = canvas.getContext('2d');
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = 'high';
+    context.drawImage(image, sourceLeft, sourceTop, cropWidth, cropHeight, 0, 0, outputWidth, outputHeight);
+    const outputType = file.type === 'image/png' ? 'image/png' : file.type === 'image/webp' ? 'image/webp' : 'image/jpeg';
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, outputType, outputType === 'image/png' ? undefined : 0.98));
+    if (!blob) return;
+    const extension = outputType.split('/')[1].replace('jpeg', 'jpg');
+    onConfirm(new File([blob], `cafe-cover-cropped.${extension}`, { type: outputType, lastModified: Date.now() }));
+  };
 
   return (
     <div className="profile-crop-backdrop" role="dialog" aria-modal="true" aria-label="Ajustar portada de cafetería">
@@ -878,8 +904,8 @@ function AdminCoverCropper({ file, onCancel, onConfirm }) {
           <div className="profile-crop-grid" aria-hidden="true" />
         </div>
         <label className="profile-crop-zoom">Zoom <input type="range" min="1" max="3" step="0.01" value={zoom} onChange={(event) => setZoom(Number(event.target.value))} /></label>
-        <p className="profile-crop-help profile-crop-original-note">Ajusta la vista si quieres. Se guardara la imagen original completa, sin recortar ni recomprimir.</p>
-        <div className="profile-crop-actions"><button type="button" className="is-secondary" onClick={onCancel}>Cancelar</button><button type="button" onClick={useOriginalImage}>Usar imagen original</button></div>
+        <p className="profile-crop-help profile-crop-original-note">Arrastra y usa el zoom para elegir la parte exacta que aparecera en la portada.</p>
+        <div className="profile-crop-actions"><button type="button" className="is-secondary" onClick={onCancel}>Cancelar</button><button type="button" onClick={exportCrop}>Usar este recorte</button></div>
       </section>
     </div>
   );
