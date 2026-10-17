@@ -156,7 +156,7 @@ function ProfileImageCropper({ file, kind, onCancel, onConfirm }) {
   );
 }
 
-function ProfileRatingChart({ interactions, textStyle }) {
+function ProfileRatingChart({ interactions, textStyle, navigate }) {
   const rows = Array.from({ length: 10 }, (_, index) => 5 - (index * 0.5)).map((rating) => ({
     rating,
     count: interactions.filter((interaction) => Math.round(Number(interaction.rating || 0) * 2) / 2 === rating).length,
@@ -165,15 +165,21 @@ function ProfileRatingChart({ interactions, textStyle }) {
 
   return (
     <section className="profile-rating-chart" aria-label="Distribución de tus calificaciones">
-      <div className="profile-rating-heading"><div><small>REPARTO DE CALIFICACIONES</small><h2 style={textStyle}>Tus granitos</h2></div><CoffeeBeanIcon size={22} filled /></div>
+      <div className="profile-rating-heading"><div><small>REPARTO DE CALIFICACIONES</small><h2 style={textStyle}>Tus calificaciones</h2></div><CoffeeBeanIcon size={22} filled /></div>
       <div className="profile-rating-rows">
         {rows.map((row) => (
-          <div className="profile-rating-row" key={row.rating}>
+          <button
+            type="button"
+            className="profile-rating-row"
+            key={row.rating}
+            onClick={() => navigate(`/ratings?rating=${row.rating}`)}
+            aria-label={`Ver cafeterías calificadas con ${row.rating.toFixed(1)} de 5`}
+          >
             <span>{row.rating}</span>
             <CoffeeBeanRating value={row.rating} size={10} />
             <div className="profile-rating-track"><span style={{ width: `${(row.count / maxCount) * 100}%` }} /></div>
             <strong>{row.count}</strong>
-          </div>
+          </button>
         ))}
       </div>
     </section>
@@ -711,7 +717,7 @@ function ProfilePage() {
           </div>
         </section>
 
-        <ProfileRatingChart interactions={interactions} textStyle={textStyle} />
+        <ProfileRatingChart interactions={interactions} textStyle={textStyle} navigate={navigate} />
 
         <ProfileVisitRanking places={visitedCafeStats} textStyle={textStyle} navigate={navigate} onRemoveVisit={removeVisit} />
 

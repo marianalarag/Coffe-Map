@@ -1059,7 +1059,9 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 .profile-rating-heading small { color: rgba(238,229,210,.45); font-size: 8px; letter-spacing: .09em; }
 .profile-rating-heading h2 { margin: 3px 0 0; font: 400 18px/1 "Lancelot", Georgia, serif; }
 .profile-rating-rows { display: grid; gap: 8px; }
-.profile-rating-row { display: grid; grid-template-columns: 25px auto minmax(50px, 1fr) 20px; align-items: center; gap: 6px; font-size: 9px; }
+.profile-rating-row { width: 100%; display: grid; grid-template-columns: 25px auto minmax(50px, 1fr) 20px; align-items: center; gap: 6px; padding: 0; color: inherit; text-align: left; background: transparent; border: 0; border-radius: 6px; font: inherit; cursor: pointer; }
+.profile-rating-row:hover { background: rgba(230,218,193,.06); }
+.profile-rating-row:focus-visible { outline: 2px solid #d4bd96; outline-offset: 3px; }
 .profile-rating-track { height: 7px; overflow: hidden; background: #3a2a22; border-radius: 999px; }
 .profile-rating-track span { display: block; height: 100%; background: #d4bd96; border-radius: inherit; transition: width .25s ease; }
 .profile-rating-row strong { color: rgba(238,229,210,.62); text-align: right; font-size: 9px; }

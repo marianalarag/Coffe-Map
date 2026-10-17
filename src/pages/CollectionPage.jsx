@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, BookOpen, Check, Heart, ListPlus, MapPin, SlidersHorizontal } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import BottomNav from '../components/BottomNav';
 import PageLoading from '../components/PageLoading';
 import { useCoffeeData } from '../context/CoffeeDataContext';
@@ -38,9 +38,14 @@ const getRating = (interaction, cafe) => Number(interaction?.rating || cafe?.rat
 
 function CollectionPage({ collection: collectionProp }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { cafeById, cafesLoaded, loadCafes, interactions, interactionsLoading } = useCoffeeData();
   const collection = collectionProp || 'favorites';
   const config = COLLECTIONS[collection] || COLLECTIONS.favorites;
+  const ratingParam = new URLSearchParams(location.search).get('rating');
+  const ratingFilter = collection === 'ratings' && /^\d(?:\.5)?$/.test(ratingParam || '')
+    ? Number(ratingParam)
+    : null;
   const Icon = config.icon;
   const [showFilters, setShowFilters] = useState(false);
   const [sortMode, setSortMode] = useState('recent');
@@ -51,6 +56,7 @@ function CollectionPage({ collection: collectionProp }) {
 
   const entries = useMemo(() => interactions
     .filter(config.filter)
+    .filter((interaction) => ratingFilter === null || Math.round(Number(interaction.rating || 0) * 2) / 2 === ratingFilter)
     .map((interaction) => ({ interaction, cafe: cafeById.get(interaction.cafe_id) }))
     .filter(({ cafe }) => cafe)
     .sort((a, b) => {
@@ -58,7 +64,7 @@ function CollectionPage({ collection: collectionProp }) {
       if (sortMode === 'rating') return getRating(b.interaction, b.cafe) - getRating(a.interaction, a.cafe);
       return (b.interaction.updated_at || '').localeCompare(a.interaction.updated_at || '');
     }),
-  [cafeById, config, interactions, sortMode]);
+  [cafeById, config, interactions, ratingFilter, sortMode]);
 
   if (!cafesLoaded && interactionsLoading) {
     return <PageLoading message="Cargando tu colección..." />;
@@ -71,7 +77,7 @@ function CollectionPage({ collection: collectionProp }) {
           <button type="button" onClick={() => navigate('/profile')} aria-label="Volver al perfil">
             <ArrowLeft size={22} />
           </button>
-          <div className="collection-title"><Icon size={18} fill={collection === 'favorites' || collection === 'ratings' ? 'currentColor' : 'none'} /><span>{config.label}</span></div>
+          <div className="collection-title"><Icon size={18} fill={collection === 'favorites' || collection === 'ratings' ? 'currentColor' : 'none'} /><span>{ratingFilter === null ? config.label : `${config.label} · ${ratingFilter.toFixed(1)}`}</span></div>
           <button type="button" aria-label="Filtrar colección" aria-expanded={showFilters} onClick={() => setShowFilters((current) => !current)}><SlidersHorizontal size={18} /></button>
         </header>
 
@@ -97,8 +103,8 @@ function CollectionPage({ collection: collectionProp }) {
         ) : (
           <div className="collection-empty">
             <Icon size={30} strokeWidth={1.4} />
-            <h1>{collection === 'reviews' ? 'Aún no tienes reviews' : `Aún no tienes ${config.label.toLowerCase()}`}</h1>
-            <p>{collection === 'list' ? 'Agrega cafeterías que quieras visitar y las encontrarás aquí.' : 'Explora el mapa y guarda tus lugares favoritos.'}</p>
+            <h1>{ratingFilter === null ? (collection === 'reviews' ? 'Aún no tienes reviews' : `Aún no tienes ${config.label.toLowerCase()}`) : `No tienes cafeterías con ${ratingFilter.toFixed(1)}`}</h1>
+            <p>{ratingFilter === null && collection === 'list' ? 'Agrega cafeterías que quieras visitar y las encontrarás aquí.' : 'Explora el mapa y guarda tus lugares favoritos.'}</p>
             <button type="button" onClick={() => navigate('/map')}>Explorar cafeterías</button>
           </div>
         )}
