@@ -900,7 +900,7 @@ function AdminCoverCropper({ file, onCancel, onConfirm }) {
           onPointerUp={() => { dragRef.current = null; }}
           onPointerCancel={() => { dragRef.current = null; }}
         >
-          <img draggable={false} src={previewUrl} alt="Vista previa de portada" style={{ objectPosition: `${position.x}% ${position.y}%`, transform: `scale(${zoom})`, transformOrigin: 'center center', transition: 'none' }} />
+          <img draggable={false} src={previewUrl} alt="Vista previa de portada" style={{ objectPosition: 'center center', transform: `translate(${(50 - position.x) * (zoom - 1)}%, ${(50 - position.y) * (zoom - 1)}%) scale(${zoom})`, transformOrigin: 'center center', transition: 'none' }} />
           <div className="profile-crop-grid" aria-hidden="true" />
         </div>
         <label className="profile-crop-zoom">Zoom <input type="range" min="1" max="3" step="0.01" value={zoom} onChange={(event) => setZoom(Number(event.target.value))} /></label>
