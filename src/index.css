@@ -857,10 +857,28 @@ html.is-app-mode .map-scan-control {
   .admin-cafe-card-body > .admin-hours-editor,
   .admin-cafe-card-body > .admin-cafe-tiktoks,
   .admin-cafe-card-body > .admin-cafe-card-actions { grid-column: 1 / -1; }
+  .admin-cafe-card-body input,
+  .admin-cafe-card-body textarea,
+  .admin-cafe-card-body select { font-size: 12px; }
+  .admin-cafe-card-body textarea { line-height: 1.35; }
+  .admin-cafe-card-body .admin-location-note { font-size: 10px; }
+  .admin-hours-editor legend { font-size: 12px; }
+  .admin-hours-editor > small,
+  .admin-hours-presets > span,
+  .admin-hours-bulk > span:first-child { font-size: 10px; }
+  .admin-hours-presets button,
+  .admin-hours-bulk button { font-size: 10px; }
+  .admin-hours-time-select { font-size: 10px !important; }
+  .admin-hours-row { font-size: 10px; }
+  .admin-cafe-tiktoks-heading { font-size: 11px; }
+  .admin-cafe-tiktok-row a { font-size: 10px; }
+  .admin-add-tiktok,
+  .admin-cafe-card-actions button,
+  .admin-cafe-card-actions a { font-size: 11px; }
 }
 @media (min-width: 1200px) {
   .admin-cafe-card { display: grid; grid-template-columns: minmax(190px, 31%) minmax(0, 1fr); align-items: stretch; }
-  .admin-cafe-card-media { height: 100%; min-height: 660px; }
+  .admin-cafe-card-media { height: 390px; min-height: 390px; align-self: start; }
   .admin-cafe-card-body { min-width: 0; }
 }
 @media (max-width: 560px) {
