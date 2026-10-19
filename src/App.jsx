@@ -9,7 +9,6 @@ import {
   MapPin,
   Sparkles,
   Coffee,
-  SlidersHorizontal,
   X,
   Clock3,
   List,
@@ -273,6 +272,7 @@ function App() {
   }, [areaSearchBounds, filteredCafes])
 
   const activeFilterCount = (selectedDay !== 'any' ? 1 : 0) + (selectedRating > 0 ? 1 : 0) + (openNowOnly ? 1 : 0);
+  const scheduleFilterCount = (selectedDay !== 'any' ? 1 : 0) + (openNowOnly ? 1 : 0);
 
   const markerCafes = useMemo(() => {
     if (!mapTarget || !Number.isFinite(Number(mapTarget.lat)) || !Number.isFinite(Number(mapTarget.lng))) {
@@ -966,15 +966,12 @@ function App() {
       </div>
 
       <div className="map-filter-controls absolute left-1/2 -translate-x-1/2 z-[1000]" role="toolbar" aria-label="Filtros del mapa">
-        <button type="button" className={`map-filter-chip map-filter-icon-only ${activeFilterCount ? 'has-filter' : ''}`} onClick={() => setShowFilterPanel((current) => !current)} aria-label="Todos los filtros" title="Todos los filtros">
-          <SlidersHorizontal size={16} />
-          {activeFilterCount > 0 && <b>{activeFilterCount}</b>}
-        </button>
         <button type="button" className={`map-filter-chip map-filter-icon-only ${selectedRating ? 'has-filter' : ''}`} onClick={() => setShowRatingMenu((current) => !current)} aria-label="Filtrar por calificación" title={selectedRating ? `Calificación mínima ${formatRating(selectedRating)}` : 'Filtrar por calificación'}>
           <CoffeeBeanIcon size={16} filled={Boolean(selectedRating)} />
         </button>
-        <button type="button" className={`map-filter-chip map-filter-icon-only ${selectedDay !== 'any' ? 'has-filter' : ''}`} onClick={() => setShowFilterPanel(true)} aria-label="Filtrar por horario" title="Filtrar por horario">
+        <button type="button" className={`map-filter-chip map-filter-icon-only ${(selectedDay !== 'any' || openNowOnly) ? 'has-filter' : ''}`} onClick={() => setShowFilterPanel((current) => !current)} aria-label="Filtrar por horario" title="Filtrar por horario">
           <Clock3 size={16} />
+          {scheduleFilterCount > 0 && <b>{scheduleFilterCount}</b>}
         </button>
         <button type="button" className="map-filter-chip map-filter-icon-only" onClick={() => setResultsPanelOpen((current) => !current)} aria-label={resultsPanelOpen ? 'Mostrar mapa' : 'Mostrar lista'} title={resultsPanelOpen ? 'Mostrar mapa' : 'Mostrar lista'}>
           {resultsPanelOpen ? <MapIcon size={16} /> : <List size={16} />}
@@ -1071,7 +1068,7 @@ function App() {
                   </div>
                   <div className="map-result-copy">
                     <strong>{cafe.nombre}</strong>
-                    <span className="map-result-meta"><CoffeeBeanIcon size={12} filled tone="light" /> {formatRating(cafe.rating || 0)}</span>
+                    <span className="map-result-meta"><CoffeeBeanIcon size={12} filled tone="dark" /> {formatRating(cafe.rating || 0)}</span>
                     <span className={`map-result-status ${status.state === 'open' ? 'is-open' : ''}`}>
                       {status.state === 'open' ? status.label : status.state === 'closed' ? 'Cerrado ahora' : 'Horario por confirmar'}
                     </span>
