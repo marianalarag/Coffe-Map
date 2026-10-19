@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, BarChart3, Camera, ChevronLeft, ChevronRight, ClipboardList, Clock, Coffee, Database, Download, ExternalLink, FileUp, GripVertical, Image, Instagram, MapPin, MapPinned, Music2, Palette, Plus, RefreshCw, ScanSearch, Search, Shield, Sparkles, Trash2, Users, X } from 'lucide-react';
+import { ArrowLeft, BarChart3, Camera, ClipboardList, Clock, Coffee, Database, Download, ExternalLink, FileUp, GripVertical, Image, Instagram, MapPin, MapPinned, Music2, Palette, Plus, RefreshCw, ScanSearch, Search, Shield, Trash2, Users, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCoffeeData } from '../context/CoffeeDataContext';
@@ -19,7 +19,6 @@ const OVERTURE_CAFE_CATEGORIES = new Set(['cafe', 'coffee_shop', 'coffee', 'tea_
 const OPEN_IMAGE_CACHE = new Map();
 const OPENVERSE_API_URL = 'https://api.openverse.org/v1/images/';
 const OPENVERSE_LICENSES = new Set(['by', 'by-sa', 'cc0', 'pdm']);
-const CAFE_ASSISTANT_URL = import.meta.env.VITE_CAFE_ASSISTANT_URL || '';
 const ADMIN_CAFE_PAGE_SIZE = 24;
 const TABS = [
   { id: 'overview', label: 'Resumen', icon: <BarChart3 size={17} /> },
@@ -59,79 +58,6 @@ const searchOpenverse = async (cafeName) => {
 
   const exactResults = await request(`"${cafeName}" Mérida Yucatán`);
   return exactResults.length > 0 ? exactResults : request(`${cafeName} Mérida Yucatán cafetería`);
-};
-
-const getReverseGeocodeSuggestion = async (cafe) => {
-  const params = new URLSearchParams({
-    lat: String(cafe.lat),
-    lon: String(cafe.lng),
-    format: 'jsonv2',
-    zoom: '18',
-    addressdetails: '1',
-  });
-  const response = await fetch(`https://nominatim.openstreetmap.org/reverse?${params}`, {
-    headers: { Accept: 'application/json', 'Accept-Language': 'es' },
-  });
-  if (!response.ok) throw new Error(`Nominatim respondió con ${response.status}.`);
-  const payload = await response.json();
-  const address = payload.address || {};
-  const neighborhood = address.suburb || address.neighbourhood || address.quarter || address.city_district || null;
-  const addressText = [
-    [address.road, address.house_number].filter(Boolean).join(' '),
-    neighborhood,
-    address.city || address.town || address.municipality,
-    address.state,
-    address.postcode,
-  ].filter(Boolean).join(', ');
-  return {
-    address: addressText || null,
-    neighborhood,
-    source_url: payload.place_id ? `https://www.openstreetmap.org/?mlat=${cafe.lat}&mlon=${cafe.lng}#map=19/${cafe.lat}/${cafe.lng}` : null,
-  };
-};
-
-const researchCafe = async (cafe, request = '') => {
-  if (CAFE_ASSISTANT_URL) {
-    const response = await fetch(CAFE_ASSISTANT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: request, cafe, locale: 'es-MX', city: 'Mérida, Yucatán' }),
-    });
-    if (!response.ok) throw new Error(`El asistente respondió con ${response.status}.`);
-    return response.json();
-  }
-
-  const [locationResult, imageResult] = await Promise.allSettled([
-    getReverseGeocodeSuggestion(cafe),
-    searchOpenverse(cafe.nombre),
-  ]);
-  const location = locationResult.status === 'fulfilled' ? locationResult.value : {};
-  const images = imageResult.status === 'fulfilled' ? imageResult.value : [];
-  return {
-    address: location.address || cafe.address || null,
-    neighborhood: location.neighborhood || cafe.neighborhood || null,
-    opening_hours: cafe.opening_hours || null,
-    opening_hours_source: cafe.opening_hours ? cafe.opening_hours_source || 'osm' : null,
-    opening_hours_source_url: cafe.opening_hours_source_url || null,
-    image: images[0] || null,
-    sources: [location.source_url, images[0]?.foreign_landing_url].filter(Boolean),
-    mode: 'open-sources',
-  };
-};
-
-const getOsmCafeSuggestion = async (cafe) => {
-  const sourceId = String(cafe.source_id || '');
-  if (!/^(node|way|relation)\/\d+$/.test(sourceId)) return {};
-  const response = await fetch(`https://api.openstreetmap.org/api/0.6/${sourceId}.json`);
-  if (!response.ok) return {};
-  const payload = await response.json();
-  const element = payload.elements?.[0];
-  const tags = element?.tags || {};
-  return tags.opening_hours ? {
-    opening_hours: tags.opening_hours,
-    opening_hours_source: 'osm',
-    opening_hours_source_url: `https://www.openstreetmap.org/${sourceId}`,
-  } : {};
 };
 
 const ADMIN_DAYS = [
@@ -273,56 +199,6 @@ function AdminTimeSelect({ value, onChange, ariaLabel }) {
     </select>
   );
 }
-
-const inferAssistantFields = (message) => {
-  const normalized = normalizeName(message);
-  const fields = new Set();
-  if (/horar|hora|apertura|cerrad|abiert/.test(normalized)) fields.add('hours');
-  if (/portada|foto|imagen|cover/.test(normalized)) fields.add('image');
-  if (/ubicacion|direccion|colonia|zona/.test(normalized)) fields.add('location');
-  return fields.size > 0 ? fields : new Set(['hours', 'image', 'location']);
-};
-
-const researchCafeForTask = async (cafe, request, fields) => {
-  if (CAFE_ASSISTANT_URL) {
-    const payload = await researchCafe(cafe, request);
-    return payload.suggestion || payload.data || payload;
-  }
-  const requests = [];
-  if (fields.has('hours')) requests.push(getOsmCafeSuggestion(cafe));
-  if (fields.has('location')) requests.push(getReverseGeocodeSuggestion(cafe));
-  if (fields.has('image')) requests.push(searchOpenverse(cafe.nombre).then((images) => ({ image: images[0] || null, sources: [images[0]?.foreign_landing_url].filter(Boolean) })));
-  const results = await Promise.allSettled(requests);
-  return results.reduce((suggestion, result) => result.status === 'fulfilled' ? { ...suggestion, ...result.value } : suggestion, {
-    address: cafe.address || null,
-    neighborhood: cafe.neighborhood || null,
-    opening_hours: cafe.opening_hours || null,
-    opening_hours_source: cafe.opening_hours ? cafe.opening_hours_source || 'osm' : null,
-    opening_hours_source_url: cafe.opening_hours_source_url || null,
-    mode: 'open-sources',
-  });
-};
-
-const getAssistantPatch = (cafe, suggestion) => {
-  const image = suggestion?.image || {};
-  const patch = {};
-  const imageUrl = suggestion?.image_url || image.url;
-  if (!cafe.address && suggestion?.address) patch.address = suggestion.address;
-  if (!cafe.neighborhood && suggestion?.neighborhood) patch.neighborhood = suggestion.neighborhood;
-  if (!cafe.opening_hours && suggestion?.opening_hours) {
-    patch.opening_hours = suggestion.opening_hours;
-    patch.opening_hours_source = suggestion.opening_hours_source || 'assistant';
-    patch.opening_hours_source_url = suggestion.opening_hours_source_url || null;
-    patch.opening_hours_verified_at = new Date().toISOString();
-  }
-  if (!cafe.image_url && imageUrl) {
-    patch.image_url = imageUrl;
-    patch.image_source_url = suggestion.image_source_url || image.foreign_landing_url || null;
-    patch.image_attribution = suggestion.image_attribution || [image.creator || image.title || 'Autor no indicado', image.provider ? `vía ${image.provider}` : 'vía Openverse'].join(' · ');
-    patch.image_license = suggestion.image_license || getOpenverseLicenseLabel(image);
-  }
-  return patch;
-};
 
 const isInsideMerida = ({ lat, lng }) => (
   lat >= MERIDA_BBOX.south && lat <= MERIDA_BBOX.north
@@ -591,61 +467,6 @@ function MetricCard({ label, value, icon }) {
   );
 }
 
-function LegacyAdminCafeCard({ cafe, tiktoks = [], onChange, onSave, onStatusChange, onUpload, onAssistant, onFindImage, onAddTikTok, onDeleteTikTok, onDelete }) {
-  const textField = (field, placeholder, multiline = false) => {
-    const Component = multiline ? 'textarea' : 'input';
-    return <Component value={cafe[field] || ''} placeholder={placeholder} onChange={(event) => onChange(cafe.id, field, event.target.value)} onBlur={() => onSave(cafe, field, cafe[field] || null)} />;
-  };
-
-  return (
-    <article className="admin-cafe-card">
-      <div className="admin-cafe-card-media">
-        {cafe.image_url ? <>
-          <img className="admin-cafe-card-media-backdrop" src={cafe.image_url} alt="" aria-hidden="true" />
-          <div className="admin-cafe-card-media-foreground">
-            <img src={cafe.image_url} alt={cafe.nombre} />
-          </div>
-        </> : <Coffee size={34} />}
-        <span className="admin-cafe-status">{cafe.status === 'active' ? 'Activa' : cafe.status === 'closed' ? 'Cerrada' : 'Revisar'}</span>
-        <label title="Subir foto de portada"><Camera size={16} /><input hidden type="file" accept="image/*" onChange={(event) => onUpload(cafe, event.target.files?.[0])} /></label>
-      </div>
-      <div className="admin-cafe-card-body">
-        {textField('nombre', 'Nombre de la cafetería')}
-        {textField('address', 'Dirección completa', true)}
-        {textField('link', 'Enlace de Google Maps')}
-        <div className="admin-cafe-card-row">
-          <input value={cafe.lat ?? ''} placeholder="Latitud" onChange={(event) => onChange(cafe.id, 'lat', event.target.value)} onBlur={() => onSave(cafe, 'lat', cafe.lat)} />
-          <input value={cafe.lng ?? ''} placeholder="Longitud" onChange={(event) => onChange(cafe.id, 'lng', event.target.value)} onBlur={() => onSave(cafe, 'lng', cafe.lng)} />
-        </div>
-        <div className="admin-cafe-card-row">
-          <input value={cafe.neighborhood || ''} placeholder="Zona" onChange={(event) => onChange(cafe.id, 'neighborhood', event.target.value)} onBlur={() => onSave(cafe, 'neighborhood', cafe.neighborhood || null)} />
-          <select value={cafe.category || 'cafeteria'} onChange={(event) => { onChange(cafe.id, 'category', event.target.value); onSave(cafe, 'category', event.target.value); }}><option value="cafeteria">Cafetería</option><option value="panaderia">Panadería</option></select>
-        </div>
-        {textField('opening_hours', 'Horarios (Mo-Fr 08:00-20:00)', true)}
-        {textField('image_url', 'URL de foto de portada')}
-        <div className="admin-cafe-card-socials">
-          <label><Instagram size={14} /><input value={cafe.instagram_url || ''} placeholder="Instagram" onChange={(event) => onChange(cafe.id, 'instagram_url', event.target.value)} onBlur={() => onSave(cafe, 'instagram_url', cafe.instagram_url || null)} /></label>
-        </div>
-        <div className="admin-cafe-tiktoks">
-          <div className="admin-cafe-tiktoks-heading"><span><Music2 size={14} /> TikToks relacionados</span><small>{tiktoks.length}</small></div>
-          {tiktoks.map((tiktok) => <div className="admin-cafe-tiktok-row" key={tiktok.id}><a href={tiktok.url} target="_blank" rel="noreferrer" title={tiktok.title || tiktok.url}>{tiktok.title || tiktok.url}</a><button type="button" onClick={() => onDeleteTikTok(tiktok)} aria-label="Eliminar TikTok" title="Eliminar TikTok"><Trash2 size={13} /></button></div>)}
-          <button type="button" className="admin-add-tiktok" onClick={() => onAddTikTok(cafe)}><Plus size={13} /> Añadir TikTok</button>
-        </div>
-        <div className="admin-cafe-card-row">
-          <select value={cafe.status} onChange={(event) => onStatusChange(cafe, event.target.value)}><option value="active">Activa</option><option value="needs_review">Revisar</option><option value="closed">Cerrada</option></select>
-          <small className="admin-row-copy"><span>{cafe.source || 'manual'} · {cafe.neighborhood || 'Zona por confirmar'}</span></small>
-        </div>
-        <div className="admin-cafe-card-actions">
-          <button type="button" title="Revisar datos" onClick={() => onAssistant(cafe)}><Sparkles size={14} /> Revisar</button>
-          <button type="button" title="Buscar foto con licencia abierta" onClick={() => onFindImage(cafe)}><Search size={14} /> Foto</button>
-          {cafe.link && <a href={cafe.link} target="_blank" rel="noreferrer" title="Abrir ubicación"><MapPin size={14} /> Maps</a>}
-          <button type="button" className="is-danger" title="Eliminar cafetería" onClick={() => onDelete(cafe)}><Trash2 size={14} /> Eliminar</button>
-        </div>
-      </div>
-    </article>
-  );
-}
-
 const BUILDER_OPTIONS = [
   { type: 'field', label: 'Campo', icon: <Database size={15} />, description: 'Etiqueta y valor' },
   { type: 'text', label: 'Texto', icon: <FileUp size={15} />, description: 'Nota editable' },
@@ -713,14 +534,31 @@ function AdminSectionBuilder({ section, blocks, metrics, menuOpen, onToggleMenu,
   );
 }
 
-function AdminCafeCard({ cafe, tiktoks = [], saving = false, onChange, onSave, onStatusChange, onUpload, onDeleteCover, onAssistant, onFindImage, onAddTikTok, onDeleteTikTok, onDelete }) {
+function AdminCafeCard({ cafe, tiktoks = [], saving = false, onSave: persistCafe, onStatusChange, onUpload, onDeleteCover, onFindImage, onAddTikTok, onDeleteTikTok, onDelete }) {
+  const [draft, setDraft] = useState(() => ({
+    nombre: cafe.nombre || '',
+    address: cafe.address || '',
+    link: cafe.link || '',
+    neighborhood: cafe.neighborhood || '',
+    category: cafe.category || 'cafeteria',
+    image_url: cafe.image_url || '',
+    instagram_url: cafe.instagram_url || '',
+  }));
+  const [dirtyFields, setDirtyFields] = useState(() => new Set());
   const [schedule, setSchedule] = useState(() => parseAdminHoursWithSplits(cafe.opening_hours));
   const [bulkHours, setBulkHours] = useState({ from: '08:00', to: '18:00' });
   const [locationDirty, setLocationDirty] = useState(false);
   const [locationField, setLocationField] = useState(null);
 
+  const fieldValue = (field) => (dirtyFields.has(field) ? draft[field] : (cafe[field] || ''));
+  const onSave = (_cafe, options) => {
+    const editedFields = Object.fromEntries([...dirtyFields].map((field) => [field, draft[field]]));
+    persistCafe({ ...cafe, ...editedFields }, options);
+  };
+
   const changeField = (field, value) => {
-    onChange(cafe.id, field, value);
+    setDraft((current) => ({ ...current, [field]: value }));
+    setDirtyFields((current) => new Set(current).add(field));
     if (field === 'address' || field === 'link') {
       setLocationDirty(true);
       setLocationField(field);
@@ -729,7 +567,7 @@ function AdminCafeCard({ cafe, tiktoks = [], saving = false, onChange, onSave, o
 
   const textField = (field, placeholder, multiline = false) => {
     const Component = multiline ? 'textarea' : 'input';
-    return <Component value={cafe[field] || ''} placeholder={placeholder} onChange={(event) => changeField(field, event.target.value)} />;
+    return <Component value={fieldValue(field)} placeholder={placeholder} onChange={(event) => changeField(field, event.target.value)} />;
   };
 
   const updateDay = (key, patch) => setSchedule((current) => ({ ...current, [key]: { ...current[key], ...patch } }));
@@ -764,8 +602,8 @@ function AdminCafeCard({ cafe, tiktoks = [], saving = false, onChange, onSave, o
         {textField('link', 'Enlace de Google Maps')}
         <small className="admin-location-note"><MapPin size={12} /> Usa un enlace de Google Maps. Al guardar, el mapa toma esa ubicación y calcula las coordenadas automáticamente.</small>
         <div className="admin-cafe-card-row">
-          <input value={cafe.neighborhood || ''} placeholder="Zona" onChange={(event) => changeField('neighborhood', event.target.value)} />
-          <select value={cafe.category || 'cafeteria'} onChange={(event) => changeField('category', event.target.value)}><option value="cafeteria">Cafetería</option><option value="panaderia">Panadería</option></select>
+          <input value={fieldValue('neighborhood')} placeholder="Zona" onChange={(event) => changeField('neighborhood', event.target.value)} />
+          <select value={fieldValue('category') || 'cafeteria'} onChange={(event) => changeField('category', event.target.value)}><option value="cafeteria">Cafetería</option><option value="panaderia">Panadería</option></select>
         </div>
         <fieldset className="admin-hours-editor">
           <legend><Clock size={14} /> Horarios semanales</legend>
@@ -811,7 +649,7 @@ function AdminCafeCard({ cafe, tiktoks = [], saving = false, onChange, onSave, o
         </fieldset>
         {textField('image_url', 'URL de foto de portada')}
         <div className="admin-cafe-card-socials">
-          <label><Instagram size={14} /><input value={cafe.instagram_url || ''} placeholder="Instagram" onChange={(event) => changeField('instagram_url', event.target.value)} /></label>
+          <label><Instagram size={14} /><input value={fieldValue('instagram_url')} placeholder="Instagram" onChange={(event) => changeField('instagram_url', event.target.value)} /></label>
         </div>
         <div className="admin-cafe-tiktoks">
           <div className="admin-cafe-tiktoks-heading"><span><Music2 size={14} /> TikToks relacionados</span><small>{tiktoks.length}</small></div>
@@ -824,7 +662,6 @@ function AdminCafeCard({ cafe, tiktoks = [], saving = false, onChange, onSave, o
         </div>
         <div className="admin-cafe-card-actions">
           <button type="button" className="admin-cafe-save" title="Guardar cambios" onClick={() => { onSave(cafe, { locationDirty, locationField, opening_hours: serializeAdminHours(schedule) }); setLocationDirty(false); }} disabled={saving}><Database size={14} /> {saving ? 'Guardando…' : 'Guardar cambios'}</button>
-          <button type="button" title="Revisar datos" onClick={() => onAssistant(cafe)}><Sparkles size={14} /> Revisar</button>
           <button type="button" title="Buscar foto con licencia abierta" onClick={() => onFindImage(cafe)}><Search size={14} /> Foto</button>
           {cafe.link && <a href={cafe.link} target="_blank" rel="noreferrer" title="Abrir ubicación"><MapPin size={14} /> Maps</a>}
           <button type="button" className="is-danger" title="Eliminar cafetería" onClick={() => onDelete(cafe)}><Trash2 size={14} /> Eliminar</button>
@@ -1012,15 +849,6 @@ function AdminDashboardPage() {
   const [openImageLoading, setOpenImageLoading] = useState(false);
   const [openImageError, setOpenImageError] = useState('');
   const [openImageVerified, setOpenImageVerified] = useState(false);
-  const [assistantLoading, setAssistantLoading] = useState(false);
-  const [assistantError, setAssistantError] = useState('');
-  const [assistantBatch, setAssistantBatch] = useState(null);
-  const [assistantVerified, setAssistantVerified] = useState(false);
-  const [assistantProgress, setAssistantProgress] = useState('');
-  const [assistantOpen, setAssistantOpen] = useState(false);
-  const [assistantCollapsed, setAssistantCollapsed] = useState(false);
-  const [assistantInput, setAssistantInput] = useState('');
-  const [assistantMessages, setAssistantMessages] = useState([]);
   const [cafeSearch, setCafeSearch] = useState('');
   const [cafeVisibleCount, setCafeVisibleCount] = useState(ADMIN_CAFE_PAGE_SIZE);
   const [coverCropRequest, setCoverCropRequest] = useState(null);
@@ -1176,12 +1004,12 @@ function AdminDashboardPage() {
     setDraggedCustomBlock(null);
   };
 
-  const runAction = async (key, action, successMessage) => {
+  const runAction = async (key, action, successMessage, { reload = true } = {}) => {
     setActionLoading(key);
     setNotice('');
     try {
       const actionMessage = await action();
-      await loadDashboard();
+      if (reload) await loadDashboard();
       setNotice(actionMessage || successMessage);
     } catch (error) {
       setNotice(`Error: ${error.message}`);
@@ -1189,94 +1017,6 @@ function AdminDashboardPage() {
       setActionLoading('');
     }
   };
-
-  const openCafeAssistant = (cafe = null) => {
-    setAssistantError('');
-    setAssistantVerified(false);
-    setAssistantBatch(null);
-    setAssistantProgress('');
-    setAssistantInput(cafe ? `Revisa la información faltante de ${cafe.nombre}` : '');
-    setAssistantCollapsed(false);
-    setAssistantMessages([{
-      role: 'assistant',
-      content: cafe
-        ? `Puedo revisar ${cafe.nombre} o trabajar por lotes. Pídeme horarios, ubicaciones, colonias o portadas faltantes.`
-        : 'Hola. Pídeme una tarea para todo el panel, por ejemplo: “busca los horarios de las cafeterías y agrégalos a las faltantes”.',
-    }]);
-    setAssistantOpen(true);
-  };
-
-  const sendAssistantMessage = async (event) => {
-    event.preventDefault();
-    const message = assistantInput.trim();
-    if (!message || assistantLoading) return;
-
-    const nextMessages = [...assistantMessages, { role: 'user', content: message }];
-    const fields = inferAssistantFields(message);
-    const normalizedMessage = normalizeName(message);
-    const namedCafes = cafes.filter((cafe) => normalizedMessage.includes(normalizeName(cafe.nombre)));
-    const targetPool = namedCafes.length > 0 ? namedCafes : cafes;
-    const targets = targetPool.filter((cafe) => (
-      (fields.has('hours') && !cafe.opening_hours)
-      || (fields.has('image') && !cafe.image_url)
-      || (fields.has('location') && (!cafe.address || !cafe.neighborhood))
-    ));
-
-    setAssistantMessages(nextMessages);
-    setAssistantInput('');
-    setAssistantError('');
-    setAssistantVerified(false);
-    setAssistantBatch(null);
-    setAssistantLoading(true);
-    try {
-      if (targets.length === 0) {
-        setAssistantMessages((current) => [...current, { role: 'assistant', content: 'No encontré cafeterías con esos datos faltantes. No modifiqué registros existentes.' }]);
-        return;
-      }
-
-      const results = [];
-      const batchSize = CAFE_ASSISTANT_URL ? 4 : 3;
-      for (let index = 0; index < targets.length; index += batchSize) {
-        const currentTargets = targets.slice(index, index + batchSize);
-        setAssistantProgress(`Investigando ${Math.min(index + currentTargets.length, targets.length)} de ${targets.length} cafeterías…`);
-        const researched = await Promise.allSettled(currentTargets.map((cafe) => researchCafeForTask(cafe, message, fields)));
-        researched.forEach((result, resultIndex) => {
-          if (result.status === 'fulfilled') {
-            const cafe = currentTargets[resultIndex];
-            const patch = getAssistantPatch(cafe, result.value);
-            if (Object.keys(patch).length > 0) results.push({ cafe, suggestion: result.value, patch });
-          }
-        });
-      }
-
-      setAssistantBatch(results);
-      const changes = results.reduce((total, result) => total + Object.keys(result.patch).length, 0);
-      setAssistantMessages((current) => [...current, {
-        role: 'assistant',
-        content: `Terminé la revisión de ${targets.length} cafeterías. Preparé ${changes} cambios en ${results.length} registros. Revisa las fuentes y confirma para guardarlos en la web.`,
-      }]);
-    } catch (error) {
-      setAssistantError(error.message || 'No se pudo completar la tarea.');
-      setAssistantMessages((current) => [...current, { role: 'assistant', content: 'No pude completar la tarea. Revisa la conexión e intenta otra vez.' }]);
-    } finally {
-      setAssistantProgress('');
-      setAssistantLoading(false);
-    }
-  };
-
-  const applyAssistantBatch = () => runAction('assistant-batch', async () => {
-    if (!assistantVerified) throw new Error('Confirma que revisaste las fuentes antes de guardar.');
-    if (!assistantBatch?.length) throw new Error('No hay cambios sugeridos para guardar.');
-    const updates = await Promise.all(assistantBatch.map(({ cafe, patch }) => (
-      supabase.from('cafes').update(patch).eq('id', cafe.id)
-    )));
-    const updateError = updates.find((result) => result.error)?.error;
-    if (updateError) throw updateError;
-    await refreshCafes();
-    setAssistantMessages((current) => [...current, { role: 'assistant', content: `Guardé ${assistantBatch.length} cafeterías. Los horarios, ubicaciones y portadas ya quedaron conservados en la base de datos.` }]);
-    setAssistantBatch(null);
-    setAssistantVerified(false);
-  }, `Cambios del asistente guardados en ${assistantBatch?.length || 0} cafeterías.`);
 
   const importOsm = () => runAction('scan', async () => {
     const result = await scanOpenStreetMap(({ current, total, found, failed }) => {
@@ -1553,28 +1293,6 @@ function AdminDashboardPage() {
     if (error) throw error;
   }, 'Publicación eliminada.');
 
-  const updateCafeDraft = (cafeId, field, value) => {
-    setCafes((current) => current.map((cafe) => cafe.id === cafeId ? { ...cafe, [field]: value } : cafe));
-  };
-
-  const saveCafeFieldLegacy = (cafe, field, value) => {
-    const numericField = field === 'lat' || field === 'lng';
-    const nextValue = numericField ? Number(value) : (typeof value === 'string' ? value.trim() || null : value);
-    if (numericField && !Number.isFinite(nextValue)) return;
-    return runAction(`cafe-field:${cafe.id}:${field}`, async () => {
-      const patch = { [field]: nextValue, updated_at: new Date().toISOString() };
-      if (field === 'opening_hours') {
-        patch.opening_hours_source = nextValue ? 'admin' : null;
-        patch.opening_hours_source_url = null;
-        patch.opening_hours_verified_at = nextValue ? new Date().toISOString() : null;
-      }
-      const { error } = await supabase.from('cafes').update(patch).eq('id', cafe.id);
-      if (error) throw error;
-    }, 'Cafetería actualizada.');
-  };
-
-  void saveCafeFieldLegacy;
-
   const saveCafe = (cafe, options = {}) => runAction(`cafe-save:${cafe.id}`, async () => {
     const timestamp = new Date().toISOString();
     const normalizedLink = normalizeGoogleMapsLink(cafe.link);
@@ -1612,8 +1330,7 @@ function AdminDashboardPage() {
     const { error } = await supabase.from('cafes').update(patch).eq('id', cafe.id);
     if (error) throw error;
     setCafes((current) => current.map((item) => item.id === cafe.id ? { ...item, ...patch } : item));
-    await refreshCafes();
-  }, 'Cafetería guardada. El mapa ya usa la nueva ubicación.');
+  }, 'Cafetería guardada. El mapa ya usa la nueva ubicación.', { reload: false });
 
   const updateCafeStatus = (cafe, status) => runAction(`cafe:${cafe.id}`, async () => {
     const { error } = await supabase.from('cafes').update({ status, updated_at: new Date().toISOString() }).eq('id', cafe.id);
@@ -1738,7 +1455,6 @@ function AdminDashboardPage() {
             <article className="admin-panel admin-scan-panel">
               <div><ScanSearch size={24} /><h2>Escáner abierto de Mérida</h2><p>Recorre 16 zonas de OpenStreetMap, obtiene fotos reutilizables de Wikimedia Commons, evita duplicados contra toda la base y permite sumar datos abiertos de Overture.</p></div>
               <div className="admin-scan-actions">
-                <button type="button" onClick={() => openCafeAssistant()} disabled={Boolean(actionLoading)}><Sparkles size={15} /> Abrir asistente</button>
                 <button type="button" onClick={importOsm} disabled={Boolean(actionLoading)}>{actionLoading === 'scan' ? 'Escaneando OSM…' : 'Escanear OSM gratis'}</button>
                 <label className="admin-import-action">
                   <FileUp size={15} /> {actionLoading === 'overture' ? 'Importando…' : 'Importar Overture'}
@@ -1797,7 +1513,6 @@ function AdminDashboardPage() {
                   <div className="admin-thumb">{cafe.image_url ? <img src={cafe.image_url} alt="" /> : <Coffee size={20} />}</div>
                   <div className="admin-row-copy"><strong>{cafe.nombre}</strong><small>{cafe.source} · {cafe.status}</small>{cafe.address && <span>{cafe.address}</span>}<span>{cafe.opening_hours || 'Horario por confirmar'}</span></div>
                   <select value={cafe.status} onChange={(event) => runAction(`cafe:${cafe.id}`, async () => { const { error } = await supabase.from('cafes').update({ status: event.target.value }).eq('id', cafe.id); if (error) throw error; }, 'Estado actualizado.')}><option value="active">Activa</option><option value="needs_review">Revisar</option><option value="closed">Cerrada</option></select>
-                  <button type="button" className="admin-icon-action" title="Asistente: revisar horario, ubicación y portada" onClick={() => openCafeAssistant(cafe)}><Sparkles size={17} /></button>
                   <button type="button" className="admin-icon-action" title="Buscar foto con licencia abierta" onClick={() => findOpenImages(cafe)}><Search size={17} /></button>
                   <button type="button" className="admin-icon-action" title="Editar horario" onClick={() => editCafeHours(cafe)}><Clock size={17} /></button>
                   <label className="admin-icon-action" title="Subir portada"><Camera size={17} /><input hidden type="file" accept="image/*" onChange={(event) => uploadCafeCover(cafe, event.target.files?.[0])} /></label>
@@ -1806,7 +1521,7 @@ function AdminDashboardPage() {
             </div>}
             <div className="admin-cafe-grid">
               {visibleCafes.map((cafe) => (
-                <AdminCafeCard key={`${cafe.id}:${cafe.opening_hours || ''}`} cafe={cafe} tiktoks={cafeTiktoksByCafeId.get(cafe.id) || []} saving={actionLoading === `cafe-save:${cafe.id}`} onChange={updateCafeDraft} onSave={saveCafe} onStatusChange={updateCafeStatus} onUpload={uploadCafeCover} onDeleteCover={deleteCafeCover} onAssistant={openCafeAssistant} onFindImage={findOpenImages} onAddTikTok={addCafeTikTok} onDeleteTikTok={deleteCafeTikTok} onDelete={deleteCafe} />
+                <AdminCafeCard key={cafe.id} cafe={cafe} tiktoks={cafeTiktoksByCafeId.get(cafe.id) || []} saving={actionLoading === `cafe-save:${cafe.id}`} onSave={saveCafe} onStatusChange={updateCafeStatus} onUpload={uploadCafeCover} onDeleteCover={deleteCafeCover} onFindImage={findOpenImages} onAddTikTok={addCafeTikTok} onDeleteTikTok={deleteCafeTikTok} onDelete={deleteCafe} />
               ))}
             </div>
             {visibleCafes.length === 0 && <p className="admin-empty">No encontramos cafeterías con esa búsqueda.</p>}
@@ -1907,65 +1622,6 @@ function AdminDashboardPage() {
           </article>)}
         </section>}
       </div>
-
-      {!assistantOpen && (
-        <button type="button" className="admin-assistant-launcher" onClick={() => openCafeAssistant()}>
-          <Sparkles size={17} /> <span>Asistente</span>
-        </button>
-      )}
-
-      {assistantOpen && assistantCollapsed && (
-        <button type="button" className="admin-assistant-tab" onClick={() => setAssistantCollapsed(false)} aria-label="Mostrar asistente">
-          <ChevronLeft size={17} /> <span>IA</span>
-        </button>
-      )}
-
-      {assistantOpen && !assistantCollapsed && (
-        <aside className="admin-assistant-drawer">
-          <section className="open-image-modal cafe-assistant-modal" role="dialog" aria-modal="false" aria-labelledby="cafe-assistant-title">
-            <header>
-              <div><small>ASISTENTE DE DATOS · REVISIÓN MANUAL</small><h2 id="cafe-assistant-title">Asistente Coffee Map</h2></div>
-              <div className="admin-assistant-header-actions">
-                <button type="button" onClick={() => setAssistantCollapsed(true)} disabled={assistantLoading || Boolean(actionLoading)} aria-label="Contraer asistente"><ChevronRight size={18} /></button>
-                <button type="button" onClick={() => setAssistantOpen(false)} disabled={assistantLoading || Boolean(actionLoading)} aria-label="Cerrar"><X size={18} /></button>
-              </div>
-            </header>
-            <p className="open-image-warning">Pídele tareas generales: investigar faltantes, preparar horarios, ubicar colonias y buscar portadas con licencia abierta. No consulta ni copia la base privada de Google.</p>
-            <div className="cafe-assistant-chat">
-              <div className="cafe-assistant-messages" aria-live="polite">
-                {assistantMessages.map((message, index) => (
-                  <p className={`cafe-assistant-message is-${message.role}`} key={`${message.role}:${index}`}>{message.content}</p>
-                ))}
-                {assistantLoading && <p className="cafe-assistant-message is-assistant">Estoy investigando…</p>}
-                {assistantProgress && <p className="cafe-assistant-progress">{assistantProgress}</p>}
-              </div>
-              <form className="cafe-assistant-composer" onSubmit={sendAssistantMessage}>
-                <input value={assistantInput} onChange={(event) => setAssistantInput(event.target.value)} placeholder="Ej. busca horarios y portadas faltantes…" disabled={assistantLoading} />
-                <button type="submit" disabled={!assistantInput.trim() || assistantLoading} aria-label="Enviar consulta">Enviar</button>
-              </form>
-            </div>
-            {assistantError && <p className="open-image-state is-error">{assistantError}</p>}
-            {assistantBatch && (
-              <div className="cafe-assistant-suggestion">
-                <div className="cafe-assistant-field"><small>Cambios preparados</small><strong>{assistantBatch.length} cafeterías listas para actualizar</strong><span>Solo se llenan campos faltantes; los datos existentes no se sobrescriben.</span></div>
-                <div className="cafe-assistant-batch-list">
-                  {assistantBatch.slice(0, 12).map(({ cafe, patch }) => (
-                    <span key={cafe.id}>{cafe.nombre} · {Object.keys(patch).filter((key) => !key.endsWith('_source') && !key.endsWith('_attribution') && !key.endsWith('_license') && !key.endsWith('_verified_at')).join(', ')}</span>
-                  ))}
-                  {assistantBatch.length > 12 && <small>+{assistantBatch.length - 12} cafeterías más</small>}
-                </div>
-                <label className="open-image-confirmation">
-                  <input type="checkbox" checked={assistantVerified} onChange={(event) => setAssistantVerified(event.target.checked)} />
-                  Confirmo que revisé las fuentes y autorizo guardar estos cambios.
-                </label>
-                <button type="button" className="cafe-assistant-save" disabled={!assistantVerified || Boolean(actionLoading)} onClick={applyAssistantBatch}>
-                  {actionLoading === 'assistant-batch' ? 'Guardando…' : 'Guardar cambios en la web'}
-                </button>
-              </div>
-            )}
-          </section>
-        </aside>
-      )}
 
       {openImageCafe && (
         <div className="open-image-backdrop" onMouseDown={(event) => {

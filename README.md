@@ -10,7 +10,6 @@ App social tipo Letterboxd para descubrir, guardar, reseñar y compartir cafeter
 - Galería moderada de fotos por cafetería.
 - Panel `/admin` con métricas, escáner abierto OSM/Overture, altas manuales, portadas, moderación de fotos/posts y roles.
 - Filtros del mapa por colonia, preview de cafeterías con doble toque en móvil y carga diferida de imágenes.
-- Asistente administrativo de enriquecimiento: propone ubicación, colonia, horarios y portadas desde fuentes abiertas; cada sugerencia exige revisión manual antes de guardarse.
 - Datos, autenticación y archivos en Supabase.
 - PWA desplegable en Vercel y proyectos nativos en `android/` e `ios/`.
 
@@ -48,8 +47,6 @@ El panel usa únicamente fuentes gratuitas y abiertas dentro de un bounding box 
 5. Revisa fotos y estados antes de hacerlos públicos.
 
 Las imágenes automáticas solo se aceptan desde Wikimedia Commons cuando la API confirma una licencia compatible y se conserva la atribución. Coffee Map prioriza fotos propias de administradores y usuarios, moderadas desde Supabase. No se copian fotos de servicios propietarios ni de sitios comerciales.
-
-El asistente del panel funciona como chat. Si `VITE_CAFE_ASSISTANT_URL` está vacío, responde en modo fuentes abiertas (Nominatim + Openverse). Para conectar una IA propia, configura esa variable con un endpoint del servidor que reciba `{ message, cafe, history, locale, city }` y devuelva `{ message, suggestion, sources }`. La interfaz no guarda nada sin confirmación del administrador.
 
 ## Web, Android e iPhone
 
