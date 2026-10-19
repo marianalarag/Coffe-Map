@@ -6,6 +6,7 @@ import HalfStarRating from '../components/HalfStarRating';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../supabase';
 import { repairCafeText } from '../utils/cafeDeduplication';
+import { formatRating } from '../utils/formatRating';
 
 const fallbackAvatar = (seed) => `https://api.dicebear.com/7.x/miniavs/svg?seed=${encodeURIComponent(seed || 'coffee-user')}`;
 const ACTIVITY_CACHE_TTL_MS = 2 * 60 * 1000;
@@ -463,7 +464,7 @@ export function ActivityFeed({ userIdFilter = null, userIdsFilter = null, kindFi
           onOpenProfile={() => navigate(post.user_id === user.id ? '/profile' : `/profile/${post.user_id}`)}
         />
         {post.cafe?.nombre && <button type="button" className="activity-cafe-link" onClick={() => navigate(`/cafe/${post.cafe_id}`)}>{post.cafe.nombre}</button>}
-        {Number(post.rating) > 0 && <div className="activity-rating"><HalfStarRating value={Number(post.rating)} readOnly size={17} /><span>{Number(post.rating).toFixed(1)}</span></div>}
+        {Number(post.rating) > 0 && <div className="activity-rating"><HalfStarRating value={Number(post.rating)} readOnly size={17} /><span>{formatRating(post.rating)}</span></div>}
         {post.content && <p className="activity-post-copy">{post.content}</p>}
         {post.images.length > 0 && <PostImageCarousel images={post.images} cafeName={post.cafe?.nombre} />}
         {social.likes > 0 && (

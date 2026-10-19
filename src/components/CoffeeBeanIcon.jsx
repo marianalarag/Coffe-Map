@@ -3,6 +3,7 @@ const SHEET_WIDTH = 247;
 const SHEET_HEIGHT = 637;
 const LIGHT_BEAN_URL = '/coffee-bean-light.png';
 const DARK_BEAN_URL = '/coffee-bean-dark.png';
+import { formatRating } from '../utils/formatRating';
 const BEAN_ASSET_WIDTH = 41;
 const BEAN_ASSET_HEIGHT = 33;
 const RATING_ROW_HEIGHT = 56.7;
@@ -53,7 +54,7 @@ export function CoffeeBeanRating({ value = 0, size = 24, className = '', label =
         backgroundPosition: `${-RATING_SOURCE_LEFT * scale}px ${-(RATING_SOURCE_TOP + (row * RATING_ROW_HEIGHT)) * scale}px`,
       }}
       role="img"
-      aria-label={`${label}: ${rating.toFixed(1)} de 5`}
+      aria-label={`${label}: ${formatRating(rating)} de 5`}
     />
   );
 }

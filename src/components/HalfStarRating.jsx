@@ -1,5 +1,6 @@
 import { useRef } from 'react';
 import { CoffeeBeanRating } from './CoffeeBeanIcon';
+import { formatRating } from '../utils/formatRating';
 
 const clampRating = (value) => Math.min(5, Math.max(0.5, Math.round(Number(value || 0.5) * 2) / 2));
 
@@ -46,7 +47,7 @@ function HalfStarRating({ value = 0, onChange, readOnly = false, size = 24, labe
       ref={trackRef}
       className={`half-star-rating ${readOnly ? 'is-readonly' : ''}`}
       role={readOnly ? 'img' : 'slider'}
-      aria-label={`${label}: ${Number(value || 0).toFixed(1)} de 5`}
+      aria-label={`${label}: ${formatRating(value)} de 5`}
       aria-valuemin={readOnly ? undefined : 0.5}
       aria-valuemax={readOnly ? undefined : 5}
       aria-valuenow={readOnly ? undefined : Number(value || 0)}

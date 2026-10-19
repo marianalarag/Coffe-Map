@@ -8,6 +8,7 @@ import { useCoffeeData } from '../context/CoffeeDataContext';
 import { getCafeCoordinates } from '../utils/cafeLocation';
 import { getCafeFullAddress, getCafeNeighborhood } from '../utils/cafeAddress';
 import CoffeeBeanIcon from '../components/CoffeeBeanIcon';
+import { formatRating } from '../utils/formatRating';
 
 const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=1200&q=85';
 const MAP_TARGET_STORAGE_KEY = 'coffee-map:focus-cafe';
@@ -110,7 +111,7 @@ function CafeCard({ cafe, interaction, onOpen }) {
       <div className="home-cafe-copy">
         <strong>{cafe.nombre}</strong>
         <div className="home-cafe-details">
-          <span><CoffeeBeanIcon size={12} filled tone="dark" /> {rating.toFixed(1)}</span>
+          <span><CoffeeBeanIcon size={12} filled tone="dark" /> {formatRating(rating)}</span>
           <span title={getCafeAddress(cafe)}><MapPin size={14} strokeWidth={2.4} /> {getCompactAddress(cafe)}</span>
         </div>
       </div>
@@ -150,12 +151,12 @@ function HomePage() {
     userId: user?.id,
   }), [cafeById, interactions, sortedCafes, user?.id]);
   const featuredInteraction = featuredCafe ? interactionsByCafeId.get(featuredCafe.id) : null;
-  const popularCafes = sortedCafes.slice(0, 6);
+  const popularCafes = sortedCafes.slice(0, 5);
   const savedCafes = cafes.filter((cafe) => {
     const interaction = interactionsByCafeId.get(cafe.id);
     return interaction?.is_favorite || interaction?.in_waitlist;
-  }).slice(0, 6);
-  const displaySavedCafes = savedCafes.length ? savedCafes : sortedCafes.slice(0, 3);
+  }).slice(0, 5);
+  const displaySavedCafes = savedCafes.length ? savedCafes : sortedCafes.slice(0, 5);
 
   const updateFeaturedInteraction = async (field, value) => {
     if (!featuredCafe || savingAction) return;

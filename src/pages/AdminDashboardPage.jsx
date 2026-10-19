@@ -20,6 +20,7 @@ const OPEN_IMAGE_CACHE = new Map();
 const OPENVERSE_API_URL = 'https://api.openverse.org/v1/images/';
 const OPENVERSE_LICENSES = new Set(['by', 'by-sa', 'cc0', 'pdm']);
 const ADMIN_CAFE_PAGE_SIZE = 24;
+const ADMIN_TAB_STORAGE_KEY = 'coffee-map:admin-tab';
 const TABS = [
   { id: 'overview', label: 'Resumen', icon: <BarChart3 size={17} /> },
   { id: 'requests', label: 'Solicitudes', icon: <ClipboardList size={17} /> },
@@ -831,7 +832,14 @@ function AdminDashboardPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { addCafes, refreshCafes } = useCoffeeData();
-  const [tab, setTab] = useState('overview');
+  const [tab, setTab] = useState(() => {
+    try {
+      const savedTab = window.sessionStorage.getItem(ADMIN_TAB_STORAGE_KEY);
+      return TABS.some((item) => item.id === savedTab) ? savedTab : 'overview';
+    } catch {
+      return 'overview';
+    }
+  });
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState('');
   const [notice, setNotice] = useState('');
@@ -961,6 +969,7 @@ function AdminDashboardPage() {
   useEffect(() => { window.localStorage.setItem('coffee-map:admin-theme', JSON.stringify(adminTheme)); }, [adminTheme]);
   useEffect(() => { window.localStorage.setItem('coffee-map:admin-blocks', JSON.stringify(overviewBlocks)); }, [overviewBlocks]);
   useEffect(() => { window.localStorage.setItem('coffee-map:admin-custom-blocks', JSON.stringify(customBlocksBySection)); }, [customBlocksBySection]);
+  useEffect(() => { window.sessionStorage.setItem(ADMIN_TAB_STORAGE_KEY, tab); }, [tab]);
 
   const moveOverviewBlock = (targetBlock) => {
     if (!draggedOverviewBlock || draggedOverviewBlock === targetBlock) return;

@@ -22,15 +22,6 @@ if (appRunsNatively || appRunsStandalone) {
   document.documentElement.classList.toggle('is-standalone-app', appRunsStandalone && !appRunsNatively);
 }
 
-// Reload once when a new service worker takes control so installed iOS PWAs
-// do not keep running an outdated JavaScript bundle after a deployment.
-let reloadingForServiceWorkerUpdate = false
-window.navigator.serviceWorker?.addEventListener('controllerchange', () => {
-  if (reloadingForServiceWorkerUpdate) return
-  reloadingForServiceWorkerUpdate = true
-  window.location.reload()
-})
-
 // Registrar el Service Worker para la PWA
 const updateSW = registerSW({
   immediate: true,

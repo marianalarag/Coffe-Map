@@ -24,6 +24,7 @@ import { supabase } from '../supabase';
 import { ActivityFeed } from './ActivityPage';
 import { getCafeNeighborhood } from '../utils/cafeAddress';
 import CoffeeBeanIcon, { CoffeeBeanRating } from '../components/CoffeeBeanIcon';
+import { formatRating } from '../utils/formatRating';
 
 
 const getOptimizedProfileImageUrl = (url, width) => {
@@ -173,7 +174,7 @@ function ProfileRatingChart({ interactions, textStyle, navigate }) {
             className="profile-rating-row"
             key={row.rating}
             onClick={() => navigate(`/ratings?rating=${row.rating}`)}
-            aria-label={`Ver cafeterías calificadas con ${row.rating.toFixed(1)} de 5`}
+            aria-label={`Ver cafeterías calificadas con ${formatRating(row.rating)} de 5`}
           >
             <span>{row.rating}</span>
             <CoffeeBeanRating value={row.rating} size={12} />
@@ -196,7 +197,7 @@ function ProfileVisitRanking({ places, textStyle, navigate, onRemoveVisit }) {
             <article className="profile-visit-ranking-card" key={cafe.id}>
               <button type="button" className="profile-visit-ranking-main" onClick={() => navigate(`/cafe/${cafe.id}`)}>
                 {cafe.imageUrl ? <img src={cafe.imageUrl} alt={cafe.nombre} /> : <span className="profile-cafe-placeholder"><Coffee size={20} /></span>}
-                <span><strong>{cafe.nombre}</strong><small><Coffee size={12} /> {count} {count === 1 ? 'visita' : 'visitas'}{reviewCount ? ` · ${reviewCount} ${reviewCount === 1 ? 'reseña' : 'reseñas'}` : ''}{rating ? ` · ${rating.toFixed(1)}` : ''}</small></span>
+                <span><strong>{cafe.nombre}</strong><small><Coffee size={12} /> {count} {count === 1 ? 'visita' : 'visitas'}{reviewCount ? ` · ${reviewCount} ${reviewCount === 1 ? 'reseña' : 'reseñas'}` : ''}{rating ? ` · ${formatRating(rating)}` : ''}</small></span>
               </button>
               <button type="button" className="profile-visit-remove" onClick={(event) => onRemoveVisit(event, cafe, latestVisitId)} aria-label={`Quitar la última visita a ${cafe.nombre}`} title="Quitar última visita"><Trash2 size={13} /></button>
             </article>
@@ -703,7 +704,7 @@ function ProfilePage() {
                     )}
                     <div className="profile-cafe-copy">
                       <strong>{cafe.nombre}</strong>
-                      <span><CoffeeBeanIcon size={13} filled tone="light" /> {Number(cafe.rating || 4.5).toFixed(1)}</span>
+                      <span><CoffeeBeanIcon size={13} filled tone="light" /> {formatRating(cafe.rating || 4.5)}</span>
                       <span title={cafe.address || 'Dirección no disponible'}><MapPin size={13} strokeWidth={2.4} /> {getCafeNeighborhood(cafe)}</span>
                     </div>
                   </button>
@@ -749,7 +750,7 @@ function ProfilePage() {
                 <button type="button" key={visitId} onClick={() => navigate(`/cafe/${cafe.id}`)}>
                   {cafe.imageUrl ? <img src={cafe.imageUrl} alt={cafe.nombre} /> : <div className="profile-cafe-placeholder"><Coffee size={26} /></div>}
                   <strong>{cafe.nombre}</strong>
-                  <span><CoffeeBeanIcon size={14} filled tone="light" /> {Number(visitRating || cafe.rating || 0).toFixed(1)} <b><MapPin size={10} /> {getCafeNeighborhood(cafe)}</b></span>
+                  <span><CoffeeBeanIcon size={14} filled tone="light" /> {formatRating(visitRating || cafe.rating || 0)} <b><MapPin size={10} /> {getCafeNeighborhood(cafe)}</b></span>
                 </button>
               ))}
             </div>

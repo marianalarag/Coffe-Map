@@ -266,81 +266,9 @@ html.is-app-mode #root {
 }
 
 .map-search-control { top: max(16px, calc(env(safe-area-inset-top, 0px) + 9px)); }
-.map-neighborhood-filters {
-  top: max(66px, calc(env(safe-area-inset-top, 0px) + 58px));
-  display: flex;
-  flex-wrap: nowrap;
-  align-items: center;
-  justify-content: flex-start;
-  width: calc(100% - clamp(24px, 12vw, 232px));
-  max-width: none;
-  max-height: 72px;
-  gap: 8px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  padding: 2px 4px 7px;
-  scrollbar-width: none;
-  touch-action: pan-x;
-  overscroll-behavior-x: contain;
-  cursor: grab;
-  user-select: none;
-  -webkit-user-select: none;
-}
-.map-neighborhood-filters:active { cursor: grabbing; }
-.map-neighborhood-filters::-webkit-scrollbar { display: none; }
-.map-neighborhood-filters button {
-  flex: 0 0 auto;
-  width: max-content;
-  max-width: min(78vw, 260px);
-  display: inline-flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 5px;
-  min-height: 34px;
-  padding: 7px 12px;
-  color: #382b22;
-  background: rgba(255,248,233,.9);
-  border: 1px solid rgba(75,44,32,.12);
-  border-radius: 999px;
-  box-shadow: 0 5px 14px rgba(0,0,0,.16);
-  backdrop-filter: blur(10px);
-  font: 700 10px/1.15 "Inria Serif", Georgia, serif;
-  cursor: pointer;
-  white-space: nowrap;
-  overflow: visible;
-  text-align: center;
-}
-.map-neighborhood-filters button span { flex: 0 0 auto; color: rgba(56,43,34,.52); font-size: 9px; }
-.map-neighborhood-filters button.is-active { color: #fff8e9; background: #4b2c20; border-color: #4b2c20; }
-.map-neighborhood-filters button.is-active span { color: rgba(255,248,233,.72); }
-
-@media (max-width: 640px) {
-  .map-neighborhood-filters {
-    top: max(64px, calc(env(safe-area-inset-top, 0px) + 56px));
-    width: calc(100% - 20px);
-    max-height: 72px;
-    gap: 6px;
-    padding-inline: 2px;
-  }
-  .map-neighborhood-filters button {
-    min-height: 32px;
-    max-width: min(78vw, 260px);
-    padding: 7px 10px;
-    font-size: clamp(9px, 2.6vw, 10px);
-  }
-}
-
-@media (min-width: 1024px) {
-  .map-neighborhood-filters {
-    gap: 9px;
-  }
-  .map-neighborhood-filters button { font-size: clamp(10px, .72vw, 12px); }
-  .map-neighborhood-filters button span { font-size: clamp(9px, .62vw, 10px); }
-}
-
 /* Google Maps inspired map controls and contextual results */
 .map-filter-controls {
-  top: max(108px, calc(env(safe-area-inset-top, 0px) + 100px));
+  top: max(66px, calc(env(safe-area-inset-top, 0px) + 58px));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -350,7 +278,6 @@ html.is-app-mode #root {
   padding: 3px 2px 8px;
   scrollbar-width: none;
 }
-.map-neighborhood-filters button,
 .map-filter-controls button { pointer-events: auto; }
 .map-filter-controls::-webkit-scrollbar { display: none; }
 .map-filter-chip {
@@ -372,6 +299,11 @@ html.is-app-mode #root {
 }
 .map-filter-chip:hover, .map-filter-chip.has-filter { color: #fff8e9; background: #4b2c20; }
 .map-filter-chip b { display: grid; place-items: center; min-width: 17px; height: 17px; padding: 0 4px; color: #4b2c20; background: #e6dac1; border-radius: 999px; font-size: 9px; }
+.map-filter-icon-only { position: relative; width: 38px; min-width: 38px; padding: 0; justify-content: center; }
+.map-filter-icon-only b { position: absolute; top: -5px; right: -4px; }
+.map-rating-menu { top: max(110px, calc(env(safe-area-inset-top, 0px) + 102px)); display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; width: min(280px, calc(100% - 24px)); padding: 10px; color: #302820; background: rgba(255, 252, 245, .98); border: 1px solid rgba(48, 40, 32, .1); border-radius: 16px; box-shadow: 0 16px 38px rgba(35, 27, 21, .25); transform: translateX(-50%); backdrop-filter: blur(18px); }
+.map-rating-menu button { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-height: 34px; padding: 6px 7px; color: #58483a; background: #f1eadc; border: 1px solid transparent; border-radius: 10px; font: 700 10px "Inria Serif", Georgia, serif; cursor: pointer; }
+.map-rating-menu button.is-selected { color: #fff8e9; background: #4b2c20; border-color: #4b2c20; }
 .map-filter-panel {
   top: max(151px, calc(env(safe-area-inset-top, 0px) + 143px));
   width: min(440px, calc(100% - 24px));
@@ -390,9 +322,9 @@ html.is-app-mode #root {
 .map-filter-panel-header button, .map-results-header button { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; color: #302820; background: rgba(48, 40, 32, .08); border: 0; border-radius: 50%; cursor: pointer; }
 .map-filter-section { margin-top: 15px; }
 .map-filter-section > span { display: block; margin-bottom: 8px; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: rgba(48, 40, 32, .58); }
-.map-day-options, .map-rating-options { display: flex; flex-wrap: wrap; gap: 6px; }
-.map-day-options button, .map-rating-options button { display: inline-flex; align-items: center; gap: 4px; min-height: 31px; padding: 7px 10px; color: #58483a; background: #f1eadc; border: 1px solid transparent; border-radius: 999px; font: 700 10px "Inria Serif", Georgia, serif; cursor: pointer; }
-.map-day-options button.is-selected, .map-rating-options button.is-selected { color: #fff8e9; background: #4b2c20; border-color: #4b2c20; }
+.map-day-options { display: flex; flex-wrap: wrap; gap: 6px; }
+.map-day-options button { display: inline-flex; align-items: center; gap: 4px; min-height: 31px; padding: 7px 10px; color: #58483a; background: #f1eadc; border: 1px solid transparent; border-radius: 999px; font: 700 10px "Inria Serif", Georgia, serif; cursor: pointer; }
+.map-day-options button.is-selected { color: #fff8e9; background: #4b2c20; border-color: #4b2c20; }
 .map-filter-clear { width: 100%; margin-top: 14px; padding: 8px; color: #7d3b2d; background: transparent; border: 1px solid rgba(125, 59, 45, .25); border-radius: 10px; font: 700 10px "Inria Serif", Georgia, serif; cursor: pointer; }
 .map-area-search { top: max(154px, calc(env(safe-area-inset-top, 0px) + 146px)); display: inline-flex; align-items: center; gap: 7px; min-height: 37px; padding: 9px 16px; color: #fff8e9; background: #4b2c20; border: 2px solid rgba(255, 248, 233, .9); border-radius: 999px; box-shadow: 0 6px 20px rgba(35, 27, 21, .3); font: 800 11px "Inria Serif", Georgia, serif; transform: translateX(-50%); cursor: pointer; }
 .map-area-search:hover { background: #362016; }
@@ -417,10 +349,12 @@ html.is-app-mode #root {
 .map-results-empty span { font-size: 10px; line-height: 1.35; }
 
 @media (max-width: 767px) {
-  .map-filter-controls { top: max(106px, calc(env(safe-area-inset-top, 0px) + 98px)); width: calc(100% - 14px); justify-content: flex-start; gap: 6px; }
+  .map-filter-controls { top: max(64px, calc(env(safe-area-inset-top, 0px) + 56px)); width: calc(100% - 14px); justify-content: center; gap: 6px; }
   .map-filter-chip { min-height: 32px; padding: 7px 10px; font-size: 9px; }
-  .map-filter-panel { top: max(145px, calc(env(safe-area-inset-top, 0px) + 137px)); width: calc(100% - 20px); }
-  .map-area-search { top: max(147px, calc(env(safe-area-inset-top, 0px) + 139px)); }
+  .map-filter-icon-only { width: 36px; min-width: 36px; padding: 0; }
+  .map-rating-menu { top: max(105px, calc(env(safe-area-inset-top, 0px) + 97px)); }
+  .map-filter-panel { top: max(105px, calc(env(safe-area-inset-top, 0px) + 97px)); width: calc(100% - 20px); }
+  .map-area-search { top: max(112px, calc(env(safe-area-inset-top, 0px) + 104px)); }
   .map-results-panel { top: auto; right: 0; bottom: calc(70px + env(safe-area-inset-bottom, 0px)); width: 100%; max-height: min(48dvh, 430px); border-right: 0; border-bottom: 0; border-radius: 22px 22px 0 0; }
   .map-results-header { padding-top: 22px; }
   .map-results-header::before { content: ''; position: absolute; top: 8px; left: 50%; width: 44px; height: 4px; background: rgba(48,40,32,.28); border-radius: 999px; transform: translateX(-50%); }

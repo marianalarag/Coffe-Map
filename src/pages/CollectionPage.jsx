@@ -7,6 +7,7 @@ import { useCoffeeData } from '../context/CoffeeDataContext';
 import HalfStarRating from '../components/HalfStarRating';
 import { getCafeNeighborhood } from '../utils/cafeAddress';
 import CoffeeBeanIcon from '../components/CoffeeBeanIcon';
+import { formatRating } from '../utils/formatRating';
 
 const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=900&q=85';
 
@@ -77,7 +78,7 @@ function CollectionPage({ collection: collectionProp }) {
           <button type="button" onClick={() => navigate('/profile')} aria-label="Volver al perfil">
             <ArrowLeft size={22} />
           </button>
-          <div className="collection-title"><Icon size={18} fill={collection === 'favorites' || collection === 'ratings' ? 'currentColor' : 'none'} /><span>{ratingFilter === null ? config.label : `${config.label} · ${ratingFilter.toFixed(1)}`}</span></div>
+          <div className="collection-title"><Icon size={18} fill={collection === 'favorites' || collection === 'ratings' ? 'currentColor' : 'none'} /><span>{ratingFilter === null ? config.label : `${config.label} · ${formatRating(ratingFilter)}`}</span></div>
           <button type="button" aria-label="Filtrar colección" aria-expanded={showFilters} onClick={() => setShowFilters((current) => !current)}><SlidersHorizontal size={18} /></button>
         </header>
 
@@ -103,7 +104,7 @@ function CollectionPage({ collection: collectionProp }) {
         ) : (
           <div className="collection-empty">
             <Icon size={30} strokeWidth={1.4} />
-            <h1>{ratingFilter === null ? (collection === 'reviews' ? 'Aún no tienes reviews' : `Aún no tienes ${config.label.toLowerCase()}`) : `No tienes cafeterías con ${ratingFilter.toFixed(1)}`}</h1>
+            <h1>{ratingFilter === null ? (collection === 'reviews' ? 'Aún no tienes reviews' : `Aún no tienes ${config.label.toLowerCase()}`) : `No tienes cafeterías con ${formatRating(ratingFilter)}`}</h1>
             <p>{ratingFilter === null && collection === 'list' ? 'Agrega cafeterías que quieras visitar y las encontrarás aquí.' : 'Explora el mapa y guarda tus lugares favoritos.'}</p>
             <button type="button" onClick={() => navigate('/map')}>Explorar cafeterías</button>
           </div>
@@ -124,7 +125,7 @@ function CafeGrid({ entries, onOpen }) {
           </div>
           <div className="collection-cafe-copy">
             <strong>{cafe.nombre}</strong>
-            <span><CoffeeBeanIcon size={9} filled tone="light" /> {getRating(interaction, cafe).toFixed(1)}</span>
+            <span><CoffeeBeanIcon size={9} filled tone="light" /> {formatRating(getRating(interaction, cafe))}</span>
             <span title={cafe.address || 'Dirección no disponible'}><MapPin size={13} strokeWidth={2.4} /> {getCafeNeighborhood(cafe)}</span>
           </div>
         </button>
@@ -144,7 +145,7 @@ function ReviewsList({ entries, onOpen }) {
           <div className="collection-review-body">
             <img src={getImage(cafe)} alt={cafe.nombre} loading="lazy" decoding="async" />
             <div>
-              <div className="collection-review-rating"><HalfStarRating value={getRating(interaction, cafe)} readOnly size={14} /><span>{getRating(interaction, cafe).toFixed(1)}</span></div>
+              <div className="collection-review-rating"><HalfStarRating value={getRating(interaction, cafe)} readOnly size={14} /><span>{formatRating(getRating(interaction, cafe))}</span></div>
               <p>{interaction.review_text}</p>
             </div>
           </div>
