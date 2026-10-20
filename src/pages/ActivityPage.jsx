@@ -9,11 +9,7 @@ import { repairCafeText } from '../utils/cafeDeduplication';
 import { formatRating } from '../utils/formatRating';
 
 const fallbackAvatar = (seed) => `https://api.dicebear.com/7.x/miniavs/svg?seed=${encodeURIComponent(seed || 'coffee-user')}`;
-const getActivityAvatar = (url) => {
-  if (!url || typeof window === 'undefined' || !window.location.hostname.endsWith('.vercel.app')) return url;
-  if (!url.startsWith('https://zuojhckhlphpkcwcufae.supabase.co/storage/v1/object/public/avatars/')) return url;
-  return `/_vercel/image?url=${encodeURIComponent(url)}&w=256&q=90`;
-};
+const getActivityAvatar = (url) => url || '';
 const ACTIVITY_CACHE_TTL_MS = 2 * 60 * 1000;
 const MAX_EDIT_PHOTO_BYTES = 8 * 1024 * 1024;
 const activityCache = new Map();
@@ -705,7 +701,7 @@ function PostHeader({ avatar, name, date, canManage, menuOpen, onOpenMenu, onEdi
   const formattedDate = new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short' }).format(new Date(date));
   return (
     <div className="activity-post-header">
-      <button type="button" className="activity-author" onClick={onOpenProfile}><img src={avatar} alt="" /><span>{name}</span></button>
+      <button type="button" className="activity-author" onClick={onOpenProfile}><img src={avatar} alt="" onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = fallbackAvatar(name); }} /><span>{name}</span></button>
       <div className="activity-post-tools">
         <small>{formattedDate}</small>
         {canManage && (

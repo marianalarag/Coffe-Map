@@ -1579,13 +1579,15 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 .cafe-profile-column { min-width: 0; }
 .cafe-profile-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin: 0 10px 18px; }
 .cafe-eyebrow, .cafe-section-kicker { color: rgba(232,221,197,.48); font: 700 9px/1.2 "Inria Serif", Georgia, serif; letter-spacing: .17em; }
-.cafe-profile-heading h1 { max-width: 570px; margin: 7px 0 8px; color: var(--cafe-cream); font: 400 clamp(42px, 5.5vw, 75px)/.96 "Lancelot", Georgia, serif; text-transform: uppercase; }
+.cafe-profile-heading h1 { max-width: 570px; margin: 7px 0 8px; color: var(--cafe-cream); font: 400 clamp(36px, 4.4vw, 62px)/.96 "Lancelot", Georgia, serif; text-transform: uppercase; }
 .cafe-profile-meta { display: flex; align-items: center; gap: 9px; }
 .cafe-profile-meta > span { display: inline-flex; align-items: center; gap: 9px; padding: 8px 17px; color: rgba(232,221,197,.88); background: rgba(28,21,17,.85); border-radius: 999px; font-size: 13px; }
+.cafe-profile-meta > span svg { fill: #c5a77b; stroke: #241a14; stroke-width: 2.5; }
 .cafe-profile-meta > a { width: 37px; height: 37px; display: grid; place-items: center; color: var(--cafe-cream); background: rgba(28,21,17,.85); border-radius: 50%; }
 .cafe-public-rating { display: flex; flex: 0 0 auto; align-items: center; gap: 4px; padding-bottom: 8px; color: var(--cafe-cream); }
 .cafe-public-rating strong { margin-left: 4px; font: 400 18px "Inria Serif", Georgia, serif; }
 .cafe-public-rating small { display: none; }
+.cafe-unrated-beans { display: inline-flex; align-items: center; gap: 3px; opacity: .72; }
 .cafe-control-card { padding: 18px; background: rgba(35,27,22,.95); border: 1px solid rgba(232,221,197,.05); border-radius: 28px; box-shadow: 0 18px 42px rgba(0,0,0,.2); }
 .cafe-control-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .cafe-control-grid button { min-height: 88px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: rgba(232,221,197,.72); background: #382a21; border: 1px solid transparent; border-radius: 24px; font: 13px "Inria Serif", Georgia, serif; cursor: pointer; transition: .18s ease; }
@@ -1645,6 +1647,7 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 .cafe-review-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .cafe-review-user { min-width: 0; display: flex; align-items: center; gap: 12px; }
 .cafe-review-user img { width: 48px; height: 48px; object-fit: cover; background: #cbbd9e; border-radius: 50%; }
+.cafe-review-user img { image-rendering: auto; }
 .cafe-review-user strong { overflow: hidden; color: rgba(232,221,197,.75); font-size: 11px; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
 .cafe-review-rating { display: flex; align-items: center; gap: 5px; }
 .cafe-review-rating b { margin-left: 4px; font-size: 12px; font-weight: 400; }
@@ -1660,6 +1663,14 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 .cafe-gallery-section > header > span, .cafe-tiktok-section > header > span { color: rgba(232,221,197,.48); font-size: 10px; }
 .cafe-gallery-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; }
 .cafe-gallery-grid img { width: 100%; aspect-ratio: .82; object-fit: cover; border-radius: 5px; background: #382a21; }
+.cafe-photo-open { display: block; overflow: hidden; padding: 0; color: inherit; background: transparent; border: 0; cursor: zoom-in; }
+.cafe-cover-open { position: absolute; inset: 0; width: 100%; height: 100%; }
+.cafe-gallery-grid .cafe-photo-open { width: 100%; border-radius: 5px; }
+.cafe-expandable-photo { cursor: zoom-in; }
+.cafe-image-viewer { position: fixed; inset: 0; z-index: 7000; display: flex; align-items: center; justify-content: center; padding: 60px 24px; background: rgba(8,7,6,.96); backdrop-filter: blur(12px); }
+.cafe-image-viewer > img { display: block; width: auto; height: auto; max-width: calc(100vw - 48px); max-height: calc(100dvh - 120px); object-fit: contain; border-radius: 8px; box-shadow: 0 16px 70px rgba(0,0,0,.4); }
+.cafe-image-viewer-close { position: absolute; top: max(14px, env(safe-area-inset-top, 0px)); right: 18px; z-index: 1; width: 42px; height: 42px; display: grid; place-items: center; color: white; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.16); border-radius: 50%; cursor: pointer; }
+.cafe-map-card .maplibregl-ctrl-attrib { display: none; }
 .cafe-gallery-empty { min-height: 85px; margin: 0; font-size: 10px; }
 .cafe-tiktok-section { width: min(calc(100% - 2 * clamp(24px, 4.2vw, 64px)), 1360px); margin: 35px auto 0; padding: 0; color: var(--cafe-cream); background: transparent; border: 0; border-radius: 0; box-shadow: none; }
 .cafe-tiktok-section > header { margin-bottom: 18px; }
@@ -1680,7 +1691,7 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
   .cafe-hero-inner { grid-template-columns: minmax(0, 1fr); gap: 22px; }
   .cafe-cover-frame { width: min(100%, 570px); aspect-ratio: 1.18; margin: 0 auto; border-radius: 22px; }
   .cafe-profile-heading { align-items: center; margin-inline: 2px; }
-  .cafe-profile-heading h1 { font-size: clamp(38px, 9vw, 58px); }
+  .cafe-profile-heading h1 { font-size: clamp(34px, 8vw, 52px); }
   .cafe-public-rating { align-self: flex-end; padding-bottom: 6px; }
   .cafe-control-card { padding: 13px; border-radius: 22px; }
   .cafe-control-grid { gap: 7px; }
@@ -1703,7 +1714,7 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
   .cafe-cover-frame { aspect-ratio: 1.05; border-radius: 18px; }
   .cafe-profile-heading { align-items: flex-end; gap: 8px; margin-bottom: 13px; }
   .cafe-eyebrow { font-size: 7px; }
-  .cafe-profile-heading h1 { margin: 5px 0 7px; font-size: clamp(34px, 10vw, 48px); }
+  .cafe-profile-heading h1 { margin: 5px 0 7px; font-size: clamp(31px, 8.6vw, 42px); }
   .cafe-profile-meta > span { padding: 7px 12px; font-size: 11px; }
   .cafe-profile-meta > a { width: 32px; height: 32px; }
   .cafe-public-rating { gap: 2px; padding-bottom: 4px; }

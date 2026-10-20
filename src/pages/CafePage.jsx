@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, MapPin, Coffee, Heart, CheckCircle2, Clock, Edit3, Instagram, Music2, Plus, Utensils, MessageCircle, Send, ExternalLink } from 'lucide-react';
+import { ArrowLeft, MapPin, Coffee, Heart, CheckCircle2, Clock, Edit3, Instagram, Music2, Plus, Utensils, MessageCircle, Send, ExternalLink, X } from 'lucide-react';
 import PageLoading from '../components/PageLoading';
 import { useAuth } from '../context/AuthContext';
 import { useCoffeeData } from '../context/CoffeeDataContext';
 import { supabase } from '../supabase';
 import { getCafeOpenStatus, getCafeScheduleRows } from '../utils/cafeHours';
 import { geocodeCafeLocation, getCafeCoordinates } from '../utils/cafeLocation';
-import { CoffeeBeanRating } from '../components/CoffeeBeanIcon';
+import CoffeeBeanIcon, { CoffeeBeanRating } from '../components/CoffeeBeanIcon';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -54,6 +54,7 @@ function CafePage({ cafeId }) {
   const [communityPhotos, setCommunityPhotos] = useState([]);
   const [communityTiktoks, setCommunityTiktoks] = useState([]);
   const [communityReviews, setCommunityReviews] = useState([]);
+  const [expandedImage, setExpandedImage] = useState(null);
 
   useEffect(() => {
     if (!cafesLoaded) {
@@ -226,22 +227,36 @@ function CafePage({ cafeId }) {
 
   useEffect(() => {
     const element = document.getElementById('cafe-map-preview');
-    const lat = Number(cafe?.lat);
-    const lng = Number(cafe?.lng);
-    if (!element || !Number.isFinite(lat) || !Number.isFinite(lng)) return undefined;
-
     let cancelled = false;
-    const map = L.map(element, { center: [lat, lng], zoom: 15, zoomControl: false, attributionControl: false, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false, touchZoom: false });
-    if (MAP_TILE_URL) {
-      L.tileLayer(MAP_TILE_URL, { attribution: MAP_TILE_ATTRIBUTION, maxZoom: 19 }).addTo(map);
-    } else {
-      import('@maplibre/maplibre-gl-leaflet').then(({ maplibreGL }) => {
-        if (!cancelled) maplibreGL({ style: MAP_STYLE_URL, interactive: false, maxZoom: 19 }).addTo(map);
-      }).catch((error) => console.error('No se pudo cargar la vista previa del mapa.', error));
-    }
-    L.circleMarker([lat, lng], { radius: 8, color: '#fffaf0', weight: 3, fillColor: '#7a5533', fillOpacity: 1 }).addTo(map);
-    return () => { cancelled = true; map.remove(); };
+    let map = null;
+    const initializePreview = async () => {
+      const coordinates = getCafeCoordinates(cafe) || await geocodeCafeLocation(cafe);
+      if (cancelled || !element || !coordinates) return;
+      const { lat, lng } = coordinates;
+      map = L.map(element, { center: [lat, lng], zoom: 15, zoomControl: false, attributionControl: false, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false, touchZoom: false });
+      if (MAP_TILE_URL) {
+        L.tileLayer(MAP_TILE_URL, { attribution: MAP_TILE_ATTRIBUTION, maxZoom: 19 }).addTo(map);
+      } else {
+        const { maplibreGL } = await import('@maplibre/maplibre-gl-leaflet');
+        if (cancelled) return;
+        maplibreGL({ style: MAP_STYLE_URL, interactive: false, maxZoom: 19 }).addTo(map);
+      }
+      L.circleMarker([lat, lng], { radius: 8, color: '#fffaf0', weight: 3, fillColor: '#7a5533', fillOpacity: 1 }).addTo(map);
+    };
+    initializePreview().catch((error) => console.error('No se pudo cargar la vista previa del mapa.', error));
+    return () => { cancelled = true; map?.remove(); };
   }, [cafe?.id, cafe?.lat, cafe?.lng]);
+
+  useEffect(() => {
+    if (!expandedImage) return undefined;
+    const closeOnEscape = (event) => { if (event.key === 'Escape') setExpandedImage(null); };
+    document.addEventListener('keydown', closeOnEscape);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', closeOnEscape);
+      document.body.style.overflow = '';
+    };
+  }, [expandedImage]);
 
   if ((cafesLoading && !cafesLoaded) || (interactionsLoading && !interaction)) {
     return <PageLoading message="Cargando cafeteria..." />;
@@ -266,7 +281,7 @@ function CafePage({ cafeId }) {
         <div className="cafe-hero-shade" />
         <div className="cafe-hero-inner">
           <div className="cafe-cover-frame">
-            {cafe.imageUrl ? <img src={cafe.imageUrl} alt={cafe.nombre} className="cafe-cover-image" fetchPriority="high" decoding="async" /> : <Coffee size={76} />}
+            {cafe.imageUrl ? <button type="button" className="cafe-photo-open cafe-cover-open" onClick={() => setExpandedImage({ src: cafe.imageUrl, alt: cafe.nombre })} aria-label={`Ampliar foto de ${cafe.nombre}`}><img src={cafe.imageUrl} alt={cafe.nombre} className="cafe-cover-image" fetchPriority="high" decoding="async" /></button> : <Coffee size={76} />}
             {cafe.imageSourceUrl && <a href={cafe.imageSourceUrl} target="_blank" rel="noreferrer" className="cafe-image-credit">Foto: {cafe.imageAttribution || 'Wikimedia Commons'}{cafe.imageLicense ? ` · ${cafe.imageLicense}` : ''}</a>}
           </div>
           <div className="cafe-profile-column">
@@ -276,7 +291,7 @@ function CafePage({ cafeId }) {
                 <h1>{cafe.nombre}</h1>
                 <div className="cafe-profile-meta"><span><MapPin size={15} fill="currentColor" /> {cafe.neighborhood || 'Mérida'}</span>{cafe.instagramUrl && <a href={cafe.instagramUrl} target="_blank" rel="noreferrer" aria-label="Instagram"><Instagram size={18} /></a>}</div>
               </div>
-              <div className="cafe-public-rating"><CoffeeBeanRating value={Number(cafe.rating || 0)} size={21} /><strong>{Number(cafe.rating || 0) ? Number(cafe.rating).toFixed(1) : '—'}</strong><small>{cafe.reviews || 0} reseñas</small></div>
+              <div className="cafe-public-rating">{Number(cafe.rating) > 0 ? <CoffeeBeanRating value={Number(cafe.rating)} size={21} /> : <span className="cafe-unrated-beans" aria-label="Sin calificaciones">{Array.from({ length: 5 }, (_, index) => <CoffeeBeanIcon key={index} size={21} filled={false} />)}</span>}<strong>{Number(cafe.rating || 0) ? Number(cafe.rating).toFixed(1) : '—'}</strong><small>{cafe.reviews || 0} reseñas</small></div>
             </div>
             <div className="cafe-control-card">
               <div className="cafe-control-grid">
@@ -316,15 +331,15 @@ function CafePage({ cafeId }) {
           <section className="cafe-reviews-section">
             <header><div><span className="cafe-section-kicker">LA COMUNIDAD OPINA</span><h2>Reviews</h2></div><button type="button" onClick={openReviewComposer}><Plus size={16} /> Escribir</button></header>
             {communityReviews.length ? <div className="cafe-community-reviews">{communityReviews.map((review) => <article className="cafe-community-review" key={review.id}>
-              <div className="cafe-review-top"><div className="cafe-review-user"><img src={review.profile?.avatar_url || '/logo.png'} alt="" /><strong>{review.profile?.username || 'Coffee Map member'}</strong></div><div className="cafe-review-rating"><CoffeeBeanRating value={Number(review.rating || 0)} size={17} /><b>{Number(review.rating || 0) || '—'}</b></div></div>
-              <div className="cafe-review-content">{review.images?.[0] && <img className="cafe-review-photo" src={review.images[0].public_url} alt={`Foto de ${cafe.nombre}`} loading="lazy" decoding="async" />}<p>{review.content}</p></div>
+              <div className="cafe-review-top"><div className="cafe-review-user"><img src={review.profile?.avatar_url || `https://api.dicebear.com/7.x/miniavs/svg?seed=${encodeURIComponent(review.profile?.username || 'coffee-user')}`} alt="" onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = '/logo.png'; }} /><strong>{review.profile?.username || 'Coffee Map member'}</strong></div><div className="cafe-review-rating"><CoffeeBeanRating value={Number(review.rating || 0)} size={17} /><b>{Number(review.rating || 0) || '—'}</b></div></div>
+              <div className="cafe-review-content">{review.images?.[0] && <img className="cafe-review-photo cafe-expandable-photo" src={review.images[0].public_url} alt={`Foto de ${cafe.nombre}`} loading="lazy" decoding="async" onClick={() => setExpandedImage({ src: review.images[0].public_url, alt: `Foto de ${cafe.nombre}` })} /> }<p>{review.content}</p></div>
               <footer><button type="button" onClick={() => navigate('/activity')} aria-label="Ver reseña"><Heart size={17} /></button><button type="button" onClick={() => navigate('/activity')} aria-label="Abrir comentarios"><MessageCircle size={17} /></button><button type="button" onClick={() => navigator.share ? navigator.share({ title: `Reseña de ${cafe.nombre}`, url: window.location.href }).catch(() => {}) : navigator.clipboard?.writeText(window.location.href)} aria-label="Compartir"><Send size={16} /></button></footer>
             </article>)}</div> : <div className="cafe-reviews-empty"><Coffee size={25} /><p>Aún no hay reseñas públicas para esta cafetería.</p><button type="button" onClick={openReviewComposer}>Sé la primera persona en contar tu visita</button></div>}
           </section>
 
           <section className="cafe-gallery-section">
             <header><div><span className="cafe-section-kicker">UN VISTAZO AL LUGAR</span><h2>Galería</h2></div>{communityPhotos.length > 0 && <span>{communityPhotos.length} fotos</span>}</header>
-            <div className="cafe-gallery-grid">{[...(cafe.imageUrl ? [{ id: 'cover', public_url: cafe.imageUrl }] : []), ...communityPhotos].slice(0, 9).map((photo) => <img key={photo.id} src={photo.public_url} alt={cafe.nombre} loading="lazy" decoding="async" />)}</div>
+            <div className="cafe-gallery-grid">{[...(cafe.imageUrl ? [{ id: 'cover', public_url: cafe.imageUrl }] : []), ...communityPhotos].slice(0, 9).map((photo) => <button type="button" className="cafe-photo-open" key={photo.id} onClick={() => setExpandedImage({ src: photo.public_url, alt: cafe.nombre })} aria-label={`Ampliar foto de ${cafe.nombre}`}><img src={photo.public_url} alt={cafe.nombre} loading="lazy" decoding="async" /></button>)}</div>
             {!cafe.imageUrl && !communityPhotos.length && <p className="cafe-gallery-empty">Las fotos de esta cafetería aparecerán aquí.</p>}
           </section>
         </div>
@@ -337,6 +352,7 @@ function CafePage({ cafeId }) {
           <strong>{tiktok.title || 'Video de la comunidad'}</strong><small><i /> Ale · TikTok</small>
         </a>)}</div> : <div className="cafe-tiktok-empty"><Music2 size={24} /><p>Aquí aparecerán los TikToks de esta cafetería.</p></div>}
       </section>
+      {expandedImage && <div className="cafe-image-viewer" role="dialog" aria-modal="true" aria-label="Foto ampliada" onMouseDown={(event) => { if (event.target === event.currentTarget) setExpandedImage(null); }}><button type="button" className="cafe-image-viewer-close" onClick={() => setExpandedImage(null)} aria-label="Cerrar foto"><X size={22} /></button><img src={expandedImage.src} alt={expandedImage.alt} /></div>}
     </main>
   );
 }
