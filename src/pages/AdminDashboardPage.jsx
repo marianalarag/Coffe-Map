@@ -544,6 +544,7 @@ function AdminCafeCard({ cafe, tiktoks = [], saving = false, onSave: persistCafe
     category: cafe.category || 'cafeteria',
     image_url: cafe.image_url || '',
     instagram_url: cafe.instagram_url || '',
+    menu_url: cafe.menu_url || '',
   }));
   const [dirtyFields, setDirtyFields] = useState(() => new Set());
   const [schedule, setSchedule] = useState(() => parseAdminHoursWithSplits(cafe.opening_hours));
@@ -651,6 +652,7 @@ function AdminCafeCard({ cafe, tiktoks = [], saving = false, onSave: persistCafe
         {textField('image_url', 'URL de foto de portada')}
         <div className="admin-cafe-card-socials">
           <label><Instagram size={14} /><input value={fieldValue('instagram_url')} placeholder="Instagram" onChange={(event) => changeField('instagram_url', event.target.value)} /></label>
+          <label><Coffee size={14} /><input value={fieldValue('menu_url')} placeholder="Enlace del menú" onChange={(event) => changeField('menu_url', event.target.value)} /></label>
         </div>
         <div className="admin-cafe-tiktoks">
           <div className="admin-cafe-tiktoks-heading"><span><Music2 size={14} /> TikToks relacionados</span><small>{tiktoks.length}</small></div>
@@ -928,7 +930,7 @@ function AdminDashboardPage() {
         supabase.from('posts').select('id', { count: 'exact', head: true }),
         supabase.from('cafe_photos').select('id', { count: 'exact', head: true }),
         supabase.from('user_cafes').select('id', { count: 'exact', head: true }).not('review_text', 'eq', ''),
-        supabase.from('cafes').select('id,nombre,lat,lng,address,link,source_url,neighborhood,category,image_url,image_source_url,image_attribution,image_license,instagram_url,tiktok_url,opening_hours,opening_hours_source,opening_hours_source_url,opening_hours_verified_at,source,source_id,status,submitted_by,created_at,last_verified_at').order('nombre').limit(1000),
+        supabase.from('cafes').select('id,nombre,lat,lng,address,link,source_url,neighborhood,category,image_url,image_source_url,image_attribution,image_license,instagram_url,tiktok_url,menu_url,opening_hours,opening_hours_source,opening_hours_source_url,opening_hours_verified_at,source,source_id,status,submitted_by,created_at,last_verified_at').order('nombre').limit(1000),
         supabase.from('cafe_tiktoks').select('id,cafe_id,url,thumbnail_url,title,position,created_at').order('position').order('created_at'),
         supabase.from('cafe_photos').select('id,cafe_id,user_id,post_id,storage_path,public_url,status,is_cover,rights_confirmed,rights_basis,rights_note,created_at').eq('status', 'pending').is('post_id', null).order('created_at', { ascending: false }).limit(100),
         supabase.from('posts').select('id,user_id,cafe_id,content,image_url,status,created_at').order('created_at', { ascending: false }).limit(1000),
@@ -1320,6 +1322,7 @@ function AdminDashboardPage() {
       opening_hours_verified_at: options.opening_hours ? timestamp : null,
       image_url: String(cafe.image_url || '').trim() || null,
       instagram_url: String(cafe.instagram_url || '').trim() || null,
+      menu_url: String(cafe.menu_url || '').trim() || null,
       updated_at: timestamp,
     };
     if (!patch.nombre) throw new Error('El nombre de la cafetería es obligatorio.');

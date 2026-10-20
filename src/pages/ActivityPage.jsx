@@ -1,14 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Check, ChevronLeft, ChevronRight, Coffee, Edit3, Heart, Image as ImageIcon, ImagePlus, MessageCircle, MoreHorizontal, Send, Trash2, UserPlus, Users, X } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Coffee, Edit3, Heart, Image as ImageIcon, ImagePlus, MessageCircle, MoreHorizontal, Send, Trash2, UserPlus, Users, X, MapPin } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import BottomNav from '../components/BottomNav';
-import HalfStarRating from '../components/HalfStarRating';
+import { CoffeeBeanRating } from '../components/CoffeeBeanIcon';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../supabase';
 import { repairCafeText } from '../utils/cafeDeduplication';
 import { formatRating } from '../utils/formatRating';
 
 const fallbackAvatar = (seed) => `https://api.dicebear.com/7.x/miniavs/svg?seed=${encodeURIComponent(seed || 'coffee-user')}`;
+const getActivityAvatar = (url) => {
+  if (!url || typeof window === 'undefined' || !window.location.hostname.endsWith('.vercel.app')) return url;
+  if (!url.startsWith('https://zuojhckhlphpkcwcufae.supabase.co/storage/v1/object/public/avatars/')) return url;
+  return `/_vercel/image?url=${encodeURIComponent(url)}&w=256&q=95`;
+};
 const ACTIVITY_CACHE_TTL_MS = 2 * 60 * 1000;
 const MAX_EDIT_PHOTO_BYTES = 8 * 1024 * 1024;
 const activityCache = new Map();
@@ -16,7 +21,24 @@ const activityCache = new Map();
 function PostImageCarousel({ images, cafeName }) {
   const trackRef = useRef(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [viewerIndex, setViewerIndex] = useState(null);
   const hasMultipleImages = images.length > 1;
+
+  useEffect(() => {
+    if (viewerIndex === null) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') setViewerIndex(null);
+      if (event.key === 'ArrowRight') setViewerIndex((index) => Math.min(images.length - 1, index + 1));
+      if (event.key === 'ArrowLeft') setViewerIndex((index) => Math.max(0, index - 1));
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [images.length, viewerIndex]);
 
   const updateActiveIndex = () => {
     const track = trackRef.current;
@@ -35,7 +57,7 @@ function PostImageCarousel({ images, cafeName }) {
       <div className="activity-image-track" ref={trackRef} onScroll={updateActiveIndex}>
         {images.map((image, index) => (
           <div className="activity-image-slide" role="group" aria-roledescription="diapositiva" aria-label={`${index + 1} de ${images.length}`} key={image.id}>
-            <img src={image.public_url} alt={`${cafeName || 'Publicación'}, foto ${index + 1} de ${images.length}`} loading={index === 0 ? 'eager' : 'lazy'} decoding="async" />
+            <button type="button" className="activity-image-open" onClick={() => setViewerIndex(index)} aria-label={`Abrir foto ${index + 1} en pantalla completa`}><img src={image.public_url} alt={`${cafeName || 'Publicación'}, foto ${index + 1} de ${images.length}`} loading={index === 0 ? 'eager' : 'lazy'} decoding="async" /></button>
           </div>
         ))}
       </div>
@@ -49,6 +71,14 @@ function PostImageCarousel({ images, cafeName }) {
             {images.map((image, index) => <span className={index === activeIndex ? 'is-active' : ''} key={image.id} />)}
           </div>
         </>
+      )}
+      {viewerIndex !== null && (
+        <div className="activity-image-viewer" role="dialog" aria-modal="true" aria-label="Imagen de la publicación en pantalla completa" onMouseDown={(event) => { if (event.target === event.currentTarget) setViewerIndex(null); }}>
+          <header><span>{viewerIndex + 1} / {images.length}</span><button type="button" onClick={() => setViewerIndex(null)} aria-label="Cerrar imagen"><X size={22} /></button></header>
+          {viewerIndex > 0 && <button type="button" className="activity-viewer-arrow is-previous" onClick={() => setViewerIndex((index) => index - 1)} aria-label="Imagen anterior"><ChevronLeft size={28} /></button>}
+          <img className="activity-image-viewer-photo" src={images[viewerIndex]?.public_url} alt={`${cafeName || 'Publicación'}, foto ${viewerIndex + 1} de ${images.length}`} />
+          {viewerIndex < images.length - 1 && <button type="button" className="activity-viewer-arrow is-next" onClick={() => setViewerIndex((index) => index + 1)} aria-label="Siguiente imagen"><ChevronRight size={28} /></button>}
+        </div>
       )}
     </section>
   );
@@ -168,8 +198,48 @@ export function ActivityFeed({ userIdFilter = null, userIdsFilter = null, kindFi
         cafe: cafeMap.get(post.cafe_id),
         images: imagesByPost.get(post.id) || (post.image_url ? [{ id: `${post.id}:legacy`, public_url: post.image_url }] : []),
       }));
-      activityCache.set(cacheKey, { savedAt: Date.now(), posts: nextPosts, socialByPost: nextSocial });
-      setPosts(nextPosts);
+      let waitlistRows = [];
+      if (userIdFilter === user.id) {
+        const { data: ownRows } = await supabase
+          .from('user_cafes')
+          .select('id,user_id,cafe_id,updated_at,cafe:cafes(id,nombre,image_url,neighborhood)')
+          .eq('user_id', user.id)
+          .eq('in_waitlist', true)
+          .order('updated_at', { ascending: false })
+          .limit(60);
+        waitlistRows = (ownRows || []).map((row) => ({ ...row, username: profileMap.get(user.id)?.username || user.user_metadata?.username || 'Tú', avatar_url: profileMap.get(user.id)?.avatar_url }));
+      } else if (Array.isArray(userIdsFilter) && userIdsFilter.length > 0) {
+        const { data: friendRows } = await supabase.rpc('get_friend_waitlist_activity', { friend_ids: userIdsFilter });
+        waitlistRows = friendRows || [];
+      }
+      if (waitlistRows.length && !profileMap.has(user.id) && userIdFilter === user.id) {
+        const { data: currentProfile } = await supabase.from('profiles').select('id,username,avatar_url').eq('id', user.id).maybeSingle();
+        if (currentProfile) profileMap.set(user.id, currentProfile);
+      }
+      const seenWaitlist = new Set();
+      const waitlistEvents = waitlistRows
+        .filter((row) => {
+          const key = `${row.user_id}:${row.cafe_id}`;
+          if (seenWaitlist.has(key)) return false;
+          seenWaitlist.add(key);
+          return true;
+        })
+        .map((row) => ({
+          id: `waitlist:${row.id || `${row.user_id}:${row.cafe_id}`}`,
+          activityType: 'waitlist',
+          user_id: row.user_id,
+          cafe_id: row.cafe_id,
+          created_at: row.updated_at || new Date().toISOString(),
+          profile: { username: row.username || profileMap.get(row.user_id)?.username, avatar_url: row.avatar_url || profileMap.get(row.user_id)?.avatar_url },
+          cafe: row.cafe || { id: row.cafe_id, nombre: row.cafe_name, image_url: row.cafe_image_url, neighborhood: row.neighborhood },
+          images: [],
+        }))
+        .filter((event) => event.cafe?.nombre);
+      const nextActivity = [...nextPosts, ...waitlistEvents].sort((first, second) => (
+        String(second.updated_at || second.created_at || '').localeCompare(String(first.updated_at || first.created_at || ''))
+      ));
+      activityCache.set(cacheKey, { savedAt: Date.now(), posts: nextActivity, socialByPost: nextSocial });
+      setPosts(nextActivity);
     } catch (loadError) {
       setError(loadError.message?.includes('relation') || loadError.code === 'PGRST204'
         ? 'Falta aplicar la actualización social en Supabase.'
@@ -447,9 +517,22 @@ export function ActivityFeed({ userIdFilter = null, userIdsFilter = null, kindFi
 
   const renderPost = (post) => {
     const name = post.profile?.username || (post.user_id === user.id ? 'Tú' : 'Coffee lover');
-    const avatar = post.profile?.avatar_url || fallbackAvatar(name);
+    const avatar = getActivityAvatar(post.profile?.avatar_url) || fallbackAvatar(name);
     const social = socialByPost[post.id] || { likes: 0, comments: 0, liked: false, likeProfiles: [] };
     const friendLikeNames = social.likeProfiles?.map((profile) => profile.username).filter(Boolean) || [];
+    if (post.activityType === 'waitlist') {
+      return <article className="activity-list-event" id={`post-${post.id}`} key={post.id}>
+        <button type="button" className="activity-list-event-user" onClick={() => navigate(post.user_id === user.id ? '/profile' : `/profile/${post.user_id}`)}>
+          <img src={avatar} alt="" width="48" height="48" decoding="async" />
+          <span><strong>{name}</strong><small>{post.user_id === user.id ? 'agregaste' : 'agregó'} <b>{post.cafe.nombre}</b> a {post.user_id === user.id ? 'tu' : 'su'} lista para ir después</small></span>
+        </button>
+        <button type="button" className="activity-list-event-cafe" onClick={() => navigate(`/cafe/${post.cafe_id}`)} aria-label={`Ver ${post.cafe.nombre}`}>
+          {post.cafe.image_url ? <img src={post.cafe.image_url} alt="" loading="lazy" decoding="async" /> : <Coffee size={19} />}
+          <MapPin size={15} />
+        </button>
+        <Heart className="activity-list-event-heart" size={18} fill="currentColor" aria-hidden="true" />
+      </article>;
+    }
     return (
       <article className="activity-post" id={`post-${post.id}`} key={post.id}>
         <PostHeader
@@ -464,9 +547,11 @@ export function ActivityFeed({ userIdFilter = null, userIdsFilter = null, kindFi
           onOpenProfile={() => navigate(post.user_id === user.id ? '/profile' : `/profile/${post.user_id}`)}
         />
         {post.cafe?.nombre && <button type="button" className="activity-cafe-link" onClick={() => navigate(`/cafe/${post.cafe_id}`)}>{post.cafe.nombre}</button>}
-        {Number(post.rating) > 0 && <div className="activity-rating"><HalfStarRating value={Number(post.rating)} readOnly size={17} /><span>{formatRating(post.rating)}</span></div>}
-        {post.content && <p className="activity-post-copy">{post.content}</p>}
-        {post.images.length > 0 && <PostImageCarousel images={post.images} cafeName={post.cafe?.nombre} />}
+        {Number(post.rating) > 0 && <div className="activity-rating"><CoffeeBeanRating value={Number(post.rating)} size={16} /><span>{formatRating(post.rating)}</span></div>}
+        <div className="activity-post-body">
+          {post.images.length > 0 && <PostImageCarousel images={post.images} cafeName={post.cafe?.nombre} />}
+          {post.content && <p className="activity-post-copy">{post.content}</p>}
+        </div>
         {social.likes > 0 && (
           <div className="activity-like-summary">
             {social.likeProfiles?.length > 0 && (

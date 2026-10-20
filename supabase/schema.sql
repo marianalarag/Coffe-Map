@@ -33,6 +33,7 @@ create table if not exists public.cafes (
   image_license text,
   instagram_url text,
   tiktok_url text,
+  menu_url text,
   opening_hours text,
   opening_hours_source text,
   opening_hours_source_url text,
@@ -55,6 +56,7 @@ alter table public.cafes add column if not exists source_url text;
 alter table public.cafes add column if not exists address text;
 alter table public.cafes add column if not exists instagram_url text;
 alter table public.cafes add column if not exists tiktok_url text;
+alter table public.cafes add column if not exists menu_url text;
 alter table public.cafes add column if not exists opening_hours text;
 alter table public.cafes add column if not exists opening_hours_source text;
 alter table public.cafes add column if not exists opening_hours_source_url text;
