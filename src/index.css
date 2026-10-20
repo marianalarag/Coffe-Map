@@ -1633,9 +1633,9 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 .cafe-hours-list p { color: rgba(232,221,197,.82); font-size: 13px; }
 .cafe-hours-list strong { color: rgba(232,221,197,.9); font-weight: 400; }
 .cafe-hours-pending, .cafe-hours-source { color: rgba(232,221,197,.5); font-size: 9px; line-height: 1.5; }
-.cafe-map-card { position: relative; min-height: 270px; overflow: hidden; padding: 0; background: #d6d1c6; border: 0; border-radius: 24px; cursor: pointer; }
-.cafe-map-card iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; pointer-events: none; }
-.cafe-map-card > button { position: absolute; right: 10px; bottom: 10px; left: 10px; display: flex; align-items: center; gap: 8px; padding: 10px 12px; color: #eee5d2; background: rgba(35,27,22,.9); border: 0; border-radius: 12px; font: 10px "Inria Serif", Georgia, serif; text-align: left; cursor: pointer; }
+.cafe-map-card { position: relative; width: 100%; min-height: 270px; overflow: hidden; padding: 0; background: #d6d1c6; border: 0; border-radius: 24px; cursor: pointer; }
+.cafe-map-card > div { position: absolute; inset: 0; }
+.cafe-map-card > span { position: absolute; right: 10px; bottom: 10px; left: 10px; display: flex; align-items: center; gap: 8px; padding: 10px 12px; color: #eee5d2; background: rgba(35,27,22,.9); border-radius: 12px; font: 10px "Inria Serif", Georgia, serif; text-align: left; }
 .cafe-reviews-section, .cafe-gallery-section { margin-bottom: 27px; }
 .cafe-reviews-section > header, .cafe-gallery-section > header, .cafe-tiktok-section > header { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
 .cafe-reviews-section h2, .cafe-gallery-section h2, .cafe-tiktok-section h2 { margin: 4px 0 0; color: var(--cafe-cream); font: 400 30px/1 "Lancelot", Georgia, serif; }
@@ -1763,14 +1763,14 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 .activity-cafe-link { margin: 11px 0 2px; color: #e8dcc5; font-size: clamp(21px, 2vw, 30px); }
 .activity-rating { gap: 8px; margin: 3px 0 12px; }
 .activity-rating > span { color: #e3d5b7; font-size: 12px; }
-.activity-post-body { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .9fr); align-items: center; gap: clamp(12px, 2vw, 24px); }
+.activity-post-body { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .9fr); align-items: stretch; gap: clamp(12px, 2vw, 24px); }
 .activity-image-carousel { min-width: 0; margin: 0; }
 .activity-image-track { border-radius: 13px; }
 .activity-image-slide { height: clamp(205px, 27vw, 410px); }
 .activity-image-open { width: 100%; height: 100%; display: block; overflow: hidden; padding: 0; background: transparent; border: 0; cursor: zoom-in; }
 .activity-image-slide img { transition: transform 240ms ease; }
 .activity-image-open:hover img { transform: scale(1.025); }
-.activity-post-copy { max-height: 390px; overflow-y: auto; color: rgba(232,221,197,.8); font-size: clamp(12px, 1.2vw, 17px); line-height: 1.48; white-space: pre-wrap; }
+.activity-post-copy { width: 100%; min-height: 0; max-height: none; align-self: stretch; display: flex; align-items: center; box-sizing: border-box; overflow-y: auto; color: rgba(232,221,197,.8); font-size: clamp(12px, 1.2vw, 17px); line-height: 1.48; white-space: pre-wrap; }
 .activity-post-body > .activity-post-copy:only-child { grid-column: 1 / -1; }
 .activity-post-actions { margin-top: 9px; color: #bca17d; }
 .activity-post-actions button { min-width: 36px; height: 32px; }
@@ -1786,10 +1786,10 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 .activity-list-event-cafe > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .activity-list-event-cafe > svg { position: relative; z-index: 1; filter: drop-shadow(0 1px 3px rgba(0,0,0,.7)); }
 .activity-list-event-heart { flex: 0 0 auto; color: #bda47e; }
-.activity-image-viewer { position: fixed; inset: 0; z-index: 6500; display: grid; place-items: center; padding: 60px 54px; background: rgba(8,7,6,.96); backdrop-filter: blur(12px); }
+.activity-image-viewer { position: fixed; inset: 0; z-index: 6500; display: flex; align-items: center; justify-content: center; padding: 62px 64px; background: rgba(8,7,6,.96); backdrop-filter: blur(12px); }
 .activity-image-viewer > header { position: absolute; top: max(14px, env(safe-area-inset-top, 0px)); right: 18px; left: 18px; display: flex; align-items: center; justify-content: space-between; color: rgba(255,255,255,.78); font-size: 12px; }
 .activity-image-viewer > header button { width: 42px; height: 42px; display: grid; place-items: center; color: white; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.16); border-radius: 50%; cursor: pointer; }
-.activity-image-viewer-photo { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 4px; box-shadow: 0 16px 70px rgba(0,0,0,.38); }
+.activity-image-viewer-photo { display: block; width: auto; height: auto; max-width: calc(100vw - 128px); max-height: calc(100dvh - 124px); object-fit: contain; border-radius: 4px; box-shadow: 0 16px 70px rgba(0,0,0,.38); }
 .activity-viewer-arrow { position: absolute; top: 50%; z-index: 2; width: 48px; height: 48px; display: grid; place-items: center; color: #fff; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.16); border-radius: 50%; cursor: pointer; transform: translateY(-50%); }
 .activity-viewer-arrow.is-previous { left: 18px; }
 .activity-viewer-arrow.is-next { right: 18px; }
@@ -1807,7 +1807,7 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
   .activity-rating { margin: 2px 0 9px; }
   .activity-post-body { grid-template-columns: minmax(0, 1fr) minmax(0, .9fr); gap: 11px; }
   .activity-image-slide { height: clamp(185px, 56vw, 280px); }
-  .activity-post-copy { max-height: 280px; font-size: clamp(10px, 2.8vw, 13px); line-height: 1.38; }
+  .activity-post-copy { font-size: clamp(10px, 2.8vw, 13px); line-height: 1.38; }
   .activity-list-event { min-height: 68px; gap: 8px; padding: 9px 11px; border-radius: 22px; }
   .activity-list-event-user > img { width: 42px; height: 42px; flex-basis: 42px; }
   .activity-list-event-user { gap: 9px; }
@@ -1815,6 +1815,7 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
   .activity-list-event-cafe { width: 38px; height: 38px; flex-basis: 38px; border-radius: 10px; }
   .activity-list-event-heart { width: 16px; }
   .activity-image-viewer { padding: 58px 12px; }
+  .activity-image-viewer-photo { max-width: calc(100vw - 24px); max-height: calc(100dvh - 116px); }
   .activity-image-viewer > header { right: 12px; left: 12px; }
   .activity-viewer-arrow { width: 40px; height: 40px; background: rgba(18,15,12,.48); }
   .activity-viewer-arrow.is-previous { left: 10px; }

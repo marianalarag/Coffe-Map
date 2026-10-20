@@ -8,8 +8,13 @@ import { supabase } from '../supabase';
 import { getCafeOpenStatus, getCafeScheduleRows } from '../utils/cafeHours';
 import { geocodeCafeLocation, getCafeCoordinates } from '../utils/cafeLocation';
 import { CoffeeBeanRating } from '../components/CoffeeBeanIcon';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 
 const MAP_TARGET_STORAGE_KEY = 'coffee-map:focus-cafe';
+const MAP_STYLE_URL = import.meta.env.VITE_MAP_STYLE_URL || 'https://tiles.openfreemap.org/styles/liberty';
+const MAP_TILE_URL = import.meta.env.VITE_MAP_TILE_URL || '';
+const MAP_TILE_ATTRIBUTION = import.meta.env.VITE_MAP_TILE_ATTRIBUTION || '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 const getLocalDate = () => {
   const today = new Date();
   const offset = today.getTimezoneOffset() * 60000;
@@ -219,6 +224,25 @@ function CafePage({ cafeId }) {
   const openStatus = getCafeOpenStatus(cafe?.openingHours);
   const scheduleRows = getCafeScheduleRows(cafe?.openingHours);
 
+  useEffect(() => {
+    const element = document.getElementById('cafe-map-preview');
+    const lat = Number(cafe?.lat);
+    const lng = Number(cafe?.lng);
+    if (!element || !Number.isFinite(lat) || !Number.isFinite(lng)) return undefined;
+
+    let cancelled = false;
+    const map = L.map(element, { center: [lat, lng], zoom: 15, zoomControl: false, attributionControl: false, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false, touchZoom: false });
+    if (MAP_TILE_URL) {
+      L.tileLayer(MAP_TILE_URL, { attribution: MAP_TILE_ATTRIBUTION, maxZoom: 19 }).addTo(map);
+    } else {
+      import('@maplibre/maplibre-gl-leaflet').then(({ maplibreGL }) => {
+        if (!cancelled) maplibreGL({ style: MAP_STYLE_URL, interactive: false, maxZoom: 19 }).addTo(map);
+      }).catch((error) => console.error('No se pudo cargar la vista previa del mapa.', error));
+    }
+    L.circleMarker([lat, lng], { radius: 8, color: '#fffaf0', weight: 3, fillColor: '#7a5533', fillOpacity: 1 }).addTo(map);
+    return () => { cancelled = true; map.remove(); };
+  }, [cafe?.id, cafe?.lat, cafe?.lng]);
+
   if ((cafesLoading && !cafesLoaded) || (interactionsLoading && !interaction)) {
     return <PageLoading message="Cargando cafeteria..." />;
   }
@@ -285,7 +309,7 @@ function CafePage({ cafeId }) {
             {cafe.openingHoursSource === 'web' && <small className="cafe-hours-source">Horario verificado en una fuente pública{cafe.openingHoursSourceUrl ? <> · <a href={cafe.openingHoursSourceUrl} target="_blank" rel="noreferrer">ver fuente</a></> : null}.</small>}
             {cafe.openingHoursSource === 'admin' && <small className="cafe-hours-source">Horario verificado por Coffee Map.</small>}
           </section>
-          <div className="cafe-map-card"><iframe title={`Mapa de ${cafe.nombre}`} src={`https://www.openstreetmap.org/export/embed.html?bbox=${Number(cafe.lng) - 0.012}%2C${Number(cafe.lat) - 0.008}%2C${Number(cafe.lng) + 0.012}%2C${Number(cafe.lat) + 0.008}&layer=mapnik&marker=${cafe.lat}%2C${cafe.lng}`} loading="lazy" /><button type="button" onClick={showInAppMap}><MapPin size={17} /> {cafe.address || cafe.neighborhood || 'Ver ubicación'}</button></div>
+          <button type="button" className="cafe-map-card" onClick={showInAppMap} aria-label={`Ver ${cafe.nombre} en el mapa de Coffee Map`}><div id="cafe-map-preview" aria-hidden="true" /><span><MapPin size={17} /> {cafe.address || cafe.neighborhood || 'Ver ubicación'}</span></button>
         </aside>
 
         <div className="cafe-main-column">

@@ -12,7 +12,7 @@ const fallbackAvatar = (seed) => `https://api.dicebear.com/7.x/miniavs/svg?seed=
 const getActivityAvatar = (url) => {
   if (!url || typeof window === 'undefined' || !window.location.hostname.endsWith('.vercel.app')) return url;
   if (!url.startsWith('https://zuojhckhlphpkcwcufae.supabase.co/storage/v1/object/public/avatars/')) return url;
-  return `/_vercel/image?url=${encodeURIComponent(url)}&w=256&q=95`;
+  return `/_vercel/image?url=${encodeURIComponent(url)}&w=256&q=90`;
 };
 const ACTIVITY_CACHE_TTL_MS = 2 * 60 * 1000;
 const MAX_EDIT_PHOTO_BYTES = 8 * 1024 * 1024;
