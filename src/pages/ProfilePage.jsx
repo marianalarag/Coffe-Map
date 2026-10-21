@@ -27,11 +27,7 @@ import CoffeeBeanIcon, { CoffeeBeanRating } from '../components/CoffeeBeanIcon';
 import { formatRating } from '../utils/formatRating';
 
 
-const getOptimizedProfileImageUrl = (url, width) => {
-  if (!url || typeof window === 'undefined' || !window.location.hostname.endsWith('.vercel.app')) return url;
-  if (!url.startsWith('https://zuojhckhlphpkcwcufae.supabase.co/storage/v1/object/public/avatars/')) return url;
-  return `/_vercel/image?url=${encodeURIComponent(url)}&w=${width}&q=90`;
-};
+const getOptimizedProfileImageUrl = (url) => url;
 
 const getProfileAssetPath = (userId, kind, file) => {
   const fileExt = file.name.split('.').pop() || 'png';
@@ -57,7 +53,7 @@ const optimizeProfileImage = async (file, kind) => {
     context.drawImage(bitmap, 0, 0, width, height);
     bitmap.close?.();
 
-    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/webp', kind === 'avatar' ? 0.92 : 0.88));
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/webp', kind === 'avatar' ? 0.98 : 0.88));
     if (!blob || blob.size >= file.size) return file;
 
     const baseName = file.name.replace(/\.[^.]+$/, '') || kind;
@@ -130,7 +126,7 @@ function ProfileImageCropper({ file, kind, onCancel, onConfirm }) {
     context.imageSmoothingEnabled = true;
     context.imageSmoothingQuality = 'high';
     context.drawImage(image, sourceLeft, sourceTop, sourceWidth, sourceHeight, 0, 0, outputWidth, outputHeight);
-    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/webp', 0.92));
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/webp', isCover ? 0.88 : 0.98));
     if (blob) onConfirm(new File([blob], `${kind}-cropped.webp`, { type: 'image/webp', lastModified: Date.now() }));
   };
 
