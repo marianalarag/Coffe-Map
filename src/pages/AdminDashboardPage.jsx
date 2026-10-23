@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, BarChart3, Camera, ClipboardList, Clock, Coffee, Database, Download, ExternalLink, FileUp, GripVertical, Image, Instagram, MapPin, MapPinned, Music2, Palette, Plus, RefreshCw, ScanSearch, Search, Shield, Trash2, Users, X } from 'lucide-react';
+import { AlignCenter, AlignLeft, AlignRight, ArrowLeft, BarChart3, Camera, ClipboardList, Clock, Coffee, Database, Download, ExternalLink, FileUp, GripVertical, Image, Instagram, MapPin, MapPinned, MousePointer2, Music2, Palette, Plus, RefreshCw, ScanSearch, Search, Shield, Trash2, Type, Users, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCoffeeData } from '../context/CoffeeDataContext';
 import { supabase } from '../supabase';
-import { areDuplicateCafes, deduplicateCafes, distanceBetweenCafes, repairCafeText } from '../utils/cafeDeduplication';
+import { areDuplicateCafes, deduplicateCafes, repairCafeText } from '../utils/cafeDeduplication';
 import { geocodeCafeLocation, isGoogleMapsLink, normalizeGoogleMapsLink } from '../utils/cafeLocation';
 import { toCafeDbRow } from '../utils/cafeDatabase';
 
@@ -469,72 +469,96 @@ function MetricCard({ label, value, icon }) {
 }
 
 const BUILDER_OPTIONS = [
+  { type: 'heading', label: 'Título', icon: <Type size={15} />, description: 'Encabezado para el panel' },
+  { type: 'text', label: 'Texto', icon: <FileUp size={15} />, description: 'Párrafo o descripción' },
+  { type: 'image', label: 'Imagen', icon: <Image size={15} />, description: 'Imagen desde una URL' },
+  { type: 'button', label: 'Botón', icon: <MousePointer2 size={15} />, description: 'Enlace con llamada a la acción' },
   { type: 'field', label: 'Campo', icon: <Database size={15} />, description: 'Etiqueta y valor' },
-  { type: 'text', label: 'Texto', icon: <FileUp size={15} />, description: 'Nota editable' },
   { type: 'chart', label: 'Gráfica', icon: <BarChart3 size={15} />, description: 'Indicadores del panel' },
-  { type: 'image', label: 'Imagen', icon: <Image size={15} />, description: 'Imagen por URL' },
 ];
 
-function AdminCustomBlock({ block, metrics, onChange, onRemove, onDragStart, onDragOver, onDrop }) {
+function AdminCustomBlock({ block, metrics, selected, onSelect, onRemove, onDragStart, onDragOver, onDrop }) {
   const option = BUILDER_OPTIONS.find((item) => item.type === block.type) || BUILDER_OPTIONS[0];
+  const previewStyle = {
+    color: block.color || '#eee5d2',
+    backgroundColor: block.background || '#27211b',
+    textAlign: block.alignment || 'left',
+    padding: `${Math.max(8, Number(block.padding) || 16)}px`,
+    borderRadius: `${Math.max(0, Number(block.radius) || 14)}px`,
+    fontSize: `${Math.max(10, Number(block.fontSize) || 16)}px`,
+  };
   return (
-    <article className="admin-custom-block" draggable onDragStart={onDragStart} onDragOver={(event) => { event.preventDefault(); onDragOver?.(); }} onDrop={onDrop}>
+    <article className={`admin-custom-block ${selected ? 'is-selected' : ''}`} draggable onClick={onSelect} onDragStart={onDragStart} onDragOver={(event) => { event.preventDefault(); onDragOver?.(); }} onDrop={onDrop}>
       <header>
         <span className="admin-block-handle" title="Arrastrar bloque"><GripVertical size={15} /></span>
         <span className="admin-custom-block-kind">{option.icon}{option.label}</span>
-        <button type="button" className="admin-custom-block-remove" onClick={onRemove} aria-label="Eliminar bloque" title="Eliminar bloque"><X size={14} /></button>
+        <button type="button" className="admin-custom-block-remove" onClick={(event) => { event.stopPropagation(); onRemove(); }} aria-label="Eliminar bloque" title="Eliminar bloque"><X size={14} /></button>
       </header>
-      {block.type === 'field' && (
-        <div className="admin-custom-field-preview">
-          <input value={block.label || ''} onChange={(event) => onChange({ label: event.target.value })} placeholder="Etiqueta" />
-          <input value={block.value || ''} onChange={(event) => onChange({ value: event.target.value })} placeholder="Valor" />
-        </div>
-      )}
-      {block.type === 'text' && <textarea value={block.content || ''} onChange={(event) => onChange({ content: event.target.value })} placeholder="Escribe una nota para esta sección..." />}
-      {block.type === 'chart' && (
-        <div className="admin-custom-chart">
-          {[
-            ['Cafeterías', metrics.cafes],
-            ['Usuarios', metrics.users],
-            ['Posts', metrics.posts],
-            ['Fotos', metrics.photos],
-          ].map(([label, value]) => (
-            <div key={label}><span>{label}</span><i><b style={{ width: `${Math.min(100, Number(value || 0) * 5)}%` }} /></i><strong>{value ?? 0}</strong></div>
-          ))}
-        </div>
-      )}
-      {block.type === 'image' && (
-        <div className="admin-custom-image">
-          <input value={block.url || ''} onChange={(event) => onChange({ url: event.target.value })} placeholder="https://..." />
-          {block.url && <img src={block.url} alt="Bloque del centro de control" />}
-        </div>
-      )}
+      <div className={`admin-custom-block-preview is-${block.type}`} style={previewStyle}>
+        {block.type === 'heading' && <h2>{block.content || 'Título del bloque'}</h2>}
+        {block.type === 'text' && <p>{block.content || 'Escribe aquí una descripción para tu panel.'}</p>}
+        {block.type === 'field' && <div className="admin-custom-field-preview"><small>{block.label || 'Etiqueta'}</small><strong>{block.value || 'Valor'}</strong></div>}
+        {block.type === 'button' && <button type="button" className="admin-custom-preview-button">{block.label || 'Ver más'}</button>}
+        {block.type === 'chart' && <div className="admin-custom-chart">{[['Cafeterías', metrics.cafes], ['Usuarios', metrics.users], ['Posts', metrics.posts], ['Fotos', metrics.photos]].map(([label, value]) => <div key={label}><span>{label}</span><i><b style={{ width: `${Math.min(100, Number(value || 0) * 5)}%` }} /></i><strong>{value ?? 0}</strong></div>)}</div>}
+        {block.type === 'image' && (block.url ? <img className="admin-custom-preview-image" src={block.url} alt={block.alt || ''} /> : <div className="admin-custom-image-placeholder"><Image size={24} /><span>Agrega una URL de imagen en Propiedades</span></div>)}
+      </div>
     </article>
   );
 }
 
 function AdminSectionBuilder({ section, blocks, metrics, menuOpen, onToggleMenu, onAdd, onChange, onRemove, onDragStart, onDragOver, onDrop }) {
+  const [selectedBlockId, setSelectedBlockId] = useState(null);
+  const selectedBlock = blocks.find((block) => block.id === selectedBlockId) || blocks[0] || null;
+  const updateSelected = (patch) => selectedBlock && onChange(selectedBlock.id, patch);
+  const handleAdd = (type) => {
+    const id = onAdd(type);
+    if (id) setSelectedBlockId(id);
+  };
+  const removeSelected = () => {
+    if (!selectedBlock) return;
+    const index = blocks.findIndex((block) => block.id === selectedBlock.id);
+    onRemove(selectedBlock.id);
+    setSelectedBlockId(blocks[index - 1]?.id || blocks[index + 1]?.id || null);
+  };
+  const updateType = (type) => {
+    if (!selectedBlock) return;
+    const defaults = type === 'heading' ? { content: 'Título del bloque' }
+      : type === 'text' ? { content: '' }
+        : type === 'image' ? { url: '', alt: '' }
+          : type === 'button' ? { label: 'Ver más', url: '' }
+            : type === 'field' ? { label: 'Etiqueta', value: 'Valor' } : {};
+    onChange(selectedBlock.id, { ...defaults, type });
+  };
   return (
     <section className="admin-builder-section">
       <div className="admin-builder-toolbar">
-        <div><Palette size={17} /><strong>Editor visual de {TABS.find((item) => item.id === section)?.label || 'esta sección'}</strong><small>Agrega bloques, edítalos y arrástralos para cambiar su orden.</small></div>
+        <div><Palette size={17} /><strong>Editor visual de {TABS.find((item) => item.id === section)?.label || 'esta sección'}</strong><small>Agrega componentes y edita contenido, imagen y estilo en el panel lateral.</small></div>
         <button type="button" onClick={onToggleMenu}><Plus size={14} /> Añadir bloque</button>
       </div>
-      {menuOpen && (
-        <div className="admin-block-menu">
-          <strong>¿Qué quieres agregar?</strong>
-          {BUILDER_OPTIONS.map((option) => <button type="button" key={option.type} onClick={() => onAdd(option.type)}>{option.icon}<span><b>{option.label}</b><small>{option.description}</small></span></button>)}
+      {menuOpen && <div className="admin-block-menu"><strong>Elige un componente para agregarlo al panel</strong>{BUILDER_OPTIONS.map((option) => <button type="button" key={option.type} onClick={() => handleAdd(option.type)}>{option.icon}<span><b>{option.label}</b><small>{option.description}</small></span></button>)}</div>}
+      <div className="admin-builder-workspace">
+        <div className="admin-builder-canvas">
+          <div className="admin-builder-canvas-heading"><span>Vista previa</span><small>Selecciona un bloque para editarlo</small></div>
+          {blocks.length ? <div className="admin-custom-blocks">{blocks.map((block) => <AdminCustomBlock key={block.id} block={block} metrics={metrics} selected={selectedBlock?.id === block.id} onSelect={() => setSelectedBlockId(block.id)} onRemove={() => onRemove(block.id)} onDragStart={() => onDragStart(block.id)} onDragOver={() => onDragOver(block.id)} onDrop={() => onDrop(block.id)} />)}</div> : <div className="admin-builder-empty"><Plus size={20} /><span>Añade un componente para empezar a diseñar esta sección.</span><button type="button" onClick={onToggleMenu}>Agregar componente</button></div>}
         </div>
-      )}
-      {blocks.length > 0 && (
-        <div className="admin-custom-blocks">
-          {blocks.map((block) => <AdminCustomBlock key={block.id} block={block} metrics={metrics} onChange={(patch) => onChange(block.id, patch)} onRemove={() => onRemove(block.id)} onDragStart={() => onDragStart(block.id)} onDragOver={() => onDragOver(block.id)} onDrop={() => onDrop(block.id)} />)}
-        </div>
-      )}
+        <aside className="admin-builder-inspector">
+          <header><div><Palette size={16} /><strong>Propiedades</strong></div>{selectedBlock && <button type="button" onClick={removeSelected} title="Eliminar bloque seleccionado" aria-label="Eliminar bloque seleccionado"><Trash2 size={15} /></button>}</header>
+          {selectedBlock ? <div className="admin-builder-properties">
+            <label>Tipo de componente<select value={selectedBlock.type} onChange={(event) => updateType(event.target.value)}>{BUILDER_OPTIONS.map((option) => <option key={option.type} value={option.type}>{option.label}</option>)}</select></label>
+            {(selectedBlock.type === 'heading' || selectedBlock.type === 'text') && <label>{selectedBlock.type === 'heading' ? 'Título' : 'Texto'}{selectedBlock.type === 'heading' ? <input value={selectedBlock.content || ''} onChange={(event) => updateSelected({ content: event.target.value })} placeholder="Título del bloque" /> : <textarea value={selectedBlock.content || ''} onChange={(event) => updateSelected({ content: event.target.value })} placeholder="Escribe el contenido del bloque" />}</label>}
+            {selectedBlock.type === 'field' && <><label>Etiqueta<input value={selectedBlock.label || ''} onChange={(event) => updateSelected({ label: event.target.value })} placeholder="Etiqueta" /></label><label>Valor<input value={selectedBlock.value || ''} onChange={(event) => updateSelected({ value: event.target.value })} placeholder="Valor" /></label></>}
+            {selectedBlock.type === 'button' && <><label>Texto del botón<input value={selectedBlock.label || ''} onChange={(event) => updateSelected({ label: event.target.value })} placeholder="Ver más" /></label><label>Enlace<input value={selectedBlock.url || ''} onChange={(event) => updateSelected({ url: event.target.value })} placeholder="https://..." /></label></>}
+            {selectedBlock.type === 'image' && <><label>URL de imagen<input value={selectedBlock.url || ''} onChange={(event) => updateSelected({ url: event.target.value })} placeholder="https://..." /></label><label>Texto alternativo<input value={selectedBlock.alt || ''} onChange={(event) => updateSelected({ alt: event.target.value })} placeholder="Describe la imagen" /></label></>}
+            <div className="admin-builder-property-row"><label>Color del texto<input type="color" value={selectedBlock.color || '#eee5d2'} onChange={(event) => updateSelected({ color: event.target.value })} /></label><label>Fondo<input type="color" value={selectedBlock.background || '#27211b'} onChange={(event) => updateSelected({ background: event.target.value })} /></label></div>
+            <label>Alineación<div className="admin-builder-alignment"><button type="button" className={(selectedBlock.alignment || 'left') === 'left' ? 'is-active' : ''} onClick={() => updateSelected({ alignment: 'left' })} aria-label="Alinear a la izquierda"><AlignLeft size={16} /></button><button type="button" className={selectedBlock.alignment === 'center' ? 'is-active' : ''} onClick={() => updateSelected({ alignment: 'center' })} aria-label="Centrar"><AlignCenter size={16} /></button><button type="button" className={selectedBlock.alignment === 'right' ? 'is-active' : ''} onClick={() => updateSelected({ alignment: 'right' })} aria-label="Alinear a la derecha"><AlignRight size={16} /></button></div></label>
+            <label>Tamaño de texto<input type="range" min="10" max="40" value={selectedBlock.fontSize || 16} onChange={(event) => updateSelected({ fontSize: Number(event.target.value) })} /><small>{selectedBlock.fontSize || 16} px</small></label>
+            <label>Espaciado<input type="range" min="8" max="40" value={selectedBlock.padding || 16} onChange={(event) => updateSelected({ padding: Number(event.target.value) })} /></label>
+          </div> : <p className="admin-builder-inspector-empty">Selecciona un bloque o agrega uno nuevo para editar su tipo, contenido, imagen y estilo.</p>}
+        </aside>
+      </div>
     </section>
   );
 }
-
 function AdminCafeCard({ cafe, tiktoks = [], saving = false, onSave: persistCafe, onStatusChange, onUpload, onDeleteCover, onFindImage, onAddTikTok, onDeleteTikTok, onDelete }) {
   const [draft, setDraft] = useState(() => ({
     nombre: cafe.nombre || '',
@@ -885,21 +909,6 @@ function AdminDashboardPage() {
   const profileMap = useMemo(() => new Map(users.map((profile) => [profile.id, profile])), [users]);
   const cafeMap = useMemo(() => new Map(cafes.map((cafe) => [cafe.id, cafe])), [cafes]);
   const postMap = useMemo(() => new Map(posts.map((post) => [post.id, post])), [posts]);
-  const exactLocationCandidates = useMemo(() => {
-    if (tab !== 'cafes') return [];
-    const candidates = [];
-    for (let index = 0; index < cafes.length; index += 1) {
-      for (let nextIndex = index + 1; nextIndex < cafes.length; nextIndex += 1) {
-        const first = cafes[index];
-        const second = cafes[nextIndex];
-        const distance = distanceBetweenCafes(first, second);
-        if (areDuplicateCafes(first, second)) {
-          candidates.push({ first, second, distance: Math.round(distance) });
-        }
-      }
-    }
-    return candidates;
-  }, [cafes, tab]);
   const pendingCafeRequests = useMemo(() => (
     cafes
       .filter((cafe) => cafe.source === 'community' && cafe.status === 'needs_review')
@@ -957,6 +966,11 @@ function AdminDashboardPage() {
   }, []);
 
   useEffect(() => { loadDashboard(); }, [loadDashboard]);
+  useEffect(() => {
+    if (!notice) return undefined;
+    const timeoutId = window.setTimeout(() => setNotice(''), 5000);
+    return () => window.clearTimeout(timeoutId);
+  }, [notice]);
   useEffect(() => { setCafeVisibleCount(ADMIN_CAFE_PAGE_SIZE); }, [cafeSearch]);
   useEffect(() => {
     if (tab !== 'cafes' || visibleCafes.length >= filteredCafes.length || !cafeLoadMoreRef.current || !('IntersectionObserver' in window)) return undefined;
@@ -984,11 +998,13 @@ function AdminDashboardPage() {
   };
 
   const addCustomBlock = (section, type) => {
+    const id = `${type}-${Date.now()}`;
     setCustomBlocksBySection((current) => ({
       ...current,
-      [section]: [...(current[section] || []), { id: `${type}-${Date.now()}`, type, label: '', value: '', content: '', url: '' }],
+      [section]: [...(current[section] || []), { id, type, label: '', value: '', content: '', url: '', alt: '', color: '#eee5d2', background: '#27211b', alignment: 'left', fontSize: 16, padding: 16, radius: 14 }],
     }));
     setOpenBuilderMenu(null);
+    return id;
   };
 
   const updateCustomBlock = (section, id, patch) => setCustomBlocksBySection((current) => ({
@@ -1509,16 +1525,6 @@ function AdminDashboardPage() {
               <label className="admin-cafe-search"><Search size={16} /><input value={cafeSearch} onChange={(event) => setCafeSearch(event.target.value)} placeholder="Buscar por nombre, dirección o zona" /></label>
               <span>{visibleCafes.length} de {filteredCafes.length} registros administrables</span>
             </div>
-            {exactLocationCandidates.length > 0 && (
-              <article className="admin-panel admin-duplicate-warning">
-                <strong>Posibles duplicados por nombre y ubicación</strong>
-                <p>Revisa estos registros antes de seguir importando. La comparación usa el nombre normalizado y la distancia entre coordenadas.</p>
-                {exactLocationCandidates.slice(0, 4).map(({ first, second, distance }) => (
-                  <span key={`${first.id}:${second.id}`}>{first.nombre} · {second.nombre} <small>{distance} m</small></span>
-                ))}
-                {exactLocationCandidates.length > 4 && <small>+{exactLocationCandidates.length - 4} coincidencias más</small>}
-              </article>
-            )}
             {tab === 'legacy-cafes' && <div className="admin-cafe-legacy-list">
               {cafes.map((cafe) => (
                 <article className="admin-row admin-cafe-row" key={cafe.id}>

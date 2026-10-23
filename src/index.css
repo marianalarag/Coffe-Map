@@ -483,8 +483,43 @@ html.is-app-mode .map-scan-control {
 .admin-custom-chart i { height: 7px; overflow: hidden; background: #443329; border-radius: 999px; }
 .admin-custom-chart b { display: block; height: 100%; background: var(--admin-accent); border-radius: inherit; }
 .admin-custom-chart strong { color: #eee5d2; text-align: right; font-size: 9px; }
-.admin-custom-image { display: grid; gap: 8px; }
-.admin-custom-image img { width: 100%; max-height: 150px; display: block; object-fit: cover; border-radius: 10px; }
+.admin-builder-workspace { display: grid; grid-template-columns: minmax(0, 1fr) minmax(250px, 310px); align-items: start; gap: 12px; }
+.admin-builder-canvas { min-width: 0; min-height: 250px; padding: 14px; background: rgba(20,17,14,.5); border: 1px solid rgba(238,229,210,.1); border-radius: 16px; }
+.admin-builder-canvas-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 12px; color: #eee5d2; font-size: 11px; font-weight: 700; }
+.admin-builder-canvas-heading small { color: rgba(238,229,210,.45); font-size: 9px; font-weight: 400; }
+.admin-custom-blocks { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); align-content: start; gap: 10px; }
+.admin-custom-block { padding: 8px; background: #211b16; border: 1px solid rgba(238,229,210,.1); border-radius: 14px; transition: border-color 140ms ease, box-shadow 140ms ease; }
+.admin-custom-block.is-selected { border-color: var(--admin-accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--admin-accent), transparent 78%); }
+.admin-custom-block-preview { min-height: 92px; overflow: hidden; }
+.admin-custom-block-preview h2, .admin-custom-block-preview p { margin: 0; line-height: 1.45; }
+.admin-custom-block-preview h2 { font: 700 1.35em "Inria Serif", Georgia, serif; }
+.admin-custom-block-preview p { white-space: pre-wrap; }
+.admin-custom-field-preview { display: grid; gap: 5px; }
+.admin-custom-field-preview small { opacity: .65; font-size: .7em; }
+.admin-custom-field-preview strong { font-size: 1.2em; }
+.admin-custom-preview-button { display: inline-flex; align-items: center; padding: 8px 13px; color: inherit; background: transparent; border: 1px solid currentColor; border-radius: 9px; font: inherit; }
+.admin-custom-preview-image { width: 100%; max-height: 220px; display: block; object-fit: cover; border-radius: 9px; }
+.admin-custom-image-placeholder { min-height: 100px; display: grid; place-items: center; align-content: center; gap: 7px; opacity: .6; font-size: .7em; }
+.admin-builder-empty { min-height: 190px; display: grid; place-items: center; align-content: center; gap: 9px; color: rgba(238,229,210,.62); text-align: center; font-size: 10px; }
+.admin-builder-empty button { padding: 8px 12px; color: #2d241d; background: var(--admin-accent); border: 0; border-radius: 9px; font: 700 10px "Inria Serif", Georgia, serif; cursor: pointer; }
+.admin-builder-inspector { position: sticky; top: 12px; min-width: 0; padding: 14px; background: #30271f; border: 1px solid rgba(238,229,210,.13); border-radius: 16px; }
+.admin-builder-inspector > header { position: static; display: flex; align-items: center; justify-content: space-between; margin: 0 0 13px; padding: 0 0 10px; border-bottom: 1px solid rgba(238,229,210,.1); }
+.admin-builder-inspector > header > div { display: flex; align-items: center; gap: 7px; color: var(--admin-accent); }
+.admin-builder-inspector > header strong { color: #eee5d2; font-size: 12px; }
+.admin-builder-inspector > header button { width: 29px; height: 29px; display: grid; place-items: center; color: #f0b5a7; background: #4d2923; border: 0; border-radius: 8px; cursor: pointer; }
+.admin-builder-inspector-empty { margin: 0; color: rgba(238,229,210,.55); font-size: 10px; line-height: 1.5; }
+.admin-builder-properties { display: grid; gap: 11px; }
+.admin-builder-properties > label, .admin-builder-property-row > label { display: grid; gap: 5px; color: rgba(238,229,210,.72); font-size: 9px; font-weight: 700; }
+.admin-builder-properties input:not([type="color"]):not([type="range"]), .admin-builder-properties textarea, .admin-builder-properties select { width: 100%; min-width: 0; padding: 9px 10px; color: #eee5d2; background: #1d1915; border: 1px solid rgba(238,229,210,.13); border-radius: 9px; outline: 0; font: 11px "Inria Serif", Georgia, serif; }
+.admin-builder-properties textarea { min-height: 90px; resize: vertical; }
+.admin-builder-properties input:focus, .admin-builder-properties textarea:focus, .admin-builder-properties select:focus { border-color: var(--admin-accent); box-shadow: 0 0 0 2px rgba(230,218,193,.12); }
+.admin-builder-property-row { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.admin-builder-property-row input[type="color"] { width: 100%; height: 37px; padding: 3px; background: #1d1915; border: 1px solid rgba(238,229,210,.13); border-radius: 9px; cursor: pointer; }
+.admin-builder-properties input[type="range"] { width: 100%; accent-color: var(--admin-accent); }
+.admin-builder-properties > label > small { color: rgba(238,229,210,.45); font-size: 8px; font-weight: 400; }
+.admin-builder-alignment { display: flex; gap: 5px; }
+.admin-builder-alignment button { width: 34px; height: 31px; display: grid; place-items: center; color: rgba(238,229,210,.65); background: #1d1915; border: 1px solid rgba(238,229,210,.12); border-radius: 8px; cursor: pointer; }
+.admin-builder-alignment button.is-active { color: #2d241d; background: var(--admin-accent); }
 .admin-overview-blocks { display: grid; gap: 14px; }
 .admin-overview-block { position: relative; min-width: 0; padding-left: 23px; }
 .admin-overview-block[draggable="true"] { cursor: grab; }
@@ -526,11 +561,6 @@ html.is-app-mode .map-scan-control {
 .admin-row-copy span, .admin-row-copy p { color: rgba(238,229,210,.62); font-size: 9px; line-height: 1.35; }
 .admin-row select { max-width: 90px; padding: 7px; color: #e6dac1; background: #3a3027; border: 0; border-radius: 9px; font-size: 9px; }
 .admin-icon-action { width: 34px; height: 34px; display: grid; flex: 0 0 auto; place-items: center; padding: 0; color: #2d241d; background: #e6dac1; border: 0; border-radius: 10px; cursor: pointer; }
-.admin-duplicate-warning { display: flex; flex-direction: column; gap: 6px; color: #eee5d2; background: #3b2b22; border-color: rgba(230,218,193,.2); }
-.admin-duplicate-warning strong { font-size: 12px; }
-.admin-duplicate-warning p { margin: 0 0 3px; color: rgba(238,229,210,.62); font-size: 9px; line-height: 1.45; }
-.admin-duplicate-warning span { display: flex; justify-content: space-between; gap: 8px; padding: 7px 8px; color: #e6dac1; background: rgba(29,25,21,.42); border-radius: 8px; font-size: 9px; }
-.admin-duplicate-warning span small, .admin-duplicate-warning > small { color: rgba(238,229,210,.48); font-size: 8px; }
 .admin-photo-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .admin-photo-guide { display: flex; align-items: flex-start; gap: 12px; color: #d4bd96; }
 .admin-photo-guide p { max-width: 760px; }
@@ -615,10 +645,12 @@ html.is-app-mode .map-scan-control {
 .admin-cafe-card-socials label { position: relative; }
 .admin-cafe-card-socials svg { position: absolute; top: 50%; left: 8px; color: #bca47f; transform: translateY(-50%); }
 .admin-cafe-card-socials input { padding-left: 28px; }
-.admin-cafe-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; color: rgba(238,229,210,.52); background: #27211b; border: 1px solid rgba(238,229,210,.08); border-radius: 14px; font-size: 9px; }
-.admin-cafe-search { min-width: 0; display: flex; flex: 1; align-items: center; gap: 8px; color: #d4bd96; }
-.admin-cafe-search input { width: 100%; min-width: 0; color: #eee5d2; outline: 0; background: transparent; border: 0; font: 12px "Inria Serif", Georgia, serif; }
-.admin-cafe-search input::placeholder { color: rgba(238,229,210,.38); }
+.admin-cafe-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 17px; color: rgba(238,229,210,.74); background: #30271f; border: 1px solid rgba(230,218,193,.25); border-radius: 16px; font-size: 11px; box-shadow: 0 6px 18px rgba(0,0,0,.14); }
+.admin-cafe-search { min-width: 0; min-height: 42px; display: flex; flex: 1; align-items: center; gap: 11px; padding: 0 12px; color: #e6dac1; background: #1b1713; border: 1px solid rgba(230,218,193,.25); border-radius: 11px; }
+.admin-cafe-search svg { width: 20px; height: 20px; flex: 0 0 auto; }
+.admin-cafe-search input { width: 100%; min-width: 0; color: #fff8e9; outline: 0; background: transparent; border: 0; font: 15px "Inria Serif", Georgia, serif; }
+.admin-cafe-search input::placeholder { color: rgba(238,229,210,.58); }
+@media (max-width: 767px) { .admin-builder-workspace { grid-template-columns: minmax(0, 1fr); } .admin-builder-inspector { position: static; } .admin-builder-canvas-heading { align-items: flex-start; flex-direction: column; gap: 3px; } .admin-cafe-toolbar { align-items: stretch; flex-direction: column; } .admin-cafe-toolbar > span { text-align: right; } }
 .admin-cafe-tiktoks { display: grid; gap: 6px; padding: 9px; background: #1c1814; border: 1px solid rgba(238,229,210,.08); border-radius: 11px; }
 .admin-cafe-tiktoks-heading { display: flex; align-items: center; justify-content: space-between; color: #d4bd96; font-size: 9px; }
 .admin-cafe-tiktoks-heading span { display: inline-flex; align-items: center; gap: 5px; }
@@ -1001,7 +1033,7 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 .profile-section-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .profile-section-heading h2 { margin: 0; font-size: 12px; font-weight: 600; }
 .profile-section-heading button { padding: 0; opacity: .8; font-size: 9px; background: transparent; border: 0; cursor: pointer; }
-.profile-recent-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.profile-recent-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .profile-cafe-card { height: 113px; min-width: 0; overflow: hidden; display: grid; grid-template-rows: minmax(0, 1fr) auto; padding: 0; color: #342a22; text-align: left; appearance: none; background: transparent; border: 0; border-radius: 12px; box-shadow: none; cursor: pointer; }
 .profile-cafe-card > img, .profile-cafe-placeholder { width: 100%; height: 100%; min-height: 0; display: block; margin: 0; object-fit: cover; border: 0; border-radius: 0; }
 .profile-cafe-placeholder { display: grid; place-items: center; color: #493a33; background: #d7c9af; }
@@ -1115,6 +1147,12 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
   .profile-settings-panel { position: fixed; top: auto; right: 12px; bottom: calc(82px + env(safe-area-inset-bottom, 0px)); left: 12px; width: auto; padding: 13px; border-radius: 22px; }
   .profile-settings-panel::before { display: none; }
   .profile-recent-section { padding-right: 14px; padding-left: 14px; }
+  .profile-recent-row { gap: 6px; }
+  .profile-cafe-card { height: 116px; border-radius: 9px; }
+  .profile-cafe-copy { min-height: 49px; row-gap: 1px; padding: 4px 4px 3px; }
+  .profile-cafe-copy strong { font-size: 9px; }
+  .profile-cafe-copy span { min-height: 11px; gap: 2px; font-size: 8px; }
+  .profile-cafe-copy svg { width: 10px !important; min-width: 10px; height: 10px !important; flex-basis: 10px; }
   .profile-shortcuts-section { padding-right: 14px; padding-left: 14px; margin-top: 22px; }
   .profile-shortcuts { gap: 12px; }
   .profile-shortcut { height: 112px; padding: 15px; border-radius: 21px; }
@@ -1140,7 +1178,7 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
   .profile-section-heading { margin-bottom: 12px; }
   .profile-section-heading h2 { font-size: 14px; }
   .profile-section-heading button { font-size: 10px; }
-  .profile-recent-row { gap: 16px; }
+  .profile-recent-row { gap: 10px; }
   .profile-cafe-card { height: 166px; border-radius: 17px; }
   .profile-cafe-copy { grid-template-rows: 18px 15px; padding: 5px 8px; }
   .profile-cafe-copy strong { font-size: 13px; }
@@ -1528,6 +1566,11 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
   .profile-recent-row { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .profile-cafe-card { height: 185px; border-radius: 17px; }
   .profile-empty-recent { min-height: 185px; }
+}
+
+@media (max-width: 639px) {
+  .profile-cafe-card { height: 116px; border-radius: 9px; }
+  .profile-cafe-copy { min-height: 49px; row-gap: 1px; padding: 4px 4px 3px; }
 }
 
 @media (min-width: 720px) {
