@@ -36,16 +36,30 @@ const getCoordinatesFromHtml = (html) => {
 };
 
 const getCoordinatesFromUrl = (value) => {
-  const decoded = decodeURIComponent(String(value || '').replaceAll('+', ' '));
+  let decoded = String(value || '').replaceAll('+', ' ');
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const next = decodeURIComponent(decoded);
+      if (next === decoded) break;
+      decoded = next;
+    } catch {
+      break;
+    }
+  }
   const patterns = [
     new RegExp(`!3d${COORDINATE_PATTERN}!4d${COORDINATE_PATTERN}`, 'i'),
     new RegExp(`3d${COORDINATE_PATTERN}[!&,]${COORDINATE_PATTERN}`, 'i'),
+    new RegExp(`!2d${COORDINATE_PATTERN}!3d${COORDINATE_PATTERN}`, 'i'),
     new RegExp(`@${COORDINATE_PATTERN},${COORDINATE_PATTERN}`, 'i'),
     new RegExp(`(?:[?&](?:q|query|ll|destination|daddr)=)${COORDINATE_PATTERN}[,+\\s]+${COORDINATE_PATTERN}`, 'i'),
   ];
   for (const pattern of patterns) {
     const match = decoded.match(pattern);
-    const coordinates = match && toCoordinatePair(match[1], match[2]);
+    const isLongitudeFirst = pattern.source.startsWith('!2d');
+    const coordinates = match && toCoordinatePair(
+      isLongitudeFirst ? match[2] : match[1],
+      isLongitudeFirst ? match[1] : match[2],
+    );
     if (coordinates) return coordinates;
   }
   return null;

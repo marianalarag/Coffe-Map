@@ -1781,7 +1781,7 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 .activity-image-open { width: 100%; height: 100%; display: block; overflow: hidden; padding: 0; background: transparent; border: 0; cursor: zoom-in; }
 .activity-image-slide img { transition: transform 240ms ease; }
 .activity-image-open:hover img { transform: scale(1.025); }
-.activity-post-copy { width: 100%; min-height: 0; max-height: none; align-self: stretch; display: flex; align-items: center; box-sizing: border-box; overflow-y: auto; color: rgba(232,221,197,.8); font-size: clamp(12px, 1.2vw, 17px); line-height: 1.48; white-space: pre-wrap; }
+.activity-post-copy { width: 100%; min-height: 0; max-height: none; align-self: stretch; display: block; box-sizing: border-box; overflow-y: auto; color: rgba(232,221,197,.8); font-size: clamp(12px, 1.2vw, 17px); line-height: 1.48; white-space: pre-wrap; }
 .activity-post-body > .activity-post-copy:only-child { grid-column: 1 / -1; }
 .activity-post-actions { margin-top: 9px; color: #bca17d; }
 .activity-post-actions button { min-width: 36px; height: 32px; }
@@ -1796,7 +1796,6 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 .activity-list-event-cafe { position: relative; width: 44px; height: 44px; flex: 0 0 44px; overflow: hidden; display: grid; place-items: center; padding: 0; color: #e6dac1; background: #47372b; border: 0; border-radius: 12px; cursor: pointer; }
 .activity-list-event-cafe > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .activity-list-event-cafe > svg { position: relative; z-index: 1; filter: drop-shadow(0 1px 3px rgba(0,0,0,.7)); }
-.activity-list-event-heart { flex: 0 0 auto; color: #bda47e; }
 .activity-image-viewer { position: fixed; inset: 0; z-index: 6500; display: flex; align-items: center; justify-content: center; padding: 62px 64px; background: rgba(8,7,6,.96); backdrop-filter: blur(12px); }
 .activity-image-viewer > header { position: absolute; top: max(14px, env(safe-area-inset-top, 0px)); right: 18px; left: 18px; display: flex; align-items: center; justify-content: space-between; color: rgba(255,255,255,.78); font-size: 12px; }
 .activity-image-viewer > header button { width: 42px; height: 42px; display: grid; place-items: center; color: white; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.16); border-radius: 50%; cursor: pointer; }
@@ -1824,7 +1823,6 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
   .activity-list-event-user { gap: 9px; }
   .activity-list-event-user small { font-size: 10px; }
   .activity-list-event-cafe { width: 38px; height: 38px; flex-basis: 38px; border-radius: 10px; }
-  .activity-list-event-heart { width: 16px; }
   .activity-image-viewer { padding: 58px 12px; }
   .activity-image-viewer-photo { max-width: calc(100vw - 24px); max-height: calc(100dvh - 116px); }
   .activity-image-viewer > header { right: 12px; left: 12px; }

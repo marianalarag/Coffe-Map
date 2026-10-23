@@ -58,6 +58,7 @@ export const extractGoogleMapsCoordinates = (value) => {
   const patterns = [
     new RegExp(`!3d${COORDINATE_PATTERN}!4d${COORDINATE_PATTERN}`),
     new RegExp(`3d${COORDINATE_PATTERN}[!&,]4d${COORDINATE_PATTERN}`),
+    new RegExp(`!2d${COORDINATE_PATTERN}!3d${COORDINATE_PATTERN}`),
     new RegExp(`@${COORDINATE_PATTERN},\\s*${COORDINATE_PATTERN}`),
     new RegExp(`(?:[?&](?:q|query|ll|destination|daddr)=)${COORDINATE_PATTERN}[,+\\s]+${COORDINATE_PATTERN}`, 'i'),
   ];
@@ -77,6 +78,7 @@ const extractExplicitGoogleMapsCoordinates = (value) => {
   const patterns = [
     new RegExp(`!3d${COORDINATE_PATTERN}!4d${COORDINATE_PATTERN}`),
     new RegExp(`3d${COORDINATE_PATTERN}[!&,]4d${COORDINATE_PATTERN}`),
+    new RegExp(`!2d${COORDINATE_PATTERN}!3d${COORDINATE_PATTERN}`),
     new RegExp(`(?:[?&](?:q|query|ll|destination|daddr)=)${COORDINATE_PATTERN}[,+\\s]+${COORDINATE_PATTERN}`, 'i'),
   ];
   for (const pattern of patterns) {

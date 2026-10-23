@@ -526,7 +526,6 @@ export function ActivityFeed({ userIdFilter = null, userIdsFilter = null, kindFi
           {post.cafe.image_url ? <img src={post.cafe.image_url} alt="" loading="lazy" decoding="async" /> : <Coffee size={19} />}
           <MapPin size={15} />
         </button>
-        <Heart className="activity-list-event-heart" size={18} fill="currentColor" aria-hidden="true" />
       </article>;
     }
     return (
