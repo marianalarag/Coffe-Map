@@ -214,6 +214,8 @@ function ProfilePage() {
     interactions,
     interactionsLoaded,
     interactionsLoading,
+    interactionsError,
+    refreshUserInteractions,
     saveCafeInteraction,
     deleteCafeInteraction,
   } = useCoffeeData();
@@ -501,6 +503,7 @@ function ProfilePage() {
   return (
     <main className="profile-page" style={textStyle}>
       <section className="profile-scroll">
+        {interactionsError && <div className="profile-load-error" role="alert"><span>{interactionsError}</span><button type="button" onClick={() => refreshUserInteractions().catch(() => {})} disabled={interactionsLoading}>{interactionsLoading ? 'Reintentando…' : 'Reintentar'}</button></div>}
         <header className="profile-hero">
           <div
             className="profile-cover"

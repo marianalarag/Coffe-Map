@@ -11,6 +11,7 @@ const CoffeeDataContext = createContext(null);
 const CAFES_CACHE_KEY = 'coffee-map:cafes:v17';
 const CAFES_CACHE_TTL_MS = 15 * 60 * 1000;
 const CAFE_REQUEST_TIMEOUT_MS = 8 * 1000;
+const INTERACTION_REQUEST_TIMEOUT_MS = 12 * 1000;
 const CAFE_COLUMNS = 'id,nombre,lat,lng,rating,reviews,link,address,neighborhood,category,image_url,image_source_url,image_attribution,image_license,instagram_url,tiktok_url,menu_url,opening_hours,opening_hours_source,opening_hours_source_url,opening_hours_verified_at,source,source_id,source_url,status';
 const INTERACTION_COLUMNS = 'id,user_id,cafe_id,is_visited,is_favorite,in_waitlist,rating,review_text,visited_on,updated_at';
 const INTERACTION_WITH_CAFE_COLUMNS = `${INTERACTION_COLUMNS},cafe:cafes(${CAFE_COLUMNS})`;
@@ -183,6 +184,7 @@ export function CoffeeDataProvider({ children }) {
   const [interactions, setInteractions] = useState([]);
   const [interactionsLoading, setInteractionsLoading] = useState(false);
   const [interactionsLoaded, setInteractionsLoaded] = useState(false);
+  const [interactionsError, setInteractionsError] = useState('');
   const interactionsUserIdRef = useRef(null);
 
   useEffect(() => {
@@ -351,13 +353,18 @@ export function CoffeeDataProvider({ children }) {
     }
 
     setInteractionsLoading(true);
+    setInteractionsError('');
 
     try {
-      const { data, error } = await supabase
-        .from('user_cafes')
-        .select(INTERACTION_WITH_CAFE_COLUMNS)
-        .eq('user_id', targetUserId)
-        .order('updated_at', { ascending: false });
+      const { data, error } = await withRequestTimeout(
+        supabase
+          .from('user_cafes')
+          .select(INTERACTION_WITH_CAFE_COLUMNS)
+          .eq('user_id', targetUserId)
+          .order('updated_at', { ascending: false }),
+        INTERACTION_REQUEST_TIMEOUT_MS,
+        'La carga de tu perfil tardó demasiado. Revisa tu conexión e inténtalo de nuevo.',
+      );
 
       if (error) throw error;
 
@@ -371,17 +378,25 @@ export function CoffeeDataProvider({ children }) {
           .filter((interaction) => String(interaction.review_text || '').trim())
           .map(toReviewPost);
         if (reviewPosts.length > 0) {
-          const { error: reviewSyncError } = await supabase
-            .from('posts')
-            .upsert(reviewPosts, { onConflict: 'interaction_id' });
+          const { error: reviewSyncError } = await withRequestTimeout(
+            supabase.from('posts').upsert(reviewPosts, { onConflict: 'interaction_id' }),
+            INTERACTION_REQUEST_TIMEOUT_MS,
+            'La sincronización de tus reseñas tardó demasiado.',
+          );
           if (reviewSyncError) throw reviewSyncError;
         }
       }
 
       setInteractions(nextInteractions);
       setInteractionsLoaded(true);
+      setInteractionsError('');
       interactionsUserIdRef.current = targetUserId;
       return nextInteractions;
+    } catch (error) {
+      setInteractionsError(error.message || 'No se pudieron cargar tus datos de perfil.');
+      setInteractionsLoaded(true);
+      interactionsUserIdRef.current = targetUserId;
+      throw error;
     } finally {
       setInteractionsLoading(false);
     }
@@ -504,6 +519,7 @@ export function CoffeeDataProvider({ children }) {
     if (!userId) {
       setInteractions([]);
       setInteractionsLoaded(false);
+      setInteractionsError('');
       interactionsUserIdRef.current = null;
       return;
     }
@@ -536,6 +552,7 @@ export function CoffeeDataProvider({ children }) {
     cafesLoaded: cafesState.cafesLoaded,
     cafesError: cafesState.cafesError,
     interactions,
+    interactionsError,
     interactionsByCafeId,
     interactionsLoading,
     interactionsLoaded,
@@ -554,6 +571,7 @@ export function CoffeeDataProvider({ children }) {
     cafesState.cafesError,
     cafesState.cafesLoaded,
     interactions,
+    interactionsError,
     interactionsByCafeId,
     interactionsLoaded,
     interactionsLoading,

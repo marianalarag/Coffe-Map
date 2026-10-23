@@ -13,6 +13,7 @@ import SettingsPage from '../pages/SettingsPage.jsx';
 import AdminDashboardPage from '../pages/AdminDashboardPage.jsx';
 import AdminRoute from './AdminRoute.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
+import PageLoading from './PageLoading.jsx';
 
 const routeCacheByUser = new Map();
 const AUTH_REQUIRED_ROUTE_TYPES = new Set([
@@ -117,7 +118,7 @@ const renderRoute = (entry) => {
 
 function CachedProtectedRoutes() {
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const activeEntry = useMemo(() => getRouteEntry(location.pathname), [location.pathname]);
   const cacheKey = user?.id || 'anonymous';
   const sectionRefs = useRef(new Map());
@@ -134,6 +135,10 @@ function CachedProtectedRoutes() {
 
   if (!activeEntry) {
     return <Navigate to="/" replace />;
+  }
+
+  if (loading) {
+    return <PageLoading message="Cargando sesion..." />;
   }
 
   if (!user && AUTH_REQUIRED_ROUTE_TYPES.has(activeEntry.type)) {
