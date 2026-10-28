@@ -423,8 +423,10 @@ export function CoffeeDataProvider({ children }) {
 
     const currentInteraction = interactions
       .filter((interaction) => interaction.cafe_id === cafeId)
+      .filter((interaction) => !options.interactionId || interaction.id === options.interactionId)
       .sort((first, second) => String(second.updated_at || '').localeCompare(String(first.updated_at || '')))[0];
     const persistedInteraction = isUuid(currentInteraction?.id) ? currentInteraction : null;
+    if (options.interactionId && !persistedInteraction) throw new Error('No encontramos esa visita para actualizarla.');
     const createNewVisit = Boolean(options.createNewVisit);
     const allowedFields = ['is_visited', 'is_favorite', 'in_waitlist', 'rating', 'review_text', 'visited_on'];
     const patch = Object.fromEntries(

@@ -11,7 +11,6 @@ import {
   Settings,
   Share2,
   SlidersHorizontal,
-  Trash2,
   UserPlus,
   Users,
   Search,
@@ -25,6 +24,7 @@ import { ActivityFeed } from './ActivityPage';
 import { getCafeNeighborhood } from '../utils/cafeAddress';
 import CoffeeBeanIcon, { CoffeeBeanRating } from '../components/CoffeeBeanIcon';
 import { formatRating } from '../utils/formatRating';
+import HalfStarRating from '../components/HalfStarRating';
 
 
 const getOptimizedProfileImageUrl = (url) => url;
@@ -183,24 +183,120 @@ function ProfileRatingChart({ interactions, textStyle, navigate }) {
   );
 }
 
-function ProfileVisitRanking({ places, textStyle, navigate, onRemoveVisit }) {
+function ProfileVisitRanking({ places, textStyle, onSelectCafe }) {
   return (
     <section className="profile-visit-ranking">
       <div className="profile-rating-heading"><div><small>HISTORIAL</small><h2 style={textStyle}>Cafés más visitados</h2></div><Coffee size={20} /></div>
       {places.length > 0 ? (
         <div className="profile-visit-ranking-list">
-          {places.slice(0, 6).map(({ cafe, count, rating, reviewCount, latestVisitId }) => (
+          {places.slice(0, 6).map(({ cafe, count, rating, reviewCount }) => (
             <article className="profile-visit-ranking-card" key={cafe.id}>
-              <button type="button" className="profile-visit-ranking-main" onClick={() => navigate(`/cafe/${cafe.id}`)}>
+              <button type="button" className="profile-visit-ranking-main" onClick={() => onSelectCafe(cafe)} aria-label={`Abrir tus ${count === 1 ? 'visita' : 'visitas'} a ${cafe.nombre}`}>
                 {cafe.imageUrl ? <img src={cafe.imageUrl} alt={cafe.nombre} /> : <span className="profile-cafe-placeholder"><Coffee size={20} /></span>}
                 <span><strong>{cafe.nombre}</strong><small><Coffee size={12} /> {count} {count === 1 ? 'visita' : 'visitas'}{reviewCount ? ` · ${reviewCount} ${reviewCount === 1 ? 'reseña' : 'reseñas'}` : ''}{rating ? ` · ${formatRating(rating)}` : ''}</small></span>
               </button>
-              <button type="button" className="profile-visit-remove" onClick={(event) => onRemoveVisit(event, cafe, latestVisitId)} aria-label={`Quitar la última visita a ${cafe.nombre}`} title="Quitar última visita"><Trash2 size={13} /></button>
             </article>
           ))}
         </div>
       ) : <p className="profile-ranking-empty">Marca una cafetería como visitada para comenzar tu historial.</p>}
     </section>
+  );
+}
+
+function ProfileCafeVisitHistory({ cafe, visits, onClose, onSaveReview, onDeleteReview, onDeleteVisit }) {
+  const [editingVisitId, setEditingVisitId] = useState(null);
+  const [draftText, setDraftText] = useState('');
+  const [draftRating, setDraftRating] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const startEditing = (visit) => {
+    setEditingVisitId(visit.id);
+    setDraftText(visit.review_text || '');
+    setDraftRating(Number(visit.rating) || 0);
+    setError('');
+  };
+
+  const saveReview = async (event, visit) => {
+    event.preventDefault();
+    const text = draftText.trim();
+    if (!text && !draftRating) {
+      setError('Escribe tu reseña o agrega una calificación.');
+      return;
+    }
+    setSaving(true);
+    setError('');
+    try {
+      await onSaveReview(visit, { review_text: text, rating: draftRating || null });
+      setEditingVisitId(null);
+    } catch {
+      setError('No pudimos guardar la reseña. Inténtalo de nuevo.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const removeReview = async (visit) => {
+    if (!window.confirm(`¿Borrar la reseña de esta visita a ${cafe.nombre}? La visita se conservará.`)) return;
+    setSaving(true);
+    setError('');
+    try {
+      await onDeleteReview(visit);
+      if (editingVisitId === visit.id) setEditingVisitId(null);
+    } catch {
+      setError('No pudimos borrar la reseña. Inténtalo de nuevo.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const removeVisit = async (visit) => {
+    if (!window.confirm(`¿Eliminar esta visita a ${cafe.nombre}?`)) return;
+    setSaving(true);
+    setError('');
+    try {
+      await onDeleteVisit(visit);
+    } catch {
+      setError('No pudimos eliminar la visita. Inténtalo de nuevo.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="profile-history-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) onClose(); }}>
+      <section className="profile-history-sheet" role="dialog" aria-modal="true" aria-label={`Tus reseñas de ${cafe.nombre}`}>
+        <header className="profile-history-header">
+          <div>{cafe.imageUrl ? <img src={cafe.imageUrl} alt="" /> : <Coffee size={22} />}<span><small>TUS VISITAS Y RESEÑAS</small><h2>Tus reseñas de {cafe.nombre}</h2><p>{visits.length} {visits.length === 1 ? 'visita' : 'visitas'}</p></span></div>
+          <button type="button" onClick={onClose} aria-label="Cerrar historial"><X size={19} /></button>
+        </header>
+        <div className="profile-history-list">
+          {visits.map((visit) => {
+            const hasReview = Boolean(String(visit.review_text || '').trim() || Number(visit.rating) > 0);
+            const dateValue = visit.visited_on || visit.created_at || visit.updated_at;
+            const dateLabel = dateValue ? new Date(`${String(dateValue).slice(0, 10)}T12:00:00`).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Fecha sin registrar';
+            const isEditing = editingVisitId === visit.id;
+            return <article className="profile-history-entry" key={visit.id}>
+              <div className="profile-history-entry-meta"><span>{dateLabel}</span>{hasReview && (Number(visit.rating) > 0 ? <span className="profile-history-rating"><CoffeeBeanRating value={Number(visit.rating)} size={11} /> {formatRating(visit.rating)}</span> : <span className="profile-history-rating">Reseña</span>)}</div>
+              {isEditing ? <form className="profile-history-edit" onSubmit={(event) => saveReview(event, visit)}>
+                <label>Calificación <HalfStarRating value={draftRating} onChange={setDraftRating} size={16} label="Tu calificación" /></label>
+                <label>Tu reseña<textarea value={draftText} onChange={(event) => setDraftText(event.target.value)} maxLength={1000} placeholder="¿Qué te pareció esta visita?" /></label>
+                {error && <p className="profile-history-error" role="alert">{error}</p>}
+                <div className="profile-history-actions"><button type="button" className="is-secondary" onClick={() => setEditingVisitId(null)} disabled={saving}>Cancelar</button><button type="submit" disabled={saving}>{saving ? 'Guardando…' : 'Guardar reseña'}</button></div>
+              </form> : <>
+                {visit.review_text ? <p className="profile-history-review-text">{visit.review_text}</p> : <p className="profile-history-visit-only">Visita registrada sin reseña.</p>}
+                <div className="profile-history-actions">
+                  <button type="button" onClick={() => startEditing(visit)} disabled={saving}>{hasReview ? 'Editar reseña' : 'Añadir reseña'}</button>
+                  {hasReview ? <button type="button" className="is-danger" onClick={() => removeReview(visit)} disabled={saving}>Borrar reseña</button> : <button type="button" className="is-danger" onClick={() => removeVisit(visit)} disabled={saving}>Eliminar visita</button>}
+                </div>
+              </>}
+            </article>;
+          })}
+          {visits.length === 0 && <p className="profile-history-empty">Ya no hay visitas registradas para esta cafetería.</p>}
+          {error && editingVisitId === null && <p className="profile-history-error" role="alert">{error}</p>}
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -226,6 +322,7 @@ function ProfilePage() {
   const [uploadingField, setUploadingField] = useState('');
   const [savingColor, setSavingColor] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [historyCafe, setHistoryCafe] = useState(null);
   const settingsMenuRef = useRef(null);
   const avatarPressTimerRef = useRef(null);
   const colorSaveTimerRef = useRef(null);
@@ -356,16 +453,19 @@ function ProfilePage() {
     await saveCafeInteraction(cafe.id, { is_favorite: false });
   };
 
-  const removeVisit = async (event, cafe, interactionId) => {
-    event.stopPropagation();
-    if (!interactionId || !window.confirm(`¿Quitar la última visita a ${cafe.nombre}? Si tenía reseña, también se quitará esa entrada.`)) return;
-    try {
-      await deleteCafeInteraction(interactionId);
-    } catch (error) {
-      console.error('Error al quitar visita', error);
-      window.alert('No pudimos quitar la visita. Intenta otra vez.');
-    }
-  };
+  const saveVisitReview = (visit, updates) => saveCafeInteraction(visit.cafe_id, {
+    ...updates,
+    is_visited: true,
+    visited_on: visit.visited_on || visit.updated_at?.slice(0, 10) || new Date().toISOString().slice(0, 10),
+  }, { interactionId: visit.id });
+
+  const deleteVisitReview = (visit) => saveCafeInteraction(visit.cafe_id, {
+    review_text: '',
+    rating: null,
+    is_visited: true,
+  }, { interactionId: visit.id });
+
+  const deleteVisit = (visit) => deleteCafeInteraction(visit.id);
 
   const recentCafes = visitedPlaces.length > 0
     ? visitedPlaces.map((visit) => visit.cafe).filter(Boolean).slice(0, 4)
@@ -679,6 +779,7 @@ function ProfilePage() {
         </nav>
 
         {activeTab === 'profile' && <div className="profile-content-grid">
+        <div className="profile-content-main-column">
         <section className="profile-recent-section">
           <div className="profile-section-heading">
             <h2 style={textStyle}>Lugares recientemente visitados</h2>
@@ -717,9 +818,11 @@ function ProfilePage() {
           </div>
         </section>
 
-        <ProfileRatingChart interactions={interactions} textStyle={textStyle} navigate={navigate} />
+        <ProfileVisitRanking places={visitedCafeStats} textStyle={textStyle} onSelectCafe={setHistoryCafe} />
+        </div>
 
-        <ProfileVisitRanking places={visitedCafeStats} textStyle={textStyle} navigate={navigate} onRemoveVisit={removeVisit} />
+        <div className="profile-content-side-column">
+        <ProfileRatingChart interactions={interactions} textStyle={textStyle} navigate={navigate} />
 
         {favoritePlaces.length > 0 && (
           <section className="profile-favorites-section">
@@ -737,6 +840,7 @@ function ProfilePage() {
             </div>
           </section>
         )}
+        </div>
         </div>}
 
         {activeTab === 'activity' && <ProfileActivityPanel userId={user.id} />}
@@ -759,6 +863,17 @@ function ProfilePage() {
 
         {activeTab === 'friends' && <FriendsPanel userId={user.id} />}
       </section>
+
+      {historyCafe && <ProfileCafeVisitHistory
+        cafe={historyCafe}
+        visits={interactions
+          .filter((interaction) => interaction.cafe_id === historyCafe.id && interaction.is_visited)
+          .sort((first, second) => String(second.visited_on || second.updated_at || '').localeCompare(String(first.visited_on || first.updated_at || '')))}
+        onClose={() => setHistoryCafe(null)}
+        onSaveReview={saveVisitReview}
+        onDeleteReview={deleteVisitReview}
+        onDeleteVisit={deleteVisit}
+      />}
 
       {showAvatarViewer && (
         <div className="profile-avatar-viewer" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowAvatarViewer(false); }}>
