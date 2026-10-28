@@ -6,6 +6,7 @@ import { useCoffeeData } from '../context/CoffeeDataContext';
 import { supabase } from '../supabase';
 import { areDuplicateCafes, deduplicateCafes, repairCafeText } from '../utils/cafeDeduplication';
 import { geocodeCafeLocation, isGoogleMapsLink, normalizeGoogleMapsLink } from '../utils/cafeLocation';
+import { sendCafeSubmission } from '../utils/cafeSubmissions';
 import { toCafeDbRow } from '../utils/cafeDatabase';
 
 const MERIDA_BBOX = { south: 20.86, west: -89.75, north: 21.08, east: -89.52 };
@@ -1123,20 +1124,16 @@ function AdminDashboardPage() {
   };
 
   const moderateCafeRequest = (cafe, nextStatus) => runAction(`request:${cafe.id}:${nextStatus}`, async () => {
-    const location = nextStatus === 'active' ? await geocodeCafeLocation(cafe) : null;
-    if (nextStatus === 'active' && (!location || !isInsideMerida(location))) {
-      throw new Error('No pudimos verificar una ubicación válida dentro de Mérida desde la dirección o el enlace de Google Maps. Corrige esos datos antes de aprobarla.');
+    if (nextStatus === 'active') {
+      await sendCafeSubmission({ id: cafe.id }, 'PATCH');
+      await refreshCafes();
+      return;
     }
     const update = {
       status: nextStatus,
       last_verified_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
-    if (nextStatus === 'active') {
-      update.lat = location.lat;
-      update.lng = location.lng;
-      update.neighborhood = location.neighborhood || cafe.neighborhood || null;
-    }
     const { error } = await supabase
       .from('cafes')
       .update(update)
@@ -1144,7 +1141,6 @@ function AdminDashboardPage() {
       .eq('source', 'community')
       .eq('status', 'needs_review');
     if (error) throw error;
-    if (nextStatus === 'active') await refreshCafes();
   }, nextStatus === 'active' ? `Solicitud aceptada: ${cafe.nombre}.` : `Solicitud rechazada: ${cafe.nombre}.`);
 
   const saveCafeCover = (cafe, file) => runAction(`cover:${cafe.id}`, async () => {
@@ -1424,6 +1420,11 @@ function AdminDashboardPage() {
   }, 'Cafetería guardada. El mapa ya usa la nueva ubicación.', { reload: false });
 
   const updateCafeStatus = (cafe, status) => runAction(`cafe:${cafe.id}`, async () => {
+    if (status === 'active' && cafe.source === 'community' && cafe.status === 'needs_review') {
+      await sendCafeSubmission({ id: cafe.id }, 'PATCH');
+      await refreshCafes();
+      return;
+    }
     const { error } = await supabase.from('cafes').update({ status, updated_at: new Date().toISOString() }).eq('id', cafe.id);
     if (error) throw error;
     await refreshCafes();
@@ -1557,6 +1558,8 @@ function AdminDashboardPage() {
                       <div className="admin-row-copy">
                         <strong>{cafe.nombre}</strong>
                         <span>{cafe.address || 'Dirección por confirmar'}</span>
+                        <small>{cafe.lat != null && cafe.lng != null ? 'Ubicación lista para verificar al aceptar' : 'Ubicación pendiente: se verificará al aceptar'}</small>
+                        {isGoogleMapsLink(cafe.link) && <a href={cafe.link} target="_blank" rel="noreferrer">Ver lugar en Google Maps</a>}
                         <small>{cafe.created_at ? new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium' }).format(new Date(cafe.created_at)) : 'Solicitud reciente'}</small>
                       </div>
                       <div className="admin-request-actions">

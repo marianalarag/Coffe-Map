@@ -116,114 +116,28 @@ export const extractGoogleMapsSearchQuery = (value) => {
 
 export const getCafeCoordinates = (cafe) => {
   const storedCoordinates = toCoordinatePair(cafe?.lat, cafe?.lng);
-  // Community and manually verified rows already contain the coordinates
-  // approved for that cafe. Do not replace them with an @lat,lng viewport
-  // that Google may include in a share URL.
-  if (storedCoordinates && ['community', 'manual'].includes(cafe?.source)) return storedCoordinates;
+  if (storedCoordinates && cafe?.source === 'manual') return storedCoordinates;
 
   const coordinatesFromMapLink = [cafe?.link, cafe?.source_url, cafe?.sourceUrl]
-    .map(extractGoogleMapsCoordinates)
+    .filter(isGoogleMapsLink)
+    .map(extractExplicitGoogleMapsCoordinates)
     .find(Boolean);
   if (coordinatesFromMapLink) return coordinatesFromMapLink;
 
   return storedCoordinates;
 };
 
-const geocodeAddressOnce = async (address) => {
-  const cleanAddress = String(address || '').trim();
-  if (!cleanAddress) return null;
-
-  const merida = ['M', String.fromCharCode(0xe9), 'rida, Yucat', String.fromCharCode(0xe1), 'n, M', String.fromCharCode(0xe9), 'xico'].join('');
-  const params = new URLSearchParams({
-    q: `${cleanAddress}, ${merida}`,
-    format: 'jsonv2',
-    addressdetails: '1',
-    limit: '1',
-    countrycodes: 'mx',
-  });
-  const response = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, {
-    signal: AbortSignal.timeout(5000),
-    headers: { Accept: 'application/json', 'Accept-Language': 'es' },
-  });
-  if (!response.ok) throw new Error('No se pudo ubicar la direccion.');
-
-  const [result] = await response.json();
-  const coordinates = toCoordinatePair(result?.lat, result?.lon);
-  if (!coordinates) return null;
-
-  return {
-    ...coordinates,
-    neighborhood: result.address?.suburb
-      || result.address?.neighbourhood
-      || result.address?.quarter
-      || result.address?.city_district
-      || null,
-  };
-};
-
-export const geocodeCafeAddress = async (address) => {
-  const cleanAddress = String(address || '').trim();
-  if (!cleanAddress) return null;
-
-  const expandedAddress = cleanAddress
-    .replace(/\bC\.\s*/gi, 'Calle ')
-    .replace(/\bAv\.\s*/gi, 'Avenida ')
-    .replace(/\bCol\.\s*/gi, 'Colonia ');
-  const variants = [...new Set([
-    cleanAddress,
-    expandedAddress,
-    expandedAddress.replace(/\s+III\b/gi, ''),
-  ])];
-
-  for (const variant of variants) {
-    try {
-      const location = await geocodeAddressOnce(variant);
-      if (location) return location;
-    } catch {
-      // Try the next normalized form.
-    }
-  }
-
-  return null;
-};
-
-const resolveGoogleMapsLink = async (link) => {
-  if (!link || typeof window === 'undefined' || !isGoogleMapsLink(link)) return null;
+export const geocodeCafeLocation = async (cafe) => {
+  const link = [cafe?.link, cafe?.source_url, cafe?.sourceUrl].find(isGoogleMapsLink);
+  const params = new URLSearchParams();
+  if (link) params.set('url', normalizeGoogleMapsLink(link));
+  if (cafe?.address) params.set('address', cafe.address);
+  if (cafe?.nombre) params.set('nombre', cafe.nombre);
+  if (!link && !cafe?.address) return null;
   try {
-    const response = await fetch(`/api/maps-location?url=${encodeURIComponent(normalizeGoogleMapsLink(link))}`, { signal: AbortSignal.timeout(15000) });
+    const response = await fetch(`/api/maps-location?${params}`, { signal: AbortSignal.timeout(22000) });
     if (!response.ok) return null;
     const payload = await response.json();
     return toCoordinatePair(payload?.lat, payload?.lng);
-  } catch {
-    return null;
-  }
-};
-
-export const geocodeCafeLocation = async (cafe) => {
-  const mapLinks = [cafe?.link].filter((link) => isGoogleMapsLink(link));
-  const coordinatesFromMapLink = mapLinks.map(extractExplicitGoogleMapsCoordinates).find(Boolean);
-  if (coordinatesFromMapLink) return coordinatesFromMapLink;
-
-  // Resolve the Google Maps place itself before falling back to address search.
-  // This keeps the in-app map aligned with the place selected in Google Maps
-  // instead of choosing a similarly named OpenStreetMap result.
-  for (const mapLink of mapLinks) {
-    const resolvedCoordinates = await resolveGoogleMapsLink(mapLink);
-    if (resolvedCoordinates) return resolvedCoordinates;
-  }
-
-  const mapQuery = mapLinks.map(extractGoogleMapsSearchQuery).find(Boolean);
-  for (const searchText of [mapQuery, cafe?.address]) {
-    if (!searchText) continue;
-    try {
-      const location = await geocodeCafeAddress(searchText);
-      if (location) return location;
-    } catch {
-      // Try the next available source before falling back to stored data.
-    }
-  }
-
-  // @lat,lng is only a last resort. It can represent the map viewport rather
-  // than the business, so address/query resolution must win first.
-  return mapLinks.map(extractGoogleMapsCoordinates).find(Boolean) || null;
+  } catch { return null; }
 };

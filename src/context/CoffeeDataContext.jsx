@@ -8,7 +8,7 @@ import { toCafeDbRow } from '../utils/cafeDatabase';
 
 const CoffeeDataContext = createContext(null);
 
-const CAFES_CACHE_KEY = 'coffee-map:cafes:v18';
+const CAFES_CACHE_KEY = 'coffee-map:cafes:v19';
 const CAFES_CACHE_TTL_MS = 15 * 60 * 1000;
 const CAFE_REQUEST_TIMEOUT_MS = 8 * 1000;
 const INTERACTION_REQUEST_TIMEOUT_MS = 12 * 1000;
@@ -18,7 +18,7 @@ const INTERACTION_WITH_CAFE_COLUMNS = `${INTERACTION_COLUMNS},cafe:cafes(${CAFE_
 // Change this version whenever a validated source scan is published so the next
 // administrator session synchronizes only the newly discovered, unique cafes.
 const ADMIN_SCAN_SYNC_KEY = 'coffee-map:admin-scan:2026-09-04-v2';
-const COMMUNITY_LOCATION_CACHE_KEY = 'coffee-map:community-location:v3:';
+const COMMUNITY_LOCATION_CACHE_KEY = 'coffee-map:community-location:v4:';
 const MERIDA_BOUNDS = { south: 20.86, west: -89.75, north: 21.08, east: -89.52 };
 const isUuid = (value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ''));
 const parseCafeMenuImages = (value) => {
@@ -53,7 +53,7 @@ const toReviewPost = (interaction) => ({
 });
 
 const normalizeCafe = (cafe) => {
-  const coordinates = getCafeCoordinates(cafe) || { lat: Number(cafe.lat), lng: Number(cafe.lng) };
+  const coordinates = getCafeCoordinates(cafe) || { lat: null, lng: null };
 
   return {
     ...cafe,

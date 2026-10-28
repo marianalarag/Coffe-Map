@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import mapsLocation from '../api/maps-location.js';
+import { extractPlaceCoordinates, parsePlacePayload } from '../server/cafeLocation.js';
 import { extractGoogleMapsCoordinates, getCafeCoordinates, isGoogleMapsLink } from '../src/utils/cafeLocation.js';
 
 test('reads place coordinates in both Maps data formats', () => {
@@ -32,8 +33,36 @@ test('resolves a short Maps link without requesting its blocked destination', as
   });
   const result = await callHandler('https://maps.app.goo.gl/example');
   assert.equal(result.code, 200);
-  assert.deepEqual(result.payload, { lat: 20.98, lng: -89.61 });
+  assert.equal(result.payload.lat, 20.98);
+  assert.equal(result.payload.lng, -89.61);
+  assert.equal(result.payload.source, 'google_maps');
   assert.equal(calls, 1);
+});
+
+test('uses the selected place preview for iPhone links instead of the generic map center', async (context) => {
+  const place = [];
+  place[9] = [null, null, 21.0236463, -89.6429422];
+  const payload = [];
+  payload[6] = place;
+  const visited = [];
+  context.mock.method(globalThis, 'fetch', async (url) => {
+    visited.push(String(url));
+    if (visited.length === 1) return new Response(null, { status: 302, headers: { location: 'https://www.google.com/maps?q=Nitido&ftid=0x1:0x2' } });
+    if (visited.length === 2) return new Response('<meta content="https://maps.google.com/maps/api/staticmap?center=20.9977344%2C-89.604096"><link href="/maps/preview/place?pb=place&amp;hl=es">');
+    return new Response(")]}'\n" + JSON.stringify(payload));
+  });
+  const result = await callHandler('https://maps.app.goo.gl/iphoneLink');
+  assert.equal(result.code, 200);
+  assert.equal(result.payload.lat, 21.0236463);
+  assert.equal(result.payload.lng, -89.6429422);
+  assert.equal(visited.length, 3);
+  assert.ok(visited[2].includes('/maps/preview/place?pb=place&hl=es'));
+});
+
+test('never treats a camera center or photo coordinates as the cafe', () => {
+  assert.equal(extractPlaceCoordinates('https://www.google.com/maps/place/Cafe/@20.99,-89.61,15z'), null);
+  assert.equal(extractPlaceCoordinates('https://www.google.com/maps?ll=20.99,-89.61'), null);
+  assert.equal(parsePlacePayload(JSON.stringify([[[null, null, 20.99, -89.61]]])), null);
 });
 
 test('does not follow short-link redirects outside the allowed Maps hosts', async (context) => {

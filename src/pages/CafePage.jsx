@@ -8,13 +8,9 @@ import { supabase } from '../supabase';
 import { getCafeOpenStatus, getCafeScheduleRows } from '../utils/cafeHours';
 import { geocodeCafeLocation, getCafeCoordinates } from '../utils/cafeLocation';
 import CoffeeBeanIcon, { CoffeeBeanRating } from '../components/CoffeeBeanIcon';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
+import CafeMapPreview from '../components/CafeMapPreview';
 
 const MAP_TARGET_STORAGE_KEY = 'coffee-map:focus-cafe';
-const MAP_STYLE_URL = import.meta.env.VITE_MAP_STYLE_URL || 'https://tiles.openfreemap.org/styles/liberty';
-const MAP_TILE_URL = import.meta.env.VITE_MAP_TILE_URL || '';
-const MAP_TILE_ATTRIBUTION = import.meta.env.VITE_MAP_TILE_ATTRIBUTION || '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 const getLocalDate = () => {
   const today = new Date();
   const offset = today.getTimezoneOffset() * 60000;
@@ -243,35 +239,7 @@ function CafePage({ cafeId }) {
 
   const openStatus = getCafeOpenStatus(cafe?.openingHours);
   const scheduleRows = getCafeScheduleRows(cafe?.openingHours);
-
-  useEffect(() => {
-    const element = document.getElementById('cafe-map-preview');
-    let cancelled = false;
-    let map = null;
-    const initializePreview = async () => {
-      const coordinates = getCafeCoordinates(cafe) || await geocodeCafeLocation(cafe);
-      if (cancelled || !element || !coordinates) return;
-      const { lat, lng } = coordinates;
-      map = L.map(element, { center: [lat, lng], zoom: 15, zoomControl: false, attributionControl: false, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false, touchZoom: false });
-      if (MAP_TILE_URL) {
-        L.tileLayer(MAP_TILE_URL, { attribution: MAP_TILE_ATTRIBUTION, maxZoom: 19 }).addTo(map);
-      } else {
-        const { maplibreGL } = await import('@maplibre/maplibre-gl-leaflet');
-        if (cancelled) return;
-        maplibreGL({ style: MAP_STYLE_URL, interactive: false, maxZoom: 19 }).addTo(map);
-      }
-      L.marker([lat, lng], {
-        interactive: false,
-        icon: L.divIcon({
-          className: 'cafe-preview-pin',
-          html: '<svg viewBox="0 0 32 42" width="32" height="42" aria-hidden="true"><path d="M16 40S2 25 2 16a14 14 0 0 1 28 0c0 9-14 24-14 24Z" fill="#7a5533" stroke="#fffaf0" stroke-width="3"/><circle cx="16" cy="16" r="5" fill="#fffaf0"/></svg>',
-          iconSize: [32, 42], iconAnchor: [16, 42],
-        }),
-      }).addTo(map);
-    };
-    initializePreview().catch((error) => console.error('No se pudo cargar la vista previa del mapa.', error));
-    return () => { cancelled = true; map?.remove(); };
-  }, [cafe]);
+  const mapCoordinates = getCafeCoordinates(cafe);
 
   useEffect(() => {
     if (!expandedImage) return undefined;
@@ -358,7 +326,7 @@ function CafePage({ cafeId }) {
             {scheduleRows.length > 0 && cafe.openingHoursSource === 'web' && <small className="cafe-hours-source">Horario verificado en una fuente pública{cafe.openingHoursSourceUrl ? <> · <a href={cafe.openingHoursSourceUrl} target="_blank" rel="noreferrer">ver fuente</a></> : null}.</small>}
             {scheduleRows.length > 0 && cafe.openingHoursSource === 'admin' && <small className="cafe-hours-source">Horario verificado por Coffee Map.</small>}
           </section>
-          <button type="button" className="cafe-map-card" onClick={showInAppMap} aria-label={`Ver ${cafe.nombre} en el mapa de Coffee Map`}><div id="cafe-map-preview" aria-hidden="true" /><span><MapPin size={17} /> {cafe.address || cafe.neighborhood || 'Ver ubicación'}</span></button>
+          <button type="button" className="cafe-map-card" onClick={showInAppMap} aria-label={`Ver ${cafe.nombre} en el mapa de Coffee Map`}><CafeMapPreview lat={mapCoordinates?.lat} lng={mapCoordinates?.lng} /><span><MapPin size={17} /> {cafe.address || cafe.neighborhood || 'Ver ubicación'}</span></button>
         </aside>
 
         <div className="cafe-main-column">

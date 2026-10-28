@@ -1,13 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Search, Coffee, CheckCircle2, Clock, Heart, X, MapPinned, Navigation, Plus } from 'lucide-react';
+import { ArrowLeft, Search, Coffee, CheckCircle2, Clock, Heart, X, MapPinned, Plus } from 'lucide-react';
 import PageLoading from '../components/PageLoading';
-import CafeLocationPicker from '../components/CafeLocationPicker';
 import { useCoffeeData } from '../context/CoffeeDataContext';
 import { useAuth } from '../context/AuthContext';
-import { supabase } from '../supabase';
-import { areDuplicateCafes, normalizeCafeName } from '../utils/cafeDeduplication';
-import { geocodeCafeLocation } from '../utils/cafeLocation';
+import { normalizeCafeName } from '../utils/cafeDeduplication';
+import { sendCafeSubmission } from '../utils/cafeSubmissions';
 
 const calculateDistance = (lat1, lon1, lat2, lon2) => {
   const radiusKm = 6371;
@@ -59,17 +57,15 @@ function SearchPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
-  const { cafes, cafesLoading, cafesLoaded, loadCafes, refreshCafes, interactionsByCafeId } = useCoffeeData();
+  const { cafes, cafesLoading, cafesLoaded, loadCafes, interactionsByCafeId } = useCoffeeData();
   const [searchQuery, setSearchQuery] = useState('');
   const [userLocation, setUserLocation] = useState(null);
   const [locationResolved, setLocationResolved] = useState(() => !navigator.geolocation);
   const [loadError, setLoadError] = useState('');
   const [showAddCafe, setShowAddCafe] = useState(false);
-  const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [addingCafe, setAddingCafe] = useState(false);
   const [addCafeFeedback, setAddCafeFeedback] = useState('');
-  const [newCafe, setNewCafe] = useState({ nombre: '', address: '', link: '', lat: '', lng: '' });
-  const locationLookupRef = useRef(0);
+  const [newCafe, setNewCafe] = useState({ nombre: '', address: '', link: '' });
   const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const isCafeSelectionMode = searchParams.get('selectCafe') === '1';
   const returnTo = searchParams.get('returnTo') || '/new-post';
@@ -133,128 +129,21 @@ function SearchPage() {
     setShowAddCafe(true);
   };
 
-  useEffect(() => {
-    if (!showAddCafe) return undefined;
-
-    const link = newCafe.link.trim();
-    const address = newCafe.address.trim();
-    const lookupId = locationLookupRef.current + 1;
-    locationLookupRef.current = lookupId;
-
-    if (['current', 'pin'].includes(newCafe.locationSource) || (!link && !address)) {
-      return undefined;
-    }
-
-    const timerId = window.setTimeout(async () => {
-      try {
-        const resolvedLocation = await geocodeCafeLocation({ link, address });
-        if (locationLookupRef.current !== lookupId || !resolvedLocation) {
-          return;
-        }
-        setNewCafe((current) => ({
-          ...current,
-          lat: resolvedLocation.lat.toFixed(6),
-          lng: resolvedLocation.lng.toFixed(6),
-        }));
-      } catch {
-        // Validation feedback is shown when the form is submitted.
-      }
-    }, 700);
-
-    return () => { window.clearTimeout(timerId); locationLookupRef.current += 1; };
-  }, [newCafe.address, newCafe.link, newCafe.locationSource, showAddCafe]);
-
-  const useCurrentLocation = () => {
-    if (!navigator.geolocation) {
-      setAddCafeFeedback('Este dispositivo no permite obtener tu ubicación.');
-      return;
-    }
-
-    setAddCafeFeedback('Obteniendo ubicación...');
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        locationLookupRef.current += 1;
-        setNewCafe((current) => ({
-          ...current,
-          lat: position.coords.latitude.toFixed(6),
-          lng: position.coords.longitude.toFixed(6),
-          locationSource: 'current',
-        }));
-        setAddCafeFeedback('Ubicación agregada.');
-      },
-      () => setAddCafeFeedback('No pudimos obtener tu ubicación.'),
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
-    );
-  };
-
   const submitMissingCafe = async (event) => {
     event.preventDefault();
     if (!user || addingCafe) return;
-
-    const hasLocationInput = Boolean(newCafe.link.trim() || newCafe.address.trim());
-    const useSelectedLocation = ['current', 'pin'].includes(newCafe.locationSource);
-    let lat = useSelectedLocation && newCafe.lat !== '' ? Number(newCafe.lat) : NaN;
-    let lng = useSelectedLocation && newCafe.lng !== '' ? Number(newCafe.lng) : NaN;
-    let resolvedLocation = null;
-    if (hasLocationInput && !useSelectedLocation) {
-      setAddingCafe(true);
-      setAddCafeFeedback('Ubicando la dirección exacta…');
-      try {
-        resolvedLocation = await geocodeCafeLocation({ link: newCafe.link.trim(), address: newCafe.address.trim() });
-        if (resolvedLocation) {
-          lat = resolvedLocation.lat;
-          lng = resolvedLocation.lng;
-        }
-      } catch {
-        resolvedLocation = null;
-      } finally {
-        setAddingCafe(false);
-      }
-    }
-    const candidate = { nombre: newCafe.nombre.trim(), lat, lng };
-    if (!candidate.nombre || !Number.isFinite(lat) || !Number.isFinite(lng)) {
-      setAddCafeFeedback(!candidate.nombre
-        ? 'Escribe el nombre de la cafetería.'
-        : !newCafe.address.trim() && !newCafe.link.trim()
-          ? 'Agrega una dirección o un enlace de Google Maps para ubicarla.'
-          : 'No pudimos resolver la ubicación del enlace o la dirección. Elige el lugar en el mapa o usa tu ubicación si estás en la cafetería. Tus datos se conservan.');
+    if (!newCafe.nombre.trim() || (!newCafe.address.trim() && !newCafe.link.trim())) {
+      setAddCafeFeedback('Escribe el nombre y una dirección o enlace de Google Maps.');
       return;
     }
-
-    const duplicate = cafes.find((cafe) => areDuplicateCafes(cafe, candidate));
-    if (duplicate) {
-      setAddCafeFeedback(`“${duplicate.nombre}” ya está en el mapa.`);
-      return;
-    }
-
     setAddingCafe(true);
-    setAddCafeFeedback('');
+    setAddCafeFeedback('Enviando cafetería…');
     try {
-      const suggestionId = crypto.randomUUID();
-      const sourceId = `${normalizeCafeName(candidate.nombre).replaceAll(' ', '-')}:${suggestionId}`;
-      const { error } = await supabase.from('cafes').insert({
-        id: `community:${suggestionId}`,
-        nombre: candidate.nombre,
-        lat,
-        lng,
-        address: newCafe.address.trim() || null,
-        neighborhood: resolvedLocation?.neighborhood || null,
-        link: newCafe.link.trim() || null,
-        source: 'community',
-        source_id: sourceId,
-        status: 'needs_review',
-        submitted_by: user.id,
-      });
-      if (error) throw error;
-
-      setAddCafeFeedback('¡Gracias por contribuir! La cafetería se envió a revisión. Un administrador la validará antes de publicarla.');
-      setNewCafe({ nombre: '', address: '', link: '', lat: '', lng: '' });
-      setShowLocationPicker(false);
-      await refreshCafes();
+      await sendCafeSubmission({ nombre: newCafe.nombre.trim(), address: newCafe.address.trim(), link: newCafe.link.trim() });
+      setAddCafeFeedback('¡Gracias! Tu cafetería se envió al centro de control. Coffee Map verificará su ubicación antes de publicarla.');
+      setNewCafe({ nombre: '', address: '', link: '' });
     } catch (error) {
-      setAddCafeFeedback(error.message?.includes('policy')
-        ? 'Falta aplicar la actualización de cafeterías comunitarias.'
-        : 'No pudimos enviar la cafetería. Intenta otra vez.');
+      setAddCafeFeedback(error.message || 'No pudimos enviar la cafetería. Tus datos se conservan.');
     } finally {
       setAddingCafe(false);
     }
@@ -392,22 +281,7 @@ function SearchPage() {
               <label>Dirección<input value={newCafe.address} onChange={(event) => setNewCafe({ ...newCafe, address: event.target.value })} placeholder="Calle, número y colonia" maxLength={220} /></label>
               <label>Enlace de Maps<input type="url" value={newCafe.link} onChange={(event) => setNewCafe({ ...newCafe, link: event.target.value })} placeholder="https://maps.app.goo.gl/..." /></label>
 
-              <button className="missing-cafe-location" type="button" onClick={useCurrentLocation}>
-                <Navigation size={16} /> Usar mi ubicación actual
-              </button>
-              <button className="missing-cafe-location" type="button" onClick={() => setShowLocationPicker((current) => !current)} aria-expanded={showLocationPicker}>
-                <MapPinned size={16} /> {showLocationPicker ? 'Ocultar mapa' : 'Elegir ubicación en el mapa'}
-              </button>
-              {showLocationPicker && <CafeLocationPicker coordinates={['current', 'pin'].includes(newCafe.locationSource) ? [Number(newCafe.lat), Number(newCafe.lng)] : undefined} onSelect={({ lat, lng }) => {
-                locationLookupRef.current += 1;
-                setNewCafe((current) => ({ ...current, lat: lat.toFixed(6), lng: lng.toFixed(6), locationSource: 'pin' }));
-                setAddCafeFeedback('Ubicación seleccionada. Ya puedes enviar la cafetería.');
-              }} />}
-              {['current', 'pin'].includes(newCafe.locationSource) && <p className="missing-cafe-feedback">Se usará {newCafe.locationSource === 'current' ? 'tu ubicación actual' : 'el punto elegido en el mapa'} para esta cafetería. <button type="button" onClick={() => {
-                setNewCafe((current) => ({ ...current, lat: '', lng: '', locationSource: '' }));
-                setShowLocationPicker(false);
-                setAddCafeFeedback('');
-              }}>Quitar ubicación</button></p>}
+              <p className="missing-cafe-feedback">Verificaremos la ubicación de Google Maps antes de publicar la cafetería.</p>
               {addCafeFeedback && <p className="missing-cafe-feedback" role="status">{addCafeFeedback}</p>}
               <button className="missing-cafe-submit" type="submit" disabled={addingCafe}>{addingCafe ? 'Enviando...' : 'Enviar cafetería'}</button>
             </form>
