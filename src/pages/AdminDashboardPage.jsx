@@ -8,6 +8,7 @@ import { areDuplicateCafes, deduplicateCafes, repairCafeText } from '../utils/ca
 import { geocodeCafeLocation, isGoogleMapsLink, normalizeGoogleMapsLink } from '../utils/cafeLocation';
 import { sendCafeSubmission } from '../utils/cafeSubmissions';
 import { toCafeDbRow } from '../utils/cafeDatabase';
+import AdminMenuImageList from '../components/AdminMenuImageList';
 
 const MERIDA_BBOX = { south: 20.86, west: -89.75, north: 21.08, east: -89.52 };
 const OVERPASS_URLS = [
@@ -569,7 +570,7 @@ function AdminSectionBuilder({ section, blocks, metrics, menuOpen, onToggleMenu,
     </section>
   );
 }
-function AdminCafeCard({ cafe, tiktoks = [], saving = false, menuSaving = false, onSave: persistCafe, onStatusChange, onUpload, onDeleteCover, onMenuUpload, onDeleteMenuImage, onFindImage, onAddTikTok, onDeleteTikTok, onDelete }) {
+function AdminCafeCard({ cafe, tiktoks = [], saving = false, menuSaving = false, onSave: persistCafe, onStatusChange, onUpload, onDeleteCover, onMenuUpload, onDeleteMenuImage, onMoveMenuImage, onFindImage, onAddTikTok, onDeleteTikTok, onDelete }) {
   const [draft, setDraft] = useState(() => ({
     nombre: cafe.nombre || '',
     address: cafe.address || '',
@@ -689,9 +690,9 @@ function AdminCafeCard({ cafe, tiktoks = [], saving = false, menuSaving = false,
         </div>
         <div className="admin-cafe-menu-images">
           <div className="admin-cafe-menu-images-heading"><span><Coffee size={14} /> Imágenes del menú</span><small>{menuImages.length}</small></div>
-          {menuImages.length > 0 ? <div className="admin-cafe-menu-images-grid">{menuImages.map((url, index) => <div key={`${url}-${index}`}><img src={url} alt={`Menú ${index + 1} de ${cafe.nombre}`} loading="lazy" /><button type="button" onClick={() => onDeleteMenuImage(cafe, url)} disabled={menuSaving} aria-label={`Eliminar imagen ${index + 1} del menú`} title="Eliminar imagen"><Trash2 size={12} /></button></div>)}</div> : <p>Aún no hay imágenes adjuntas.</p>}
-          <label className="admin-cafe-menu-upload"><FileUp size={13} /> {menuSaving ? 'Subiendo imágenes…' : 'Adjuntar imágenes'}<input hidden type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" multiple disabled={menuSaving} onChange={(event) => { onMenuUpload(cafe, [...(event.target.files || [])]); event.target.value = ''; }} /></label>
-          <small className="admin-cafe-menu-note">Hasta 8 MB por imagen. Puedes adjuntar varias páginas.</small>
+          {menuImages.length > 0 ? <AdminMenuImageList images={menuImages} cafeName={cafe.nombre} saving={menuSaving} onMove={(from, to) => onMoveMenuImage(cafe, from, to)} onDelete={(url) => onDeleteMenuImage(cafe, url)} /> : <p>Aún no hay imágenes adjuntas.</p>}
+          <label className="admin-cafe-menu-upload"><FileUp size={13} /> {menuSaving ? 'Guardando…' : 'Adjuntar imágenes'}<input hidden type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" multiple disabled={menuSaving} onChange={(event) => { onMenuUpload(cafe, [...(event.target.files || [])]); event.target.value = ''; }} /></label>
+          <small className="admin-cafe-menu-note">Usa las flechas para ordenar las páginas. El orden se guarda automáticamente. Hasta 8 MB por imagen.</small>
         </div>
         <div className="admin-cafe-tiktoks">
           <div className="admin-cafe-tiktoks-heading"><span><Music2 size={14} /> TikToks relacionados</span><small>{tiktoks.length}</small></div>
@@ -1224,6 +1225,20 @@ function AdminDashboardPage() {
     return `Imagen del menú eliminada de ${cafe.nombre}.`;
   }, 'Imagen del menú eliminada.');
 
+  const moveCafeMenuImage = (cafe, from, to) => {
+    const images = parseCafeMenuImages(cafe.menu_url);
+    if (actionLoading || from === to || from < 0 || to < 0 || from >= images.length || to >= images.length) return;
+    const [image] = images.splice(from, 1);
+    images.splice(to, 0, image);
+    return runAction(`menu-order:${cafe.id}`, async () => {
+      const menu = JSON.stringify(images);
+      const { error } = await supabase.from('cafes').update({ menu_url: menu, updated_at: new Date().toISOString() }).eq('id', cafe.id);
+      if (error) throw error;
+      setCafes((current) => current.map((item) => item.id === cafe.id ? { ...item, menu_url: menu } : item));
+      await refreshCafes();
+    }, 'Orden del menú guardado.', { reload: false });
+  };
+
   const confirmCafeCoverCrop = (file) => {
     const request = coverCropRequest;
     setCoverCropRequest(null);
@@ -1438,14 +1453,14 @@ function AdminDashboardPage() {
       if (!/^https?:\/\/([a-z]+\.)?tiktok\.com\//i.test(cleanUrl)) throw new Error('Agrega un enlace válido de TikTok.');
       let metadata = {};
       try {
-        const response = await fetch(`https://www.tiktok.com/oembed?url=${encodeURIComponent(cleanUrl)}`);
+        const response = await fetch(`/api/tiktok-metadata?url=${encodeURIComponent(cleanUrl)}`);
         if (response.ok) metadata = await response.json();
       } catch {
-        // The link is still useful when TikTok blocks oEmbed from the browser.
+        // Saving the link is still useful when TikTok's metadata is unavailable.
       }
       const { error } = await supabase.from('cafe_tiktoks').insert({
         cafe_id: cafe.id,
-        url: cleanUrl,
+        url: metadata.url || cleanUrl,
         thumbnail_url: metadata.thumbnail_url || null,
         title: metadata.title || null,
         position: (cafeTiktoksByCafeId.get(cafe.id) || []).length,
@@ -1597,7 +1612,7 @@ function AdminDashboardPage() {
             </div>}
             <div className="admin-cafe-grid">
               {visibleCafes.map((cafe) => (
-                <AdminCafeCard key={cafe.id} cafe={cafe} tiktoks={cafeTiktoksByCafeId.get(cafe.id) || []} saving={actionLoading === `cafe-save:${cafe.id}`} menuSaving={actionLoading === `menu:${cafe.id}` || actionLoading === `menu-delete:${cafe.id}`} onSave={saveCafe} onStatusChange={updateCafeStatus} onUpload={uploadCafeCover} onDeleteCover={deleteCafeCover} onMenuUpload={uploadCafeMenuImages} onDeleteMenuImage={deleteCafeMenuImage} onFindImage={findOpenImages} onAddTikTok={addCafeTikTok} onDeleteTikTok={deleteCafeTikTok} onDelete={deleteCafe} />
+                <AdminCafeCard key={cafe.id} cafe={cafe} tiktoks={cafeTiktoksByCafeId.get(cafe.id) || []} saving={actionLoading === `cafe-save:${cafe.id}`} menuSaving={actionLoading === `menu:${cafe.id}` || actionLoading === `menu-delete:${cafe.id}` || actionLoading === `menu-order:${cafe.id}`} onSave={saveCafe} onStatusChange={updateCafeStatus} onUpload={uploadCafeCover} onDeleteCover={deleteCafeCover} onMenuUpload={uploadCafeMenuImages} onDeleteMenuImage={deleteCafeMenuImage} onMoveMenuImage={moveCafeMenuImage} onFindImage={findOpenImages} onAddTikTok={addCafeTikTok} onDeleteTikTok={deleteCafeTikTok} onDelete={deleteCafe} />
               ))}
             </div>
             {visibleCafes.length === 0 && <p className="admin-empty">No encontramos cafeterías con esa búsqueda.</p>}

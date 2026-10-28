@@ -9,6 +9,7 @@ import { getCafeOpenStatus, getCafeScheduleRows } from '../utils/cafeHours';
 import { geocodeCafeLocation, getCafeCoordinates } from '../utils/cafeLocation';
 import CoffeeBeanIcon, { CoffeeBeanRating } from '../components/CoffeeBeanIcon';
 import CafeMapPreview from '../components/CafeMapPreview';
+import TikTokCover from '../components/TikTokCover';
 
 const MAP_TARGET_STORAGE_KEY = 'coffee-map:focus-cafe';
 const getLocalDate = () => {
@@ -374,7 +375,7 @@ function CafePage({ cafeId }) {
         <header><div><span className="cafe-section-kicker">DESCÚBRELO EN VIDEO</span><h2><Music2 size={22} /> TikTok</h2></div><span>{tiktoksStatus === 'loading' ? 'Cargando…' : tiktoksStatus === 'error' ? 'No disponible' : `${communityTiktoks.length} videos`}</span></header>
         {tiktoksStatus === 'error' && <div className="cafe-tiktok-empty" role="status"><p>No pudimos cargar los TikToks. Intenta otra vez.</p><button type="button" onClick={() => setMediaReload((value) => value + 1)}>Reintentar</button></div>}
         {communityTiktoks.length ? <div className="cafe-tiktok-grid">{communityTiktoks.map((tiktok) => <a key={tiktok.id} href={tiktok.url} target="_blank" rel="noreferrer" className="cafe-tiktok-card">
-          <div className="cafe-tiktok-cover">{tiktok.thumbnail_url ? <img src={tiktok.thumbnail_url} alt={tiktok.title || `Video de ${cafe.nombre}`} loading="lazy" decoding="async" /> : <div className="cafe-tiktok-placeholder"><Music2 size={32} /><span>Vista previa de TikTok</span></div>}<span className="cafe-tiktok-play"><Music2 size={14} /> Ver en TikTok <ExternalLink size={12} /></span></div>
+          <div className="cafe-tiktok-cover"><TikTokCover key={tiktok.url} tiktok={tiktok} cafeName={cafe.nombre} /><span className="cafe-tiktok-play"><Music2 size={14} /> Ver en TikTok <ExternalLink size={12} /></span></div>
           <strong>{tiktok.title || 'Publicación de la comunidad'}</strong><small>TikTok</small>
         </a>)}</div> : tiktoksStatus === 'ready' ? <div className="cafe-tiktok-empty"><Music2 size={24} /><p>Aquí aparecerán los TikToks de esta cafetería.</p></div> : null}
       </section>

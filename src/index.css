@@ -1731,10 +1731,11 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 .cafe-tiktok-card { display: block; color: var(--cafe-cream); text-decoration: none; }
 .cafe-tiktok-cover { aspect-ratio: 9 / 16; border-radius: 5px; background: #30261f; }
 .cafe-tiktok-cover img { object-fit: cover; }
+.cafe-tiktok-cover iframe { width: 100%; height: 100%; border: 0; pointer-events: none; }
 .cafe-tiktok-cover::after { background: linear-gradient(180deg, transparent 50%, rgba(0,0,0,.62)); }
 .cafe-tiktok-placeholder { display: flex; flex-direction: column; align-items: center; gap: 10px; color: rgba(232,221,197,.65); font-size: 9px; }
 .cafe-tiktok-play { position: absolute; right: 8px; bottom: 8px; z-index: 1; display: inline-flex; align-items: center; gap: 5px; color: white; font-size: 10px; }
-.cafe-tiktok-card > strong { display: block; margin: 8px 2px 4px; font-size: 11px; }
+.cafe-tiktok-card > strong { display: -webkit-box; overflow: hidden; margin: 8px 2px 4px; font-size: 11px; line-height: 1.35; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .cafe-tiktok-card > small { display: flex; align-items: center; gap: 5px; margin-left: 2px; color: rgba(232,221,197,.54); font-size: 9px; }
 .cafe-tiktok-card > small i { width: 15px; height: 15px; background: #cbbd9e; border-radius: 50%; }
 .cafe-tiktok-empty { min-height: 96px; flex-direction: row; }
@@ -2065,7 +2066,11 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 .admin-cafe-menu-images-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 6px; }
 .admin-cafe-menu-images-grid > div { position: relative; aspect-ratio: .78; overflow: hidden; background: #342a22; border-radius: 8px; }
 .admin-cafe-menu-images-grid img { width: 100%; height: 100%; display: block; object-fit: cover; }
-.admin-cafe-menu-images-grid button { position: absolute; top: 4px; right: 4px; width: 23px; height: 23px; display: grid; place-items: center; padding: 0; color: #f0b5a7; background: rgba(29,25,21,.9); border: 0; border-radius: 7px; }
+.admin-cafe-menu-images-grid .admin-menu-delete { position: absolute; top: 4px; right: 4px; width: 23px; height: 23px; display: grid; place-items: center; padding: 0; color: #f0b5a7; background: rgba(29,25,21,.9); border: 0; border-radius: 7px; }
+.admin-menu-page-number { position: absolute; top: 4px; left: 4px; min-width: 20px; padding: 3px; color: #eee5d2; text-align: center; background: rgba(29,25,21,.9); border-radius: 6px; font-size: 10px; }
+.admin-menu-order-controls { position: absolute; right: 0; bottom: 0; left: 0; display: flex; justify-content: space-between; padding: 4px; background: linear-gradient(transparent, rgba(29,25,21,.9)); }
+.admin-menu-order-controls button { width: 27px; height: 27px; display: grid; place-items: center; padding: 0; color: #2d241d; background: #e6dac1; border: 0; border-radius: 6px; cursor: pointer; }
+.admin-menu-order-controls button:disabled { opacity: .35; cursor: default; }
 .admin-cafe-menu-upload { width: fit-content; min-height: 31px; display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; color: #2d241d; background: #e6dac1; border-radius: 8px; font-size: 9px; font-weight: 700; }
 .admin-cafe-menu-upload:has(input:disabled) { opacity: .55; }
 .admin-cafe-menu-note { color: rgba(238,229,210,.42); font-size: 8px; }
