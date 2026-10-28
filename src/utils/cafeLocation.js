@@ -1,6 +1,7 @@
 const COORDINATE_PATTERN = '(-?\\d+(?:\\.\\d+)?)';
 
 const toCoordinatePair = (latitude, longitude) => {
+  if (latitude == null || longitude == null || String(latitude).trim() === '' || String(longitude).trim() === '') return null;
   const lat = Number(latitude);
   const lng = Number(longitude);
 
@@ -28,6 +29,7 @@ const isGoogleMapsHost = (hostname) => (
   hostname === 'maps.app.goo.gl'
   || hostname === 'goo.gl'
   || hostname === 'maps.google.com'
+  || hostname === 'google.com'
   || hostname === 'www.google.com'
   || hostname.endsWith('.google.com')
 );
@@ -37,7 +39,7 @@ export const isGoogleMapsLink = (value) => {
     const cleanValue = String(value || '').trim();
     const candidate = /^https?:\/\//i.test(cleanValue) ? cleanValue : `https://${cleanValue}`;
     const url = new URL(candidate);
-    return isGoogleMapsHost(url.hostname)
+    return ['http:', 'https:'].includes(url.protocol) && isGoogleMapsHost(url.hostname)
       && (url.hostname === 'maps.app.goo.gl' || url.hostname === 'goo.gl' || url.hostname === 'maps.google.com' || url.pathname.includes('/maps'));
   } catch {
     return false;
@@ -65,7 +67,8 @@ export const extractGoogleMapsCoordinates = (value) => {
 
   for (const pattern of patterns) {
     const match = link.match(pattern);
-    const coordinates = match && toCoordinatePair(match[1], match[2]);
+    const longitudeFirst = pattern.source.startsWith('!2d');
+    const coordinates = match && toCoordinatePair(match[longitudeFirst ? 2 : 1], match[longitudeFirst ? 1 : 2]);
     if (coordinates) return coordinates;
   }
 
@@ -83,7 +86,8 @@ const extractExplicitGoogleMapsCoordinates = (value) => {
   ];
   for (const pattern of patterns) {
     const match = link.match(pattern);
-    const coordinates = match && toCoordinatePair(match[1], match[2]);
+    const longitudeFirst = pattern.source.startsWith('!2d');
+    const coordinates = match && toCoordinatePair(match[longitudeFirst ? 2 : 1], match[longitudeFirst ? 1 : 2]);
     if (coordinates) return coordinates;
   }
   return null;
@@ -138,6 +142,7 @@ const geocodeAddressOnce = async (address) => {
     countrycodes: 'mx',
   });
   const response = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, {
+    signal: AbortSignal.timeout(5000),
     headers: { Accept: 'application/json', 'Accept-Language': 'es' },
   });
   if (!response.ok) throw new Error('No se pudo ubicar la direccion.');
@@ -185,7 +190,7 @@ export const geocodeCafeAddress = async (address) => {
 const resolveGoogleMapsLink = async (link) => {
   if (!link || typeof window === 'undefined' || !isGoogleMapsLink(link)) return null;
   try {
-    const response = await fetch(`/api/maps-location?url=${encodeURIComponent(link)}`);
+    const response = await fetch(`/api/maps-location?url=${encodeURIComponent(normalizeGoogleMapsLink(link))}`, { signal: AbortSignal.timeout(15000) });
     if (!response.ok) return null;
     const payload = await response.json();
     return toCoordinatePair(payload?.lat, payload?.lng);

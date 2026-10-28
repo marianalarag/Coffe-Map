@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Search, Coffee, CheckCircle2, Clock, Heart, X, MapPinned, Navigation, Plus } from 'lucide-react';
 import PageLoading from '../components/PageLoading';
+import CafeLocationPicker from '../components/CafeLocationPicker';
 import { useCoffeeData } from '../context/CoffeeDataContext';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../supabase';
@@ -64,6 +65,7 @@ function SearchPage() {
   const [locationResolved, setLocationResolved] = useState(() => !navigator.geolocation);
   const [loadError, setLoadError] = useState('');
   const [showAddCafe, setShowAddCafe] = useState(false);
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [addingCafe, setAddingCafe] = useState(false);
   const [addCafeFeedback, setAddCafeFeedback] = useState('');
   const [newCafe, setNewCafe] = useState({ nombre: '', address: '', link: '', lat: '', lng: '' });
@@ -139,7 +141,7 @@ function SearchPage() {
     const lookupId = locationLookupRef.current + 1;
     locationLookupRef.current = lookupId;
 
-    if (!link && !address) {
+    if (['current', 'pin'].includes(newCafe.locationSource) || (!link && !address)) {
       return undefined;
     }
 
@@ -159,8 +161,8 @@ function SearchPage() {
       }
     }, 700);
 
-    return () => window.clearTimeout(timerId);
-  }, [newCafe.address, newCafe.link, showAddCafe]);
+    return () => { window.clearTimeout(timerId); locationLookupRef.current += 1; };
+  }, [newCafe.address, newCafe.link, newCafe.locationSource, showAddCafe]);
 
   const useCurrentLocation = () => {
     if (!navigator.geolocation) {
@@ -171,10 +173,12 @@ function SearchPage() {
     setAddCafeFeedback('Obteniendo ubicación...');
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        locationLookupRef.current += 1;
         setNewCafe((current) => ({
           ...current,
           lat: position.coords.latitude.toFixed(6),
           lng: position.coords.longitude.toFixed(6),
+          locationSource: 'current',
         }));
         setAddCafeFeedback('Ubicación agregada.');
       },
@@ -185,13 +189,14 @@ function SearchPage() {
 
   const submitMissingCafe = async (event) => {
     event.preventDefault();
-    if (!user) return;
+    if (!user || addingCafe) return;
 
     const hasLocationInput = Boolean(newCafe.link.trim() || newCafe.address.trim());
-    let lat;
-    let lng;
+    const useSelectedLocation = ['current', 'pin'].includes(newCafe.locationSource);
+    let lat = useSelectedLocation && newCafe.lat !== '' ? Number(newCafe.lat) : NaN;
+    let lng = useSelectedLocation && newCafe.lng !== '' ? Number(newCafe.lng) : NaN;
     let resolvedLocation = null;
-    if (hasLocationInput) {
+    if (hasLocationInput && !useSelectedLocation) {
       setAddingCafe(true);
       setAddCafeFeedback('Ubicando la dirección exacta…');
       try {
@@ -206,17 +211,13 @@ function SearchPage() {
         setAddingCafe(false);
       }
     }
-    if (!hasLocationInput && (!Number.isFinite(lat) || !Number.isFinite(lng))) {
-      lat = Number(newCafe.lat);
-      lng = Number(newCafe.lng);
-    }
     const candidate = { nombre: newCafe.nombre.trim(), lat, lng };
     if (!candidate.nombre || !Number.isFinite(lat) || !Number.isFinite(lng)) {
       setAddCafeFeedback(!candidate.nombre
         ? 'Escribe el nombre de la cafetería.'
         : !newCafe.address.trim() && !newCafe.link.trim()
           ? 'Agrega una dirección o un enlace de Google Maps para ubicarla.'
-          : 'No pudimos ubicar la cafetería con esos datos. Revisa la dirección o el enlace de Maps.');
+          : 'No pudimos resolver la ubicación del enlace o la dirección. Elige el lugar en el mapa o usa tu ubicación si estás en la cafetería. Tus datos se conservan.');
       return;
     }
 
@@ -248,6 +249,7 @@ function SearchPage() {
 
       setAddCafeFeedback('¡Gracias por contribuir! La cafetería se envió a revisión. Un administrador la validará antes de publicarla.');
       setNewCafe({ nombre: '', address: '', link: '', lat: '', lng: '' });
+      setShowLocationPicker(false);
       await refreshCafes();
     } catch (error) {
       setAddCafeFeedback(error.message?.includes('policy')
@@ -393,6 +395,19 @@ function SearchPage() {
               <button className="missing-cafe-location" type="button" onClick={useCurrentLocation}>
                 <Navigation size={16} /> Usar mi ubicación actual
               </button>
+              <button className="missing-cafe-location" type="button" onClick={() => setShowLocationPicker((current) => !current)} aria-expanded={showLocationPicker}>
+                <MapPinned size={16} /> {showLocationPicker ? 'Ocultar mapa' : 'Elegir ubicación en el mapa'}
+              </button>
+              {showLocationPicker && <CafeLocationPicker coordinates={['current', 'pin'].includes(newCafe.locationSource) ? [Number(newCafe.lat), Number(newCafe.lng)] : undefined} onSelect={({ lat, lng }) => {
+                locationLookupRef.current += 1;
+                setNewCafe((current) => ({ ...current, lat: lat.toFixed(6), lng: lng.toFixed(6), locationSource: 'pin' }));
+                setAddCafeFeedback('Ubicación seleccionada. Ya puedes enviar la cafetería.');
+              }} />}
+              {['current', 'pin'].includes(newCafe.locationSource) && <p className="missing-cafe-feedback">Se usará {newCafe.locationSource === 'current' ? 'tu ubicación actual' : 'el punto elegido en el mapa'} para esta cafetería. <button type="button" onClick={() => {
+                setNewCafe((current) => ({ ...current, lat: '', lng: '', locationSource: '' }));
+                setShowLocationPicker(false);
+                setAddCafeFeedback('');
+              }}>Quitar ubicación</button></p>}
               {addCafeFeedback && <p className="missing-cafe-feedback" role="status">{addCafeFeedback}</p>}
               <button className="missing-cafe-submit" type="submit" disabled={addingCafe}>{addingCafe ? 'Enviando...' : 'Enviar cafetería'}</button>
             </form>

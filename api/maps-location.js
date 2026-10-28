@@ -89,7 +89,7 @@ export default async function mapsLocation(request, response) {
     return;
   }
 
-  if (!isAllowedMapsHost(mapsUrl.hostname)) {
+  if (!isAllowedMapsHost(mapsUrl.hostname) || !['http:', 'https:'].includes(mapsUrl.protocol) || mapsUrl.username || mapsUrl.password || mapsUrl.port) {
     response.status(400).json({ error: 'Unsupported Maps host.' });
     return;
   }
@@ -104,18 +104,30 @@ export default async function mapsLocation(request, response) {
   }
 
   try {
-    const result = await fetch(mapsUrl, {
-      redirect: 'follow',
-      headers: { 'User-Agent': 'Coffee-Map/1.0' },
-    });
-    if (!result.ok) {
-      response.status(502).json({ error: 'Maps did not return a location.' });
-      return;
+    // Read each redirect before loading the destination page. Google may block
+    // that page even though its Location header already identifies the place.
+    let currentUrl = mapsUrl;
+    let coordinates = null;
+    const signal = AbortSignal.timeout(12000);
+    for (let hop = 0; hop < 8; hop += 1) {
+      if (!isAllowedMapsHost(currentUrl.hostname) || !['http:', 'https:'].includes(currentUrl.protocol) || currentUrl.username || currentUrl.password || currentUrl.port) break;
+      coordinates = getCoordinatesFromUrl(currentUrl.href);
+      if (coordinates) break;
+      const result = await fetch(currentUrl, {
+        redirect: 'manual', signal,
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Coffee-Map/1.0)' },
+      });
+      const redirect = result.headers.get('location');
+      if (result.status >= 300 && result.status < 400 && redirect) {
+        await result.body?.cancel();
+        currentUrl = new URL(redirect, currentUrl);
+        continue;
+      }
+      if (!result.ok) { await result.body?.cancel(); break; }
+      const html = await result.text();
+      coordinates = getCoordinatesFromHtml(html);
+      break;
     }
-    const html = await result.text();
-    const coordinates = getCoordinatesFromUrl(mapsUrl.href)
-      || getCoordinatesFromUrl(result.url)
-      || getCoordinatesFromHtml(html);
     if (!coordinates) {
       response.status(404).json({ error: 'Location not found in Maps response.' });
       return;

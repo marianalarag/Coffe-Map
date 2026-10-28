@@ -55,6 +55,25 @@ function CafePage({ cafeId }) {
   const [communityTiktoks, setCommunityTiktoks] = useState([]);
   const [communityReviews, setCommunityReviews] = useState([]);
   const [expandedImage, setExpandedImage] = useState(null);
+  const [friendVisitors, setFriendVisitors] = useState([]);
+  const [friendVisitorsStatus, setFriendVisitorsStatus] = useState('loading');
+
+  useEffect(() => {
+    let cancelled = false;
+    setFriendVisitors([]);
+    if (!id || !user?.id) {
+      setFriendVisitorsStatus('ready');
+      return;
+    }
+    setFriendVisitorsStatus('loading');
+    supabase.rpc('get_cafe_friend_visitors', { target_cafe_id: id })
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        setFriendVisitors(data || []);
+        setFriendVisitorsStatus(error ? 'error' : 'ready');
+      }).catch(() => { if (!cancelled) setFriendVisitorsStatus('error'); });
+    return () => { cancelled = true; };
+  }, [id, user?.id, location.key]);
 
   useEffect(() => {
     if (!cafesLoaded) {
@@ -241,11 +260,18 @@ function CafePage({ cafeId }) {
         if (cancelled) return;
         maplibreGL({ style: MAP_STYLE_URL, interactive: false, maxZoom: 19 }).addTo(map);
       }
-      L.circleMarker([lat, lng], { radius: 8, color: '#fffaf0', weight: 3, fillColor: '#7a5533', fillOpacity: 1 }).addTo(map);
+      L.marker([lat, lng], {
+        interactive: false,
+        icon: L.divIcon({
+          className: 'cafe-preview-pin',
+          html: '<svg viewBox="0 0 32 42" width="32" height="42" aria-hidden="true"><path d="M16 40S2 25 2 16a14 14 0 0 1 28 0c0 9-14 24-14 24Z" fill="#7a5533" stroke="#fffaf0" stroke-width="3"/><circle cx="16" cy="16" r="5" fill="#fffaf0"/></svg>',
+          iconSize: [32, 42], iconAnchor: [16, 42],
+        }),
+      }).addTo(map);
     };
     initializePreview().catch((error) => console.error('No se pudo cargar la vista previa del mapa.', error));
     return () => { cancelled = true; map?.remove(); };
-  }, [cafe?.id, cafe?.lat, cafe?.lng]);
+  }, [cafe]);
 
   useEffect(() => {
     if (!expandedImage) return undefined;
@@ -316,13 +342,21 @@ function CafePage({ cafeId }) {
 
       <div className="cafe-content-grid">
         <aside className="cafe-sidebar">
-          <div className="cafe-visited-summary"><span className="cafe-avatar-pair"><i /><i /></span><span>Lo han visitado</span><strong>{cafe.reviews || 0}</strong></div>
+          <div className="cafe-visited-summary" aria-live="polite">
+            {friendVisitors.length > 0 && <span className="cafe-friend-avatars">{friendVisitors.slice(0, 4).map((friend) => (
+              <button key={friend.id} type="button" onClick={() => navigate(`/profile/${friend.id}`)} aria-label={`Ver perfil de ${friend.username || 'tu amigo'}`} title={friend.username || 'Tu amigo'}>
+                <img src={friend.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(friend.username || 'Amigo')}`} alt={friend.username || 'Tu amigo'} />
+              </button>
+            ))}</span>}
+            <span>{!user ? 'Inicia sesión para ver las visitas de tus amigos' : friendVisitorsStatus === 'loading' ? 'Cargando visitas de amigos…' : friendVisitorsStatus === 'error' ? 'No se pudieron cargar las visitas de tus amigos' : friendVisitors.length ? 'Amigos que lo han visitado' : 'Tus amigos aún no lo han visitado'}</span>
+            {user && friendVisitorsStatus === 'ready' && <strong>{friendVisitors.length}</strong>}
+          </div>
           <section className="cafe-hours-card">
             <header><div><span className="cafe-section-kicker">HORARIOS</span><h2>{openStatus.label}</h2></div><i className={`cafe-hours-status is-${openStatus.state}`} /></header>
             {scheduleRows.length > 0 ? <div className="cafe-hours-list">{scheduleRows.map((row) => <p key={row.day}><span>{row.day}</span><strong>{row.hours}</strong></p>)}</div> : <p className="cafe-hours-pending">Aún no tenemos un horario verificado para esta cafetería.</p>}
-            {cafe.openingHoursSource === 'osm' && <small className="cafe-hours-source">Horario de OpenStreetMap; puede cambiar.</small>}
-            {cafe.openingHoursSource === 'web' && <small className="cafe-hours-source">Horario verificado en una fuente pública{cafe.openingHoursSourceUrl ? <> · <a href={cafe.openingHoursSourceUrl} target="_blank" rel="noreferrer">ver fuente</a></> : null}.</small>}
-            {cafe.openingHoursSource === 'admin' && <small className="cafe-hours-source">Horario verificado por Coffee Map.</small>}
+            {scheduleRows.length > 0 && cafe.openingHoursSource === 'osm' && <small className="cafe-hours-source">Horario de OpenStreetMap; puede cambiar.</small>}
+            {scheduleRows.length > 0 && cafe.openingHoursSource === 'web' && <small className="cafe-hours-source">Horario verificado en una fuente pública{cafe.openingHoursSourceUrl ? <> · <a href={cafe.openingHoursSourceUrl} target="_blank" rel="noreferrer">ver fuente</a></> : null}.</small>}
+            {scheduleRows.length > 0 && cafe.openingHoursSource === 'admin' && <small className="cafe-hours-source">Horario verificado por Coffee Map.</small>}
           </section>
           <button type="button" className="cafe-map-card" onClick={showInAppMap} aria-label={`Ver ${cafe.nombre} en el mapa de Coffee Map`}><div id="cafe-map-preview" aria-hidden="true" /><span><MapPin size={17} /> {cafe.address || cafe.neighborhood || 'Ver ubicación'}</span></button>
         </aside>
