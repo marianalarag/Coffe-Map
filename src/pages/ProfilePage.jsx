@@ -36,6 +36,7 @@ const getProfileAssetPath = (userId, kind, file) => {
 };
 
 const optimizeProfileImage = async (file, kind) => {
+  if (kind === 'avatar') return file;
   if (!window.createImageBitmap || !file.type.startsWith('image/')) return file;
 
   try {
@@ -110,8 +111,8 @@ function ProfileImageCropper({ file, kind, onCancel, onConfirm }) {
     image.src = previewUrl;
     await new Promise((resolve, reject) => { image.onload = resolve; image.onerror = reject; });
 
-    const outputWidth = isCover ? 2400 : 1200;
-    const outputHeight = isCover ? 960 : 1200;
+    const outputWidth = isCover ? 2400 : Math.max(1, Math.min(1200, Math.floor(Math.min(image.naturalWidth, image.naturalHeight) / zoom)));
+    const outputHeight = isCover ? 960 : outputWidth;
     const scale = Math.max(outputWidth / image.naturalWidth, outputHeight / image.naturalHeight) * zoom;
     const renderedWidth = image.naturalWidth * scale;
     const renderedHeight = image.naturalHeight * scale;
@@ -126,8 +127,9 @@ function ProfileImageCropper({ file, kind, onCancel, onConfirm }) {
     context.imageSmoothingEnabled = true;
     context.imageSmoothingQuality = 'high';
     context.drawImage(image, sourceLeft, sourceTop, sourceWidth, sourceHeight, 0, 0, outputWidth, outputHeight);
-    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/webp', isCover ? 0.88 : 0.98));
-    if (blob) onConfirm(new File([blob], `${kind}-cropped.webp`, { type: 'image/webp', lastModified: Date.now() }));
+    const mimeType = isCover ? 'image/webp' : 'image/png';
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, mimeType, 0.88));
+    if (blob) onConfirm(new File([blob], `${kind}-cropped.${isCover ? 'webp' : 'png'}`, { type: mimeType, lastModified: Date.now() }));
   };
 
   return (
@@ -173,7 +175,7 @@ function ProfileRatingChart({ interactions, textStyle, navigate }) {
             aria-label={`Ver cafeterías calificadas con ${formatRating(row.rating)} de 5`}
           >
             <span>{row.rating}</span>
-            <CoffeeBeanRating value={row.rating} size={12} />
+            <CoffeeBeanRating value={row.rating} size={8} />
             <div className="profile-rating-track"><span style={{ width: `${(row.count / maxCount) * 100}%` }} /></div>
             <strong>{row.count}</strong>
           </button>
@@ -324,21 +326,19 @@ function ProfilePage() {
   const [showSettings, setShowSettings] = useState(false);
   const [historyCafe, setHistoryCafe] = useState(null);
   const settingsMenuRef = useRef(null);
-  const avatarPressTimerRef = useRef(null);
   const colorSaveTimerRef = useRef(null);
   const [showAvatarViewer, setShowAvatarViewer] = useState(false);
   const [cropRequest, setCropRequest] = useState(null);
-  const avatarInputRef = useRef(null);
   const [draftTextColor, setDraftTextColor] = useState(userProfile?.text_color || '#E6DAC1');
 
   const openProfileTab = (tab) => navigate(tab === 'profile' ? '/profile' : `/profile?tab=${tab}`);
 
-  const startAvatarPress = () => {
-    window.clearTimeout(avatarPressTimerRef.current);
-    avatarPressTimerRef.current = window.setTimeout(() => setShowAvatarViewer(true), 450);
-  };
-
-  const cancelAvatarPress = () => window.clearTimeout(avatarPressTimerRef.current);
+  useEffect(() => {
+    if (!showAvatarViewer) return;
+    const closeOnEscape = (event) => { if (event.key === 'Escape') setShowAvatarViewer(false); };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [showAvatarViewer]);
 
   useEffect(() => {
     if (!user) {
@@ -504,6 +504,7 @@ function ProfilePage() {
       return;
     }
     setShowSettings(false);
+    setShowAvatarViewer(false);
     setCropRequest({ file, kind });
   };
 
@@ -575,7 +576,7 @@ function ProfilePage() {
   };
 
   const shareProfile = async () => {
-    const shareUrl = window.location.href;
+    const shareUrl = new URL(`/profile/${encodeURIComponent(user.id)}`, window.location.origin).href;
 
     try {
       if (navigator.share) {
@@ -712,13 +713,15 @@ function ProfilePage() {
               className="relative profile-avatar-wrap"
               role="button"
               tabIndex={0}
-              aria-label="Haz clic para cambiar tu foto o mantén pulsado para verla"
-              onClick={() => avatarInputRef.current?.click()}
-              onPointerDown={startAvatarPress}
-              onPointerUp={cancelAvatarPress}
-              onPointerCancel={cancelAvatarPress}
-              onPointerLeave={cancelAvatarPress}
-              onContextMenu={(event) => event.preventDefault()}
+              aria-label="Abrir foto de perfil y cambiarla"
+              aria-haspopup="dialog"
+              onClick={() => setShowAvatarViewer(true)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  setShowAvatarViewer(true);
+                }
+              }}
             >
               <div className="profile-avatar">
                 <img
@@ -740,7 +743,6 @@ function ProfilePage() {
                   <Loader2 className="animate-spin" size={22} />
                 </div>
               )}
-              <input ref={avatarInputRef} type="file" accept="image/*" onChange={(event) => startImageCrop(event, 'avatar')} hidden />
             </div>
 
             <div className="profile-identity-copy">
@@ -804,7 +806,7 @@ function ProfilePage() {
                     )}
                     <div className="profile-cafe-copy">
                       <strong>{cafe.nombre}</strong>
-                      <span><CoffeeBeanIcon size={13} filled tone="light" /> {formatRating(cafe.rating || 4.5)}</span>
+                      <span><CoffeeBeanIcon size={13} filled tone="dark" /> {formatRating(cafe.rating || 4.5)}</span>
                       <span title={cafe.address || 'Dirección no disponible'}><MapPin size={13} strokeWidth={2.4} /> {getCafeNeighborhood(cafe)}</span>
                     </div>
                   </button>
@@ -853,7 +855,7 @@ function ProfilePage() {
                 <button type="button" key={visitId} onClick={() => navigate(`/cafe/${cafe.id}`)}>
                   {cafe.imageUrl ? <img src={cafe.imageUrl} alt={cafe.nombre} /> : <div className="profile-cafe-placeholder"><Coffee size={26} /></div>}
                   <strong>{cafe.nombre}</strong>
-                  <span><CoffeeBeanIcon size={14} filled tone="light" /> {formatRating(visitRating || cafe.rating || 0)} <b><MapPin size={10} /> {getCafeNeighborhood(cafe)}</b></span>
+                  <span><CoffeeBeanIcon size={14} filled tone="dark" /> {formatRating(visitRating || cafe.rating || 0)} <b><MapPin size={10} /> {getCafeNeighborhood(cafe)}</b></span>
                 </button>
               ))}
             </div>

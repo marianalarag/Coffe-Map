@@ -125,7 +125,7 @@ function CafeGrid({ entries, onOpen }) {
           </div>
           <div className="collection-cafe-copy">
             <strong>{cafe.nombre}</strong>
-            <span><CoffeeBeanIcon size={9} filled tone="light" /> {formatRating(getRating(interaction, cafe))}</span>
+            <span><CoffeeBeanIcon size={13} filled tone="dark" /> {formatRating(getRating(interaction, cafe))}</span>
             <span title={cafe.address || 'Dirección no disponible'}><MapPin size={13} strokeWidth={2.4} /> {getCafeNeighborhood(cafe)}</span>
           </div>
         </button>

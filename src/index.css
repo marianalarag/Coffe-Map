@@ -1536,7 +1536,8 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 .friends-section article > div { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
 .friends-section strong { overflow: hidden; color: #E6DAC1; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .friends-section small { color: rgba(230,218,193,.45); font-size: 8px; }
-.profile-avatar-wrap { cursor: zoom-in; -webkit-touch-callout: none; user-select: none; }
+.profile-avatar-wrap { cursor: pointer; -webkit-touch-callout: none; user-select: none; }
+.profile-avatar-wrap:focus-visible { outline: 2px solid #e6dac1; outline-offset: 4px; border-radius: 50%; }
 .profile-avatar-viewer { position: fixed; inset: 0; z-index: 5000; display: grid; place-items: center; padding: 20px; background: rgba(8,6,5,.88); backdrop-filter: blur(10px); }
 .profile-avatar-viewer > section { position: relative; width: min(88vw,430px); display: flex; flex-direction: column; align-items: center; gap: 14px; }
 .profile-avatar-viewer img { width: min(82vw,390px); aspect-ratio: 1; object-fit: cover; border: 2px solid rgba(230,218,193,.2); border-radius: 50%; box-shadow: 0 24px 80px rgba(0,0,0,.55); }
@@ -1905,6 +1906,16 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 .profile-cafe-copy span { color: rgba(238,229,210,.76); }
 .profile-cafe-copy span:last-child { color: rgba(238,229,210,.68); }
 
+@media (min-width: 640px) {
+  .profile-cafe-card { height: 224px; grid-template-rows: minmax(0, 1fr) 66px; }
+  .profile-cafe-copy { padding-top: 8px; }
+  .profile-cafe-copy strong { font-size: 15px; }
+  .profile-cafe-copy span { font-size: 12px; }
+}
+
+.profile-cafe-card > img, .profile-visited-grid img { transform: none; }
+.profile-avatar-viewer img { width: min(82vw, 640px); max-height: 72dvh; object-fit: contain; }
+
 .profile-visited-grid > button {
   padding-bottom: 7px;
   color: #eee5d2;
@@ -1913,7 +1924,7 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 }
 .profile-visited-grid img,
 .profile-visited-grid .profile-cafe-placeholder {
-  height: clamp(96px, 12vw, 140px);
+  height: clamp(140px, 15vw, 185px);
   border-radius: 12px;
 }
 .profile-visited-grid strong {
@@ -1932,8 +1943,13 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
   .profile-tab-panel { padding-right: 14px; padding-left: 14px; }
   .profile-visited-grid { gap: 14px 10px; }
   .profile-visited-grid img,
-  .profile-visited-grid .profile-cafe-placeholder { height: 100px; }
+  .profile-visited-grid .profile-cafe-placeholder { height: 140px; }
   .profile-visited-grid strong { font-size: 13px; }
+  .collection-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 12px; }
+  .collection-cafe-image-wrap { height: 140px; }
+  .collection-cafe-copy { grid-template-rows: 21px auto; row-gap: 4px; }
+  .collection-cafe-copy strong { font-size: 13px; }
+  .collection-cafe-copy span { font-size: 11px; }
 }
 
 /* Compact profile home for phone screens */
@@ -1950,15 +1966,14 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
   .profile-recent-section { padding-top: 10px; }
   .profile-section-heading { margin-bottom: 6px; }
   .profile-section-heading h2 { font-size: 11px; }
-  .profile-recent-row { gap: 7px; }
-  .profile-cafe-card { height: 94px; }
+  .profile-recent-row { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 46%; gap: 12px; overflow-x: auto; padding-bottom: 6px; scroll-snap-type: x proximity; }
+  .profile-cafe-card { height: 194px; grid-template-rows: 128px auto; scroll-snap-align: start; }
   .profile-cafe-card > img,
   .profile-cafe-card > .profile-cafe-placeholder { border-radius: 9px; }
-  .profile-cafe-copy { grid-template-rows: 13px 11px; row-gap: 1px; padding: 3px 2px 0; }
-  .profile-cafe-copy strong { font-size: 8px; }
-  .profile-cafe-copy span { gap: 2px; font-size: 7px; }
+  .profile-cafe-copy { grid-template-rows: 19px 16px 15px; row-gap: 2px; padding: 6px 2px 0; }
+  .profile-cafe-copy strong { font-size: 13px; }
+  .profile-cafe-copy span { gap: 4px; font-size: 11px; }
   .profile-cafe-copy svg { width: 9px !important; min-width: 9px; height: 9px !important; flex-basis: 9px; }
-  .profile-cafe-copy .coffee-bean-icon { width: 10px !important; height: 8px !important; }
 
   .profile-rating-chart,
   .profile-visit-ranking { margin: 12px 14px 0; padding: 12px; border-radius: 18px; }
@@ -1967,18 +1982,19 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
   .profile-rating-heading > svg,
   .profile-rating-heading > .coffee-bean-icon { width: 18px; height: auto; }
   .profile-rating-rows { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 10px; }
-  .profile-rating-row { grid-template-columns: 23px auto minmax(14px, 1fr) 16px; gap: 3px; min-height: 17px; }
+  .profile-rating-row { grid-template-columns: 18px auto minmax(10px, 1fr) 14px; gap: 3px; min-height: 19px; }
   .profile-rating-row > span { font-size: 9px; }
   .profile-rating-row strong { font-size: 8px; }
   .profile-rating-track { height: 5px; }
 
-  .profile-visit-ranking-list { gap: 5px; }
-  .profile-visit-ranking-card { gap: 5px; padding: 4px; border-radius: 11px; }
+  .profile-visit-ranking-list { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: min(260px, 85%); gap: 8px; overflow-x: auto; padding-bottom: 6px; scroll-snap-type: x proximity; }
+  .profile-visit-ranking-card { gap: 8px; padding: 8px; border-radius: 11px; scroll-snap-align: start; }
   .profile-visit-ranking-main { gap: 7px; }
   .profile-visit-ranking-main > img,
-  .profile-visit-ranking-main > span { width: 32px; height: 32px; flex-basis: 32px; border-radius: 8px; }
-  .profile-visit-ranking-main strong { font-size: 9px; }
-  .profile-visit-ranking-main small { gap: 3px; font-size: 7px; }
+  .profile-visit-ranking-main > span { width: 44px; height: 44px; flex-basis: 44px; border-radius: 8px; }
+  .profile-visit-ranking-main > span:last-child { min-width: 0; width: auto; height: auto; flex: 1; }
+  .profile-visit-ranking-main strong { font-size: 12px; }
+  .profile-visit-ranking-main small { gap: 3px; font-size: 10px; flex-wrap: wrap; }
   .profile-visit-remove { width: 23px; height: 23px; }
 
   .profile-favorites-section { margin: 16px 14px 0; }
