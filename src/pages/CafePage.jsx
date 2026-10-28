@@ -22,6 +22,7 @@ function CafePage({ cafeId }) {
   const id = cafeId ?? routeCafeId;
   const navigate = useNavigate();
   const location = useLocation();
+  const isCafeRouteActive = location.pathname === `/cafe/${id}` || location.pathname === `/cafe/${encodeURIComponent(id)}`;
   const { user } = useAuth();
   const {
     cafeById,
@@ -49,6 +50,8 @@ function CafePage({ cafeId }) {
   const [saveError, setSaveError] = useState('');
   const [communityPhotos, setCommunityPhotos] = useState([]);
   const [communityTiktoks, setCommunityTiktoks] = useState([]);
+  const [tiktoksStatus, setTiktoksStatus] = useState('loading');
+  const [mediaReload, setMediaReload] = useState(0);
   const [communityReviews, setCommunityReviews] = useState([]);
   const [expandedImage, setExpandedImage] = useState(null);
   const [friendVisitors, setFriendVisitors] = useState([]);
@@ -78,28 +81,43 @@ function CafePage({ cafeId }) {
   }, [cafesLoaded, loadCafes]);
 
   useEffect(() => {
-    if (!id) return;
-    Promise.all([
-      supabase
-        .from('cafe_photos')
-        .select('id,public_url,is_cover,created_at')
-        .eq('cafe_id', id)
-        .eq('status', 'approved')
-        .not('post_id', 'is', null)
-        .order('is_cover', { ascending: false })
-        .order('created_at', { ascending: false })
-        .limit(12),
-      supabase
-        .from('cafe_tiktoks')
-        .select('id,url,thumbnail_url,title,position,created_at')
-        .eq('cafe_id', id)
-        .order('position')
-        .order('created_at'),
-    ]).then(([photosResult, tiktoksResult]) => {
-      setCommunityPhotos(photosResult.data || []);
-      setCommunityTiktoks(tiktoksResult.data || []);
-    });
-  }, [id]);
+    if (!id || !isCafeRouteActive) return;
+    let cancelled = false;
+    let requestSequence = 0;
+    const loadMedia = async () => {
+      const sequence = ++requestSequence;
+      setTiktoksStatus('loading');
+      const [photosResult, tiktoksResult] = await Promise.all([
+        supabase
+          .from('cafe_photos')
+          .select('id,public_url,is_cover,created_at')
+          .eq('cafe_id', id)
+          .eq('status', 'approved')
+          .not('post_id', 'is', null)
+          .order('is_cover', { ascending: false })
+          .order('created_at', { ascending: false })
+          .limit(12),
+        supabase
+          .from('cafe_tiktoks')
+          .select('id,url,thumbnail_url,title,position,created_at')
+          .eq('cafe_id', id)
+          .order('position')
+          .order('created_at'),
+      ]);
+      if (cancelled || sequence !== requestSequence) return;
+      if (!photosResult.error) setCommunityPhotos(photosResult.data || []);
+      if (tiktoksResult.error) {
+        setTiktoksStatus('error');
+      } else {
+        setCommunityTiktoks(tiktoksResult.data || []);
+        setTiktoksStatus('ready');
+      }
+    };
+    const refresh = () => { loadMedia().catch(() => { if (!cancelled) setTiktoksStatus('error'); }); };
+    refresh();
+    window.addEventListener('focus', refresh);
+    return () => { cancelled = true; window.removeEventListener('focus', refresh); };
+  }, [id, isCafeRouteActive, location.key, mediaReload]);
 
   useEffect(() => {
     if (!id) return;
@@ -353,11 +371,12 @@ function CafePage({ cafeId }) {
       </div>
 
       <section className="cafe-tiktok-section">
-        <header><div><span className="cafe-section-kicker">DESCÚBRELO EN VIDEO</span><h2><Music2 size={22} /> TikTok</h2></div><span>{communityTiktoks.length} videos</span></header>
+        <header><div><span className="cafe-section-kicker">DESCÚBRELO EN VIDEO</span><h2><Music2 size={22} /> TikTok</h2></div><span>{tiktoksStatus === 'loading' ? 'Cargando…' : tiktoksStatus === 'error' ? 'No disponible' : `${communityTiktoks.length} videos`}</span></header>
+        {tiktoksStatus === 'error' && <div className="cafe-tiktok-empty" role="status"><p>No pudimos cargar los TikToks. Intenta otra vez.</p><button type="button" onClick={() => setMediaReload((value) => value + 1)}>Reintentar</button></div>}
         {communityTiktoks.length ? <div className="cafe-tiktok-grid">{communityTiktoks.map((tiktok) => <a key={tiktok.id} href={tiktok.url} target="_blank" rel="noreferrer" className="cafe-tiktok-card">
           <div className="cafe-tiktok-cover">{tiktok.thumbnail_url ? <img src={tiktok.thumbnail_url} alt={tiktok.title || `Video de ${cafe.nombre}`} loading="lazy" decoding="async" /> : <div className="cafe-tiktok-placeholder"><Music2 size={32} /><span>Vista previa de TikTok</span></div>}<span className="cafe-tiktok-play"><Music2 size={14} /> Ver en TikTok <ExternalLink size={12} /></span></div>
-          <strong>{tiktok.title || 'Video de la comunidad'}</strong><small><i /> Ale · TikTok</small>
-        </a>)}</div> : <div className="cafe-tiktok-empty"><Music2 size={24} /><p>Aquí aparecerán los TikToks de esta cafetería.</p></div>}
+          <strong>{tiktok.title || 'Publicación de la comunidad'}</strong><small>TikTok</small>
+        </a>)}</div> : tiktoksStatus === 'ready' ? <div className="cafe-tiktok-empty"><Music2 size={24} /><p>Aquí aparecerán los TikToks de esta cafetería.</p></div> : null}
       </section>
       {expandedImage && <div className="cafe-image-viewer" role="dialog" aria-modal="true" aria-label="Foto ampliada" onMouseDown={(event) => { if (event.target === event.currentTarget) setExpandedImage(null); }}><button type="button" className="cafe-image-viewer-close" onClick={() => setExpandedImage(null)} aria-label="Cerrar foto"><X size={22} /></button><img src={expandedImage.src} alt={expandedImage.alt} /></div>}
     </main>
