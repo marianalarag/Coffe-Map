@@ -542,7 +542,7 @@ export function ActivityFeed({ userIdFilter = null, userIdsFilter = null, kindFi
           onOpenProfile={() => navigate(post.user_id === user.id ? '/profile' : `/profile/${post.user_id}`)}
         />
         {post.cafe?.nombre && <button type="button" className="activity-cafe-link" onClick={() => navigate(`/cafe/${post.cafe_id}`)}>{post.cafe.nombre}</button>}
-        {Number(post.rating) > 0 && <div className="activity-rating"><CoffeeBeanRating value={Number(post.rating)} size={16} /><span>{formatRating(post.rating)}</span></div>}
+        {Number(post.rating) > 0 && <div className="activity-rating"><CoffeeBeanRating value={Number(post.rating)} size={14} /><span>{formatRating(post.rating)}</span></div>}
         <div className="activity-post-body">
           {post.images.length > 0 && <PostImageCarousel images={post.images} cafeName={post.cafe?.nombre} />}
           {post.content && <p className="activity-post-copy">{post.content}</p>}

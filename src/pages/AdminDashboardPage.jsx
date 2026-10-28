@@ -31,6 +31,15 @@ const TABS = [
 ];
 
 const normalizeName = (value) => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+const parseCafeMenuImages = (value) => {
+  if (Array.isArray(value)) return value.filter((url) => typeof url === 'string');
+  try {
+    const parsed = JSON.parse(String(value || ''));
+    return Array.isArray(parsed) ? parsed.filter((url) => typeof url === 'string') : [];
+  } catch {
+    return [];
+  }
+};
 
 const getOpenverseLicenseLabel = (image) => {
   const license = String(image?.license || '').toUpperCase();
@@ -559,7 +568,7 @@ function AdminSectionBuilder({ section, blocks, metrics, menuOpen, onToggleMenu,
     </section>
   );
 }
-function AdminCafeCard({ cafe, tiktoks = [], saving = false, onSave: persistCafe, onStatusChange, onUpload, onDeleteCover, onFindImage, onAddTikTok, onDeleteTikTok, onDelete }) {
+function AdminCafeCard({ cafe, tiktoks = [], saving = false, menuSaving = false, onSave: persistCafe, onStatusChange, onUpload, onDeleteCover, onMenuUpload, onDeleteMenuImage, onFindImage, onAddTikTok, onDeleteTikTok, onDelete }) {
   const [draft, setDraft] = useState(() => ({
     nombre: cafe.nombre || '',
     address: cafe.address || '',
@@ -568,8 +577,8 @@ function AdminCafeCard({ cafe, tiktoks = [], saving = false, onSave: persistCafe
     category: cafe.category || 'cafeteria',
     image_url: cafe.image_url || '',
     instagram_url: cafe.instagram_url || '',
-    menu_url: cafe.menu_url || '',
   }));
+  const menuImages = parseCafeMenuImages(cafe.menu_url);
   const [dirtyFields, setDirtyFields] = useState(() => new Set());
   const [schedule, setSchedule] = useState(() => parseAdminHoursWithSplits(cafe.opening_hours));
   const [bulkHours, setBulkHours] = useState({ from: '08:00', to: '18:00' });
@@ -676,7 +685,12 @@ function AdminCafeCard({ cafe, tiktoks = [], saving = false, onSave: persistCafe
         {textField('image_url', 'URL de foto de portada')}
         <div className="admin-cafe-card-socials">
           <label><Instagram size={14} /><input value={fieldValue('instagram_url')} placeholder="Instagram" onChange={(event) => changeField('instagram_url', event.target.value)} /></label>
-          <label><Coffee size={14} /><input value={fieldValue('menu_url')} placeholder="Enlace del menú" onChange={(event) => changeField('menu_url', event.target.value)} /></label>
+        </div>
+        <div className="admin-cafe-menu-images">
+          <div className="admin-cafe-menu-images-heading"><span><Coffee size={14} /> Imágenes del menú</span><small>{menuImages.length}</small></div>
+          {menuImages.length > 0 ? <div className="admin-cafe-menu-images-grid">{menuImages.map((url, index) => <div key={`${url}-${index}`}><img src={url} alt={`Menú ${index + 1} de ${cafe.nombre}`} loading="lazy" /><button type="button" onClick={() => onDeleteMenuImage(cafe, url)} disabled={menuSaving} aria-label={`Eliminar imagen ${index + 1} del menú`} title="Eliminar imagen"><Trash2 size={12} /></button></div>)}</div> : <p>Aún no hay imágenes adjuntas.</p>}
+          <label className="admin-cafe-menu-upload"><FileUp size={13} /> {menuSaving ? 'Subiendo imágenes…' : 'Adjuntar imágenes'}<input hidden type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" multiple disabled={menuSaving} onChange={(event) => { onMenuUpload(cafe, [...(event.target.files || [])]); event.target.value = ''; }} /></label>
+          <small className="admin-cafe-menu-note">Hasta 8 MB por imagen. Puedes adjuntar varias páginas.</small>
         </div>
         <div className="admin-cafe-tiktoks">
           <div className="admin-cafe-tiktoks-heading"><span><Music2 size={14} /> TikToks relacionados</span><small>{tiktoks.length}</small></div>
@@ -904,6 +918,7 @@ function AdminDashboardPage() {
     } catch { return {}; }
   });
   const [openBuilderMenu, setOpenBuilderMenu] = useState(null);
+  const [builderOpen, setBuilderOpen] = useState(false);
   const [draggedCustomBlock, setDraggedCustomBlock] = useState(null);
 
   const profileMap = useMemo(() => new Map(users.map((profile) => [profile.id, profile])), [users]);
@@ -1164,6 +1179,55 @@ function AdminDashboardPage() {
     return undefined;
   };
 
+  const uploadCafeMenuImages = (cafe, files) => {
+    const selectedFiles = files.filter(Boolean);
+    if (!selectedFiles.length) return undefined;
+    const currentImages = parseCafeMenuImages(cafe.menu_url);
+    if (currentImages.length + selectedFiles.length > 12) {
+      setNotice('Error: cada cafetería puede tener hasta 12 imágenes de menú.');
+      return undefined;
+    }
+    if (selectedFiles.some((file) => !file.type.startsWith('image/') || file.size > 8 * 1024 * 1024)) {
+      setNotice('Error: cada imagen del menú debe ser una imagen de máximo 8 MB.');
+      return undefined;
+    }
+    return runAction(`menu:${cafe.id}`, async () => {
+      const uploaded = [];
+      try {
+        for (const [index, file] of selectedFiles.entries()) {
+          const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+          const storagePath = `${user.id}/menus/${normalizeName(cafe.nombre).replaceAll(' ', '-')}/${Date.now()}-${index}.${extension}`;
+          const { error } = await supabase.storage.from('cafe-photos').upload(storagePath, file, { contentType: file.type });
+          if (error) throw error;
+          uploaded.push({ storagePath, url: supabase.storage.from('cafe-photos').getPublicUrl(storagePath).data.publicUrl });
+        }
+        const menuImages = [...currentImages, ...uploaded.map((image) => image.url)];
+        const savedMenu = JSON.stringify(menuImages);
+        const { error } = await supabase.from('cafes').update({ menu_url: savedMenu, updated_at: new Date().toISOString() }).eq('id', cafe.id);
+        if (error) throw error;
+        setCafes((current) => current.map((item) => item.id === cafe.id ? { ...item, menu_url: savedMenu } : item));
+        await refreshCafes();
+        return `${uploaded.length} imagen${uploaded.length === 1 ? '' : 'es'} de menú añadida${uploaded.length === 1 ? '' : 's'} a ${cafe.nombre}.`;
+      } catch (error) {
+        if (uploaded.length) await supabase.storage.from('cafe-photos').remove(uploaded.map((image) => image.storagePath));
+        throw error;
+      }
+    }, 'Imágenes del menú añadidas.');
+  };
+
+  const deleteCafeMenuImage = (cafe, url) => runAction(`menu-delete:${cafe.id}`, async () => {
+    const menuImages = parseCafeMenuImages(cafe.menu_url).filter((image) => image !== url);
+    const savedMenu = JSON.stringify(menuImages);
+    const { error } = await supabase.from('cafes').update({ menu_url: savedMenu, updated_at: new Date().toISOString() }).eq('id', cafe.id);
+    if (error) throw error;
+    const marker = '/storage/v1/object/public/cafe-photos/';
+    const storagePath = new URL(url).pathname.split(marker)[1];
+    if (storagePath) await supabase.storage.from('cafe-photos').remove([decodeURIComponent(storagePath)]);
+    setCafes((current) => current.map((item) => item.id === cafe.id ? { ...item, menu_url: savedMenu } : item));
+    await refreshCafes();
+    return `Imagen del menú eliminada de ${cafe.nombre}.`;
+  }, 'Imagen del menú eliminada.');
+
   const confirmCafeCoverCrop = (file) => {
     const request = coverCropRequest;
     setCoverCropRequest(null);
@@ -1338,7 +1402,6 @@ function AdminDashboardPage() {
       opening_hours_verified_at: options.opening_hours ? timestamp : null,
       image_url: String(cafe.image_url || '').trim() || null,
       instagram_url: String(cafe.instagram_url || '').trim() || null,
-      menu_url: String(cafe.menu_url || '').trim() || null,
       updated_at: timestamp,
     };
     if (!patch.nombre) throw new Error('El nombre de la cafetería es obligatorio.');
@@ -1421,7 +1484,7 @@ function AdminDashboardPage() {
 
       <nav className="admin-tabs" aria-label="Secciones de administración">
         {TABS.map(({ id, label, icon }) => (
-          <button type="button" key={id} className={tab === id ? 'is-active' : ''} onClick={() => setTab(id)}>{icon}<span>{label}{id === 'requests' && pendingCafeRequests.length > 0 ? ` (${pendingCafeRequests.length})` : ''}</span></button>
+          <button type="button" key={id} className={tab === id ? 'is-active' : ''} onClick={() => { setTab(id); setBuilderOpen(false); setOpenBuilderMenu(null); }}>{icon}<span>{label}{id === 'requests' && pendingCafeRequests.length > 0 ? ` (${pendingCafeRequests.length})` : ''}</span></button>
         ))}
       </nav>
       </div>
@@ -1429,19 +1492,11 @@ function AdminDashboardPage() {
       {notice && <p className="admin-notice">{notice}</p>}
 
       <div className="admin-content">
-        <AdminSectionBuilder
-          section={tab}
-          blocks={customBlocksBySection[tab] || []}
-          metrics={metrics}
-          menuOpen={openBuilderMenu === tab}
-          onToggleMenu={() => setOpenBuilderMenu((current) => current === tab ? null : tab)}
-          onAdd={(type) => addCustomBlock(tab, type)}
-          onChange={(id, patch) => updateCustomBlock(tab, id, patch)}
-          onRemove={(id) => removeCustomBlock(tab, id)}
-          onDragStart={(id) => setDraggedCustomBlock({ section: tab, id })}
-          onDragOver={() => undefined}
-          onDrop={(id) => moveCustomBlock(tab, id)}
-        />
+        <button type="button" className="admin-editor-launch" onClick={() => setBuilderOpen(true)}>
+          <Palette size={17} />
+          <span><strong>Editor visual</strong><small>Personaliza {TABS.find((item) => item.id === tab)?.label || 'esta sección'} con bloques</small></span>
+          <span className="admin-editor-launch-action">Abrir editor</span>
+        </button>
         {tab === 'overview' && (
           <section>
             <article className="admin-panel admin-visual-editor">
@@ -1539,7 +1594,7 @@ function AdminDashboardPage() {
             </div>}
             <div className="admin-cafe-grid">
               {visibleCafes.map((cafe) => (
-                <AdminCafeCard key={cafe.id} cafe={cafe} tiktoks={cafeTiktoksByCafeId.get(cafe.id) || []} saving={actionLoading === `cafe-save:${cafe.id}`} onSave={saveCafe} onStatusChange={updateCafeStatus} onUpload={uploadCafeCover} onDeleteCover={deleteCafeCover} onFindImage={findOpenImages} onAddTikTok={addCafeTikTok} onDeleteTikTok={deleteCafeTikTok} onDelete={deleteCafe} />
+                <AdminCafeCard key={cafe.id} cafe={cafe} tiktoks={cafeTiktoksByCafeId.get(cafe.id) || []} saving={actionLoading === `cafe-save:${cafe.id}`} menuSaving={actionLoading === `menu:${cafe.id}` || actionLoading === `menu-delete:${cafe.id}`} onSave={saveCafe} onStatusChange={updateCafeStatus} onUpload={uploadCafeCover} onDeleteCover={deleteCafeCover} onMenuUpload={uploadCafeMenuImages} onDeleteMenuImage={deleteCafeMenuImage} onFindImage={findOpenImages} onAddTikTok={addCafeTikTok} onDeleteTikTok={deleteCafeTikTok} onDelete={deleteCafe} />
               ))}
             </div>
             {visibleCafes.length === 0 && <p className="admin-empty">No encontramos cafeterías con esa búsqueda.</p>}
@@ -1640,6 +1695,32 @@ function AdminDashboardPage() {
           </article>)}
         </section>}
       </div>
+
+      {builderOpen && (
+        <div className="admin-editor-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) { setBuilderOpen(false); setOpenBuilderMenu(null); } }}>
+          <aside className="admin-editor-drawer" role="dialog" aria-modal="true" aria-label={`Editor visual de ${TABS.find((item) => item.id === tab)?.label || 'esta sección'}`}>
+            <header className="admin-editor-drawer-header">
+              <div><Palette size={18} /><span><strong>Editor visual</strong><small>{TABS.find((item) => item.id === tab)?.label || 'Esta sección'}</small></span></div>
+              <button type="button" onClick={() => { setBuilderOpen(false); setOpenBuilderMenu(null); }} aria-label="Cerrar editor"><X size={18} /></button>
+            </header>
+            <div className="admin-editor-drawer-body">
+              <AdminSectionBuilder
+                section={tab}
+                blocks={customBlocksBySection[tab] || []}
+                metrics={metrics}
+                menuOpen={openBuilderMenu === tab}
+                onToggleMenu={() => setOpenBuilderMenu((current) => current === tab ? null : tab)}
+                onAdd={(type) => addCustomBlock(tab, type)}
+                onChange={(id, patch) => updateCustomBlock(tab, id, patch)}
+                onRemove={(id) => removeCustomBlock(tab, id)}
+                onDragStart={(id) => setDraggedCustomBlock({ section: tab, id })}
+                onDragOver={() => undefined}
+                onDrop={(id) => moveCustomBlock(tab, id)}
+              />
+            </div>
+          </aside>
+        </div>
+      )}
 
       {openImageCafe && (
         <div className="open-image-backdrop" onMouseDown={(event) => {

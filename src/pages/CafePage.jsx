@@ -301,7 +301,7 @@ function CafePage({ cafeId }) {
               </div>
               <div className="cafe-quick-links">
                 <div className="cafe-personal-rating"><span>Calificación</span><strong>{rating > 0 ? <><CoffeeBeanRating value={rating} size={17} /> {rating}</> : <button type="button" onClick={openReviewComposer}>Calificar</button>}</strong></div>
-                {cafe.menuUrl ? <a href={cafe.menuUrl} target="_blank" rel="noreferrer" className="cafe-menu-link"><Utensils size={18} /><span>Menú</span><ExternalLink size={13} /></a> : <div className="cafe-menu-link is-empty"><Utensils size={18} /><span>Menú próximamente</span></div>}
+                {cafe.menuImages?.length ? <button type="button" className="cafe-menu-link" onClick={() => document.getElementById('cafe-menu-gallery')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}><Utensils size={18} /><span>Ver menú</span><ExternalLink size={13} /></button> : <div className="cafe-menu-link is-empty"><Utensils size={18} /><span>Menú próximamente</span></div>}
                 <button type="button" className="cafe-add-visit-button" onClick={registerAnotherVisit} disabled={savingInteraction}><Plus size={18} /><span>Agregar nueva visita</span></button>
               </div>
               <section className="cafe-my-reviews">
@@ -328,6 +328,11 @@ function CafePage({ cafeId }) {
         </aside>
 
         <div className="cafe-main-column">
+          {cafe.menuImages?.length > 0 && <section id="cafe-menu-gallery" className="cafe-menu-gallery">
+            <header><div><span className="cafe-section-kicker">CONSULTA AQUÍ</span><h2>Menú</h2></div><span>{cafe.menuImages.length} imágenes</span></header>
+            <div className="cafe-menu-gallery-grid">{cafe.menuImages.map((url, index) => <button type="button" key={`${url}-${index}`} onClick={() => setExpandedImage({ src: url, alt: `Menú ${index + 1} de ${cafe.nombre}` })} aria-label={`Ampliar imagen ${index + 1} del menú de ${cafe.nombre}`}><img src={url} alt={`Menú ${index + 1} de ${cafe.nombre}`} loading="lazy" decoding="async" /></button>)}</div>
+          </section>}
+
           <section className="cafe-reviews-section">
             <header><div><span className="cafe-section-kicker">LA COMUNIDAD OPINA</span><h2>Reviews</h2></div><button type="button" onClick={openReviewComposer}><Plus size={16} /> Escribir</button></header>
             {communityReviews.length ? <div className="cafe-community-reviews">{communityReviews.map((review) => <article className="cafe-community-review" key={review.id}>
