@@ -25,6 +25,7 @@ import { getCafeNeighborhood } from '../utils/cafeAddress';
 import CoffeeBeanIcon, { CoffeeBeanRating } from '../components/CoffeeBeanIcon';
 import { formatRating } from '../utils/formatRating';
 import HalfStarRating from '../components/HalfStarRating';
+import ProfileCafeCard from '../components/ProfileCafeCard';
 
 
 const getOptimizedProfileImageUrl = (url) => url;
@@ -791,25 +792,7 @@ function ProfilePage() {
           <div className="profile-recent-row">
             {recentCafes.length > 0 ? (
               recentCafes.map((cafe) => (
-                  <button
-                    key={cafe.id}
-                    type="button"
-                    onClick={() => navigate(`/cafe/${cafe.id}`)}
-                    className="profile-cafe-card"
-                  >
-                    {cafe.imageUrl ? (
-                      <img src={cafe.imageUrl} alt={cafe.nombre} />
-                    ) : (
-                      <div className="profile-cafe-placeholder">
-                        <Coffee className="opacity-40" size={24} />
-                      </div>
-                    )}
-                    <div className="profile-cafe-copy">
-                      <strong>{cafe.nombre}</strong>
-                      <span><CoffeeBeanIcon size={13} filled tone="dark" /> {formatRating(cafe.rating || 4.5)}</span>
-                      <span title={cafe.address || 'Dirección no disponible'}><MapPin size={13} strokeWidth={2.4} /> {getCafeNeighborhood(cafe)}</span>
-                    </div>
-                  </button>
+                  <ProfileCafeCard key={cafe.id} cafe={cafe} onClick={() => navigate(`/cafe/${cafe.id}`)} />
                 ))
             ) : (
               <div className="profile-empty-recent">

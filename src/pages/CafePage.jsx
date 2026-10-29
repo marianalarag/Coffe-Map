@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, MapPin, Coffee, Heart, CheckCircle2, Clock, Edit3, Instagram, Music2, Plus, Utensils, MessageCircle, Send, ExternalLink, X } from 'lucide-react';
+import { ArrowLeft, MapPin, Coffee, Heart, CheckCircle2, Clock, Edit3, Instagram, Music2, Plus, MessageCircle, Send, ExternalLink, X } from 'lucide-react';
 import PageLoading from '../components/PageLoading';
 import { useAuth } from '../context/AuthContext';
 import { useCoffeeData } from '../context/CoffeeDataContext';
@@ -10,6 +10,7 @@ import { geocodeCafeLocation, getCafeCoordinates } from '../utils/cafeLocation';
 import CoffeeBeanIcon, { CoffeeBeanRating } from '../components/CoffeeBeanIcon';
 import CafeMapPreview from '../components/CafeMapPreview';
 import TikTokCover from '../components/TikTokCover';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 const MAP_TARGET_STORAGE_KEY = 'coffee-map:focus-cafe';
 const getLocalDate = () => {
@@ -48,6 +49,8 @@ function CafePage({ cafeId }) {
   const [rating, setRating] = useState(0);
   const [reviewText, setReviewText] = useState('');
   const [savingInteraction, setSavingInteraction] = useState(false);
+  const [showVisitConfirmation, setShowVisitConfirmation] = useState(false);
+  useEffect(() => { setShowVisitConfirmation(false); }, [location.key]);
   const [saveError, setSaveError] = useState('');
   const [communityPhotos, setCommunityPhotos] = useState([]);
   const [communityTiktoks, setCommunityTiktoks] = useState([]);
@@ -188,7 +191,7 @@ function CafePage({ cafeId }) {
       return savedInteraction;
     } catch (error) {
       console.error('Error al guardar interaccion', error);
-      setSaveError('No pudimos guardar tu reseña. Intenta otra vez.');
+      setSaveError('No pudimos guardar los cambios. Intenta otra vez.');
       return false;
     } finally {
       setSavingInteraction(false);
@@ -218,7 +221,6 @@ function CafePage({ cafeId }) {
 
   const registerAnotherVisit = async () => {
     if (!requireAuth() || !cafe || savingInteraction) return;
-    if (!window.confirm(`¿Registrar una nueva visita a ${cafe.nombre}? Puedes agregar una reseña después si quieres.`)) return;
     const saved = await saveInteraction({
       is_visited: true,
       is_favorite: isFavorite,
@@ -228,6 +230,7 @@ function CafePage({ cafeId }) {
       visited_on: getLocalDate(),
     }, { createNewVisit: true });
     if (saved) {
+      setShowVisitConfirmation(false);
       setIsVisited(true);
       setRating(0);
       setReviewText('');
@@ -313,9 +316,8 @@ function CafePage({ cafeId }) {
                 <button type="button" onClick={toggleWaitlist} disabled={savingInteraction} className={inWaitlist ? 'is-selected' : ''}><Clock /><span>Ir luego</span></button>
               </div>
               <div className="cafe-quick-links">
-                <div className="cafe-personal-rating"><span>Calificación</span><strong>{rating > 0 ? <><CoffeeBeanRating value={rating} size={17} /> {rating}</> : <button type="button" onClick={openReviewComposer}>Calificar</button>}</strong></div>
-                {cafe.menuImages?.length ? <button type="button" className="cafe-menu-link" onClick={() => document.getElementById('cafe-menu-gallery')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}><Utensils size={18} /><span>Ver menú</span><ExternalLink size={13} /></button> : <div className="cafe-menu-link is-empty"><Utensils size={18} /><span>Menú próximamente</span></div>}
-                <button type="button" className="cafe-add-visit-button" onClick={registerAnotherVisit} disabled={savingInteraction}><Plus size={18} /><span>Agregar nueva visita</span></button>
+                <div className="cafe-personal-rating"><span>Calificación</span><strong>{rating > 0 ? <><CoffeeBeanIcon size={23} filled /> {rating}</> : <button type="button" onClick={openReviewComposer}>Calificar</button>}</strong></div>
+                <button type="button" className="cafe-add-visit-button" onClick={() => { if (requireAuth()) { setSaveError(''); setShowVisitConfirmation(true); } }} disabled={savingInteraction}><Plus size={18} /><span>Agregar nueva visita</span></button>
               </div>
               <section className="cafe-my-reviews">
                 <div className="cafe-section-label"><h2>Mis reseñas</h2><button type="button" onClick={openReviewComposer} aria-label="Editar reseña"><Edit3 size={15} /></button></div>
@@ -380,6 +382,7 @@ function CafePage({ cafeId }) {
         </a>)}</div> : tiktoksStatus === 'ready' ? <div className="cafe-tiktok-empty"><Music2 size={24} /><p>Aquí aparecerán los TikToks de esta cafetería.</p></div> : null}
       </section>
       {expandedImage && <div className="cafe-image-viewer" role="dialog" aria-modal="true" aria-label="Foto ampliada" onMouseDown={(event) => { if (event.target === event.currentTarget) setExpandedImage(null); }}><button type="button" className="cafe-image-viewer-close" onClick={() => setExpandedImage(null)} aria-label="Cerrar foto"><X size={22} /></button><img src={expandedImage.src} alt={expandedImage.alt} /></div>}
+      {showVisitConfirmation && isCafeRouteActive && <ConfirmDialog title="Agregar nueva visita" description={`¿Registrar una nueva visita a ${cafe.nombre}? Puedes agregar una reseña después si quieres.`} confirmLabel="Registrar visita" busy={savingInteraction} error={saveError} onConfirm={registerAnotherVisit} onCancel={() => setShowVisitConfirmation(false)} />}
     </main>
   );
 }
