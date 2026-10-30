@@ -415,22 +415,10 @@ const filterDuplicates = (incoming, existing) => {
 const upsertDiscoveredCafes = async (incoming) => {
   const existing = await fetchAllCafes();
   const existingIds = new Set(existing.map((cafe) => cafe.id));
-  const existingById = new Map(existing.map((cafe) => [cafe.id, cafe]));
   const { accepted: discovered, skipped } = filterDuplicates(incoming, existing);
-  const accepted = discovered.map((cafe) => {
-    const current = existingById.get(cafe.id);
-    return current?.opening_hours && current.opening_hours_source !== 'osm'
-      ? {
-          ...cafe,
-          opening_hours: current.opening_hours,
-          opening_hours_source: current.opening_hours_source,
-          opening_hours_source_url: current.opening_hours_source_url,
-          opening_hours_verified_at: current.opening_hours_verified_at,
-        }
-      : cafe;
-  });
+  const accepted = discovered.filter((cafe) => !existingIds.has(cafe.id));
   for (let index = 0; index < accepted.length; index += 250) {
-    const { error } = await supabase.from('cafes').upsert(accepted.slice(index, index + 250).map(toCafeDbRow), { onConflict: 'id' });
+    const { error } = await supabase.from('cafes').upsert(accepted.slice(index, index + 250).map(toCafeDbRow), { onConflict: 'id', ignoreDuplicates: true });
     if (error) throw error;
   }
   Object.keys(window.sessionStorage)
@@ -582,15 +570,19 @@ function AdminCafeCard({ cafe, tiktoks = [], saving = false, menuSaving = false,
   }));
   const menuImages = parseCafeMenuImages(cafe.menu_url);
   const [dirtyFields, setDirtyFields] = useState(() => new Set());
-  const [schedule, setSchedule] = useState(() => parseAdminHoursWithSplits(cafe.opening_hours));
+  const [scheduleDraft, setScheduleDraft] = useState(() => parseAdminHoursWithSplits(cafe.opening_hours));
+  const [hoursDirty, setHoursDirty] = useState(false);
+  const schedule = hoursDirty ? scheduleDraft : parseAdminHoursWithSplits(cafe.opening_hours);
+  const setSchedule = (update) => setScheduleDraft(typeof update === 'function' ? update(schedule) : update);
   const [bulkHours, setBulkHours] = useState({ from: '08:00', to: '18:00' });
   const [locationDirty, setLocationDirty] = useState(false);
   const [locationField, setLocationField] = useState(null);
 
   const fieldValue = (field) => (dirtyFields.has(field) ? draft[field] : (cafe[field] || ''));
-  const onSave = (_cafe, options) => {
+  const onSave = async (_cafe, options) => {
     const editedFields = Object.fromEntries([...dirtyFields].map((field) => [field, draft[field]]));
-    persistCafe({ ...cafe, ...editedFields }, options);
+    const saved = await persistCafe({ ...cafe, ...editedFields }, { ...options, dirtyFields: [...dirtyFields], hoursDirty });
+    if (saved) { setDirtyFields(new Set()); setHoursDirty(false); setLocationDirty(false); }
   };
 
   const changeField = (field, value) => {
@@ -607,8 +599,9 @@ function AdminCafeCard({ cafe, tiktoks = [], saving = false, menuSaving = false,
     return <Component value={fieldValue(field)} placeholder={placeholder} onChange={(event) => changeField(field, event.target.value)} />;
   };
 
-  const updateDay = (key, patch) => setSchedule((current) => ({ ...current, [key]: { ...current[key], ...patch } }));
+  const updateDay = (key, patch) => { setHoursDirty(true); setSchedule((current) => ({ ...current, [key]: { ...current[key], ...patch } })); };
   const applySchedulePreset = (dayKeys) => {
+    setHoursDirty(true);
     const selectedDays = new Set(dayKeys);
     setSchedule((current) => Object.fromEntries(ADMIN_DAYS.map((day) => [
       day.key,
@@ -617,10 +610,10 @@ function AdminCafeCard({ cafe, tiktoks = [], saving = false, menuSaving = false,
         : { ...current[day.key], open: false },
     ])));
   };
-  const applyBulkHours = () => setSchedule((current) => Object.fromEntries(ADMIN_DAYS.map((day) => [
+  const applyBulkHours = () => { setHoursDirty(true); setSchedule((current) => Object.fromEntries(ADMIN_DAYS.map((day) => [
     day.key,
     current[day.key].open ? { ...current[day.key], from: bulkHours.from, to: bulkHours.to } : current[day.key],
-  ])));
+  ]))); };
 
   return (
     <article className="admin-cafe-card">
@@ -704,7 +697,7 @@ function AdminCafeCard({ cafe, tiktoks = [], saving = false, menuSaving = false,
           <small className="admin-row-copy"><span>{cafe.source || 'manual'} · {cafe.neighborhood || 'Zona por confirmar'}</span></small>
         </div>
         <div className="admin-cafe-card-actions">
-          <button type="button" className="admin-cafe-save" title="Guardar cambios" onClick={() => { onSave(cafe, { locationDirty, locationField, opening_hours: serializeAdminHours(schedule) }); setLocationDirty(false); }} disabled={saving}><Database size={14} /> {saving ? 'Guardando…' : 'Guardar cambios'}</button>
+          <button type="button" className="admin-cafe-save" title="Guardar cambios" onClick={() => onSave(cafe, { locationDirty, locationField, opening_hours: serializeAdminHours(schedule) })} disabled={saving}><Database size={14} /> {saving ? 'Guardando…' : 'Guardar cambios'}</button>
           <button type="button" title="Buscar foto con licencia abierta" onClick={() => onFindImage(cafe)}><Search size={14} /> Foto</button>
           {cafe.link && <a href={cafe.link} target="_blank" rel="noreferrer" title="Abrir ubicación"><MapPin size={14} /> Maps</a>}
           <button type="button" className="is-danger" title="Eliminar cafetería" onClick={() => onDelete(cafe)}><Trash2 size={14} /> Eliminar</button>
@@ -873,7 +866,7 @@ function AdminCoverCropper({ file, onCancel, onConfirm }) {
 function AdminDashboardPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { addCafes, refreshCafes } = useCoffeeData();
+  const { addCafes, refreshCafes, updateCafe } = useCoffeeData();
   const [tab, setTab] = useState(() => {
     try {
       const savedTab = window.sessionStorage.getItem(ADMIN_TAB_STORAGE_KEY);
@@ -883,6 +876,7 @@ function AdminDashboardPage() {
     }
   });
   const [loading, setLoading] = useState(true);
+  const dashboardVersionRef = useRef(0);
   const [actionLoading, setActionLoading] = useState('');
   const [notice, setNotice] = useState('');
   const [photoFeedback, setPhotoFeedback] = useState({});
@@ -947,6 +941,7 @@ function AdminDashboardPage() {
   const visibleCafes = useMemo(() => filteredCafes.slice(0, cafeVisibleCount), [cafeVisibleCount, filteredCafes]);
 
   const loadDashboard = useCallback(async () => {
+    const version = ++dashboardVersionRef.current;
     setLoading(true);
     setNotice('');
     try {
@@ -956,7 +951,7 @@ function AdminDashboardPage() {
         supabase.from('posts').select('id', { count: 'exact', head: true }),
         supabase.from('cafe_photos').select('id', { count: 'exact', head: true }),
         supabase.from('user_cafes').select('id', { count: 'exact', head: true }).not('review_text', 'eq', ''),
-        supabase.from('cafes').select('id,nombre,lat,lng,address,link,source_url,neighborhood,category,image_url,image_source_url,image_attribution,image_license,instagram_url,tiktok_url,menu_url,opening_hours,opening_hours_source,opening_hours_source_url,opening_hours_verified_at,source,source_id,status,submitted_by,created_at,last_verified_at').order('nombre').limit(1000),
+        supabase.from('cafes').select('id,nombre,lat,lng,address,link,source_url,neighborhood,category,image_url,image_source_url,image_attribution,image_license,instagram_url,tiktok_url,menu_url,opening_hours,opening_hours_source,opening_hours_source_url,opening_hours_verified_at,source,source_id,status,submitted_by,created_at,last_verified_at').is('deleted_at', null).order('nombre').limit(1000),
         supabase.from('cafe_tiktoks').select('id,cafe_id,url,thumbnail_url,title,position,created_at').order('position').order('created_at'),
         supabase.from('cafe_photos').select('id,cafe_id,user_id,post_id,storage_path,public_url,status,is_cover,rights_confirmed,rights_basis,rights_note,created_at').eq('status', 'pending').is('post_id', null).order('created_at', { ascending: false }).limit(100),
         supabase.from('posts').select('id,user_id,cafe_id,content,image_url,status,created_at').order('created_at', { ascending: false }).limit(1000),
@@ -965,6 +960,7 @@ function AdminDashboardPage() {
       ]);
       const firstError = [cafeCount, userCount, postCount, photoCount, reviewCount, cafeRows, photoRows, postRows, postImageRows, profileRows].find((result) => result.error)?.error;
       if (firstError) throw firstError;
+      if (version !== dashboardVersionRef.current) return;
       const activeMapCafes = deduplicateCafes((cafeRows.data || [])
         .filter((cafe) => cafe.status === 'active')
         .map((cafe) => ({ ...cafe, nombre: repairCafeText(cafe.nombre), address: repairCafeText(cafe.address) })));
@@ -1049,14 +1045,17 @@ function AdminDashboardPage() {
   };
 
   const runAction = async (key, action, successMessage, { reload = true } = {}) => {
+    dashboardVersionRef.current += 1;
     setActionLoading(key);
     setNotice('');
     try {
       const actionMessage = await action();
       if (reload) await loadDashboard();
       setNotice(actionMessage || successMessage);
+      return true;
     } catch (error) {
       setNotice(`Error: ${error.message}`);
+      return false;
     } finally {
       setActionLoading('');
     }
@@ -1401,7 +1400,7 @@ function AdminDashboardPage() {
     if (options.locationDirty && options.locationField === 'link' && normalizedLink && !isGoogleMapsLink(normalizedLink)) {
       throw new Error('El enlace debe ser una URL válida de Google Maps.');
     }
-    const patch = {
+    const fields = {
       nombre: String(cafe.nombre || '').trim(),
       address: String(cafe.address || '').trim() || null,
       link: normalizedLink || null,
@@ -1415,7 +1414,13 @@ function AdminDashboardPage() {
       instagram_url: String(cafe.instagram_url || '').trim() || null,
       updated_at: timestamp,
     };
-    if (!patch.nombre) throw new Error('El nombre de la cafetería es obligatorio.');
+    const edited = new Set(options.dirtyFields || Object.keys(fields));
+    const patch = Object.fromEntries(Object.entries(fields).filter(([key]) => edited.has(key)));
+    patch.updated_at = timestamp;
+    if (options.hoursDirty) {
+      for (const key of ['opening_hours','opening_hours_source','opening_hours_source_url','opening_hours_verified_at']) patch[key] = fields[key];
+    }
+    if (!String(patch.nombre ?? cafe.nombre).trim()) throw new Error('El nombre de la cafetería es obligatorio.');
     if (options.locationDirty) {
       const locationInput = options.locationField === 'address'
         ? { ...cafe, ...patch, link: null, source_url: null }
@@ -1429,9 +1434,10 @@ function AdminDashboardPage() {
       patch.neighborhood = location.neighborhood || patch.neighborhood;
       patch.last_verified_at = timestamp;
     }
-    const { error } = await supabase.from('cafes').update(patch).eq('id', cafe.id);
+    const { data: saved, error } = await supabase.from('cafes').update(patch).eq('id', cafe.id).is('deleted_at', null).select('*').single();
     if (error) throw error;
-    setCafes((current) => current.map((item) => item.id === cafe.id ? { ...item, ...patch } : item));
+    setCafes((current) => current.map((item) => item.id === cafe.id ? saved : item));
+    updateCafe(saved);
   }, 'Cafetería guardada. El mapa ya usa la nueva ubicación.', { reload: false });
 
   const updateCafeStatus = (cafe, status) => runAction(`cafe:${cafe.id}`, async () => {
@@ -1475,11 +1481,13 @@ function AdminDashboardPage() {
   }, 'TikTok eliminado.');
 
   const deleteCafe = (cafe) => {
-    if (!window.confirm(`¿Eliminar definitivamente “${cafe.nombre}” y todos sus datos asociados?`)) return;
+    if (!window.confirm(`¿Eliminar “${cafe.nombre}” del catálogo y del mapa?`)) return;
     return runAction(`cafe:delete:${cafe.id}`, async () => {
-      const { error } = await supabase.from('cafes').delete().eq('id', cafe.id);
+      const deleted_at = new Date().toISOString();
+      const { error } = await supabase.from('cafes').update({ status: 'closed', deleted_at, updated_at: deleted_at }).eq('id', cafe.id);
       if (error) throw error;
-      await refreshCafes();
+      updateCafe({ ...cafe, status: 'closed', deleted_at });
+      setCafes((current) => current.filter((item) => item.id !== cafe.id));
     }, 'Cafetería eliminada.');
   };
 

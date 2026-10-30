@@ -2,24 +2,18 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../supabase';
 import { useAuth } from './AuthContext';
-import { areDuplicateCafes, deduplicateCafes, repairCafeText } from '../utils/cafeDeduplication';
-import { geocodeCafeLocation, getCafeCoordinates } from '../utils/cafeLocation';
-import { toCafeDbRow } from '../utils/cafeDatabase';
+import { deduplicateCafes, repairCafeText } from '../utils/cafeDeduplication';
+import { getCafeCoordinates } from '../utils/cafeLocation';
 
 const CoffeeDataContext = createContext(null);
 
-const CAFES_CACHE_KEY = 'coffee-map:cafes:v19';
+const CAFES_CACHE_KEY = 'coffee-map:cafes:v20';
 const CAFES_CACHE_TTL_MS = 15 * 60 * 1000;
 const CAFE_REQUEST_TIMEOUT_MS = 8 * 1000;
 const INTERACTION_REQUEST_TIMEOUT_MS = 12 * 1000;
-const CAFE_COLUMNS = 'id,nombre,lat,lng,rating,reviews,link,address,neighborhood,category,image_url,image_source_url,image_attribution,image_license,instagram_url,tiktok_url,menu_url,opening_hours,opening_hours_source,opening_hours_source_url,opening_hours_verified_at,source,source_id,source_url,status';
-const INTERACTION_COLUMNS = 'id,user_id,cafe_id,is_visited,is_favorite,in_waitlist,rating,review_text,visited_on,updated_at';
+const CAFE_COLUMNS = 'id,nombre,lat,lng,rating,reviews,link,address,neighborhood,category,image_url,image_source_url,image_attribution,image_license,instagram_url,tiktok_url,menu_url,opening_hours,opening_hours_source,opening_hours_source_url,opening_hours_verified_at,source,source_id,source_url,status,deleted_at';
+const INTERACTION_COLUMNS = 'id,user_id,cafe_id,is_visited,is_favorite,in_waitlist,rating,review_text,visited_on,is_revisit,updated_at';
 const INTERACTION_WITH_CAFE_COLUMNS = `${INTERACTION_COLUMNS},cafe:cafes(${CAFE_COLUMNS})`;
-// Change this version whenever a validated source scan is published so the next
-// administrator session synchronizes only the newly discovered, unique cafes.
-const ADMIN_SCAN_SYNC_KEY = 'coffee-map:admin-scan:2026-09-04-v2';
-const COMMUNITY_LOCATION_CACHE_KEY = 'coffee-map:community-location:v4:';
-const MERIDA_BOUNDS = { south: 20.86, west: -89.75, north: 21.08, east: -89.52 };
 const isUuid = (value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ''));
 const parseCafeMenuImages = (value) => {
   if (Array.isArray(value)) return value.filter((url) => typeof url === 'string');
@@ -40,18 +34,6 @@ const withRequestTimeout = (request, timeoutMs, message) => {
   return Promise.race([request, timeout]).finally(() => window.clearTimeout(timeoutId));
 };
 
-const toReviewPost = (interaction) => ({
-  user_id: interaction.user_id,
-  cafe_id: interaction.cafe_id,
-  content: String(interaction.review_text || '').trim().slice(0, 1000),
-  kind: 'review',
-  rating: interaction.rating || null,
-  visited_on: interaction.visited_on || null,
-  interaction_id: interaction.id,
-  status: 'published',
-  updated_at: interaction.updated_at || new Date().toISOString(),
-});
-
 const normalizeCafe = (cafe) => {
   const coordinates = getCafeCoordinates(cafe) || { lat: null, lng: null };
 
@@ -61,17 +43,17 @@ const normalizeCafe = (cafe) => {
     lat: coordinates.lat,
     lng: coordinates.lng,
     pos: { lat: coordinates.lat, lng: coordinates.lng },
-    imageUrl: cafe.image_url || cafe.imageUrl || null,
-    imageSourceUrl: cafe.image_source_url || cafe.imageSourceUrl || null,
-    imageAttribution: cafe.image_attribution || cafe.imageAttribution || null,
-    imageLicense: cafe.image_license || cafe.imageLicense || null,
-    instagramUrl: cafe.instagram_url || cafe.instagramUrl || null,
-    tiktokUrl: cafe.tiktok_url || cafe.tiktokUrl || null,
-    menuImages: parseCafeMenuImages(cafe.menu_url || cafe.menuImages),
-    openingHours: cafe.opening_hours || cafe.openingHours || null,
-    openingHoursSource: cafe.opening_hours_source || cafe.openingHoursSource || null,
-    openingHoursSourceUrl: cafe.opening_hours_source_url || cafe.openingHoursSourceUrl || null,
-    openingHoursVerifiedAt: cafe.opening_hours_verified_at || cafe.openingHoursVerifiedAt || null,
+    imageUrl: cafe.image_url !== undefined ? cafe.image_url : cafe.imageUrl || null,
+    imageSourceUrl: cafe.image_source_url !== undefined ? cafe.image_source_url : cafe.imageSourceUrl || null,
+    imageAttribution: cafe.image_attribution !== undefined ? cafe.image_attribution : cafe.imageAttribution || null,
+    imageLicense: cafe.image_license !== undefined ? cafe.image_license : cafe.imageLicense || null,
+    instagramUrl: cafe.instagram_url !== undefined ? cafe.instagram_url : cafe.instagramUrl || null,
+    tiktokUrl: cafe.tiktok_url !== undefined ? cafe.tiktok_url : cafe.tiktokUrl || null,
+    menuImages: parseCafeMenuImages(cafe.menu_url !== undefined ? cafe.menu_url : cafe.menuImages),
+    openingHours: cafe.opening_hours !== undefined ? cafe.opening_hours : cafe.openingHours || null,
+    openingHoursSource: cafe.opening_hours_source !== undefined ? cafe.opening_hours_source : cafe.openingHoursSource || null,
+    openingHoursSourceUrl: cafe.opening_hours_source_url !== undefined ? cafe.opening_hours_source_url : cafe.openingHoursSourceUrl || null,
+    openingHoursVerifiedAt: cafe.opening_hours_verified_at !== undefined ? cafe.opening_hours_verified_at : cafe.openingHoursVerifiedAt || null,
     source: cafe.source || 'manual',
     sourceId: cafe.source_id || cafe.sourceId || null,
     sourceUrl: cafe.source_url || cafe.sourceUrl || null,
@@ -111,73 +93,11 @@ const writeCachedCafes = (cafes) => {
   }
 };
 
-const isMeridaCoordinate = ({ lat, lng }) => (
-  lat >= MERIDA_BOUNDS.south
-  && lat <= MERIDA_BOUNDS.north
-  && lng >= MERIDA_BOUNDS.west
-  && lng <= MERIDA_BOUNDS.east
-);
-
-const readCommunityLocation = (address) => {
-  try {
-    const value = window.sessionStorage.getItem(`${COMMUNITY_LOCATION_CACHE_KEY}${address}`);
-    const parsed = value ? JSON.parse(value) : null;
-    return parsed && Number.isFinite(Number(parsed.lat)) && Number.isFinite(Number(parsed.lng))
-      ? { lat: Number(parsed.lat), lng: Number(parsed.lng), neighborhood: parsed.neighborhood || null }
-      : null;
-  } catch {
-    return null;
-  }
-};
-
-const writeCommunityLocation = (address, location) => {
-  try {
-    window.sessionStorage.setItem(`${COMMUNITY_LOCATION_CACHE_KEY}${address}`, JSON.stringify(location));
-  } catch {
-    // Location repair is best effort; the saved cafe remains usable without it.
-  }
-};
-
-const repairCommunityLocations = async (cafes) => {
-  const candidates = cafes.filter((cafe) => (
-    cafe.source === 'community' && (cafe.address?.trim() || cafe.link?.trim() || cafe.source_url?.trim())
-  ));
-  if (!candidates.length) return cafes;
-
-  const repaired = new Map();
-  for (const cafe of candidates) {
-    const locationKey = [cafe.link, cafe.source_url, cafe.address].filter(Boolean).join('|');
-    let location = readCommunityLocation(locationKey);
-    if (!location) {
-      try {
-        location = await geocodeCafeLocation(cafe);
-        if (location && isMeridaCoordinate(location)) writeCommunityLocation(locationKey, location);
-      } catch {
-        location = null;
-      }
-    }
-    if (location && isMeridaCoordinate(location)) repaired.set(cafe.id, location);
-  }
-
-  if (!repaired.size) return cafes;
-  const repairedCafes = cafes.map((cafe) => {
-    const location = repaired.get(cafe.id);
-    return location
-      ? normalizeCafe({ ...cafe, lat: location.lat, lng: location.lng, neighborhood: cafe.neighborhood || location.neighborhood })
-      : cafe;
-  });
-
-  // A stale row and its corrected row can be far apart before geocoding, so
-  // they only become duplicates after both use the address coordinates.
-  return deduplicateCafes(repairedCafes);
-};
-
 export function CoffeeDataProvider({ children }) {
-  const { user, userProfile } = useAuth();
+  const { user } = useAuth();
   const userId = user?.id;
   const cafeRequestRef = useRef(null);
-  const adminDataSyncRef = useRef(false);
-  const communityRepairStartedRef = useRef(false);
+  const cafeVersionRef = useRef(0);
 
   const [cafesState, setCafesState] = useState(() => {
     const cachedCafes = readCachedCafes();
@@ -201,26 +121,16 @@ export function CoffeeDataProvider({ children }) {
     cafesLoadedRef.current = cafesState.cafesLoaded;
   }, [cafesState.cafes, cafesState.cafesLoaded]);
 
-  useEffect(() => {
-    if (!cafesState.cafesLoaded || !cafesState.cafes.length || communityRepairStartedRef.current) return;
-    communityRepairStartedRef.current = true;
-    repairCommunityLocations(cafesState.cafes).then((repairedCafes) => {
-      if (repairedCafes === cafesState.cafes) return;
-      cafesRef.current = repairedCafes;
-      setCafesState((current) => ({ ...current, cafes: repairedCafes }));
-      writeCachedCafes(repairedCafes);
-    }).catch(() => {});
-  }, [cafesState.cafes, cafesState.cafesLoaded]);
-
   const loadCafes = useCallback(async ({ force = false } = {}) => {
     if (!force && cafesLoadedRef.current) {
       return cafesRef.current;
     }
 
-    if (cafeRequestRef.current) {
+    if (cafeRequestRef.current && !force) {
       return cafeRequestRef.current;
     }
 
+    const version = ++cafeVersionRef.current;
     cafeRequestRef.current = (async () => {
       setCafesLoading(true);
 
@@ -237,14 +147,8 @@ export function CoffeeDataProvider({ children }) {
 
         if (error) throw error;
 
-        let normalizedCafes = deduplicateCafes((data || []).map(normalizeCafe));
-        // A public Supabase query can legitimately return an empty array while
-        // RLS is being deployed. Keep exploration useful with the bundled scan
-        // until the database policies and data are available.
-        if (!normalizedCafes.length) {
-          const scanModule = await import('../data/openCafeScan.json');
-          normalizedCafes = deduplicateCafes((scanModule.default?.cafes || []).map(normalizeCafe));
-        }
+        if (version !== cafeVersionRef.current) return cafesRef.current;
+        const normalizedCafes = deduplicateCafes((data || []).map(normalizeCafe));
         cafesRef.current = normalizedCafes;
         cafesLoadedRef.current = true;
         setCafesState({
@@ -253,30 +157,13 @@ export function CoffeeDataProvider({ children }) {
           cafesError: '',
         });
         writeCachedCafes(normalizedCafes);
-        communityRepairStartedRef.current = true;
-        repairCommunityLocations(normalizedCafes).then((repairedCafes) => {
-          if (repairedCafes === normalizedCafes) return;
-          cafesRef.current = repairedCafes;
-          setCafesState((current) => ({ ...current, cafes: repairedCafes }));
-          writeCachedCafes(repairedCafes);
-        }).catch(() => {});
         return normalizedCafes;
       } catch (error) {
-        console.warn('Supabase no respondió a tiempo; usando el respaldo local de cafeterías.', error);
-        const scanModule = await import('../data/openCafeScan.json');
-        const fallbackCafes = deduplicateCafes([
-          ...cafesRef.current,
-          ...(scanModule.default?.cafes || []).map(normalizeCafe),
-        ]).sort((first, second) => first.nombre.localeCompare(second.nombre));
-
-        cafesRef.current = fallbackCafes;
-        cafesLoadedRef.current = true;
-        setCafesState({ cafes: fallbackCafes, cafesLoaded: true, cafesError: '' });
-        writeCachedCafes(fallbackCafes);
-        return fallbackCafes;
+        if (version !== cafeVersionRef.current) return cafesRef.current;
+        setCafesState((current) => ({ ...current, cafesError: error.message || 'No pudimos actualizar las cafeterías.' }));
+        throw error;
       } finally {
-        cafeRequestRef.current = null;
-        setCafesLoading(false);
+        if (version === cafeVersionRef.current) { cafeRequestRef.current = null; setCafesLoading(false); }
       }
     })();
 
@@ -284,8 +171,11 @@ export function CoffeeDataProvider({ children }) {
   }, []);
 
   const addCafes = useCallback((newCafes) => {
+    cafeVersionRef.current += 1;
+    cafeRequestRef.current = null;
+    setCafesLoading(false);
     setCafesState((current) => {
-      const incoming = newCafes.map(normalizeCafe);
+      const incoming = newCafes.map(normalizeCafe).filter((cafe) => cafe.status === 'active' && !cafe.deleted_at);
       const knownIds = new Set(current.cafes.map((cafe) => cafe.id));
       const merged = deduplicateCafes([
         ...current.cafes,
@@ -300,58 +190,26 @@ export function CoffeeDataProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    if (!userId || userProfile?.role !== 'administrador' || adminDataSyncRef.current) return;
-    if (window.localStorage.getItem(ADMIN_SCAN_SYNC_KEY) === 'complete') return;
+    const refresh = () => { loadCafes({ force: true }).catch(() => {}); };
+    window.addEventListener('focus', refresh);
+    return () => window.removeEventListener('focus', refresh);
+  }, [loadCafes]);
 
-    adminDataSyncRef.current = true;
-    const syncAdminCafeData = async () => {
-      const { error: approvalError } = await supabase
-        .from('cafes')
-        .update({ status: 'active', last_verified_at: new Date().toISOString() })
-        .eq('status', 'needs_review')
-        .eq('submitted_by', userId);
-      if (approvalError) throw approvalError;
-
-      const scanModule = await import('../data/openCafeScan.json');
-      const scannedCafes = scanModule.default?.cafes || [];
-      const existing = [];
-      for (let from = 0; ; from += 1000) {
-        const { data, error } = await supabase
-          .from('cafes')
-          .select('id,nombre,lat,lng,source,source_id')
-          .range(from, from + 999);
-        if (error) throw error;
-        existing.push(...(data || []));
-        if (!data || data.length < 1000) break;
-      }
-
-      const accepted = [];
-      const comparison = [...existing];
-      scannedCafes.forEach((candidate) => {
-        const sameRecord = comparison.some((current) => current.id === candidate.id);
-        const duplicate = !sameRecord && comparison.some((current) => areDuplicateCafes(current, candidate));
-        if (duplicate) return;
-        accepted.push(candidate);
-        if (!sameRecord) comparison.push(candidate);
-      });
-
-      for (let index = 0; index < accepted.length; index += 100) {
-        const { error } = await supabase
-          .from('cafes')
-          .upsert(accepted.slice(index, index + 100).map(toCafeDbRow), { onConflict: 'id' });
-        if (error) throw error;
-      }
-
-      window.localStorage.setItem(ADMIN_SCAN_SYNC_KEY, 'complete');
-      window.sessionStorage.removeItem(CAFES_CACHE_KEY);
-      await loadCafes({ force: true });
-    };
-
-    syncAdminCafeData().catch((error) => {
-      adminDataSyncRef.current = false;
-      console.error('No se pudo sincronizar el escaneo administrativo:', error);
-    });
-  }, [loadCafes, userId, userProfile?.role]);
+  const updateCafe = useCallback((row) => {
+    cafeVersionRef.current += 1;
+    cafeRequestRef.current = null;
+    setCafesLoading(false);
+    const current = cafesRef.current;
+    const existing = current.find((cafe) => cafe.id === row.id);
+    const updated = normalizeCafe({ ...existing, ...row });
+    setInteractions((items) => items.map((item) => item.cafe_id === row.id ? { ...item, cafe: updated } : item));
+    const next = updated.status !== 'active' || updated.deleted_at
+      ? current.filter((cafe) => cafe.id !== row.id)
+      : existing ? current.map((cafe) => cafe.id === row.id ? updated : cafe) : [...current, updated];
+    cafesRef.current = next;
+    writeCachedCafes(next);
+    setCafesState((state) => ({ ...state, cafes: next, cafesError: '' }));
+  }, []);
 
   const refreshUserInteractions = useCallback(async (targetUserId = userId) => {
     if (!targetUserId) {
@@ -381,20 +239,6 @@ export function CoffeeDataProvider({ children }) {
         ...interaction,
         cafe: interaction.cafe ? normalizeCafe(interaction.cafe) : null,
       }));
-
-      if (targetUserId === userId) {
-        const reviewPosts = (data || [])
-          .filter((interaction) => String(interaction.review_text || '').trim())
-          .map(toReviewPost);
-        if (reviewPosts.length > 0) {
-          const { error: reviewSyncError } = await withRequestTimeout(
-            supabase.from('posts').upsert(reviewPosts, { onConflict: 'interaction_id' }),
-            INTERACTION_REQUEST_TIMEOUT_MS,
-            'La sincronización de tus reseñas tardó demasiado.',
-          );
-          if (reviewSyncError) throw reviewSyncError;
-        }
-      }
 
       setInteractions(nextInteractions);
       setInteractionsLoaded(true);
@@ -428,7 +272,7 @@ export function CoffeeDataProvider({ children }) {
     const persistedInteraction = isUuid(currentInteraction?.id) ? currentInteraction : null;
     if (options.interactionId && !persistedInteraction) throw new Error('No encontramos esa visita para actualizarla.');
     const createNewVisit = Boolean(options.createNewVisit);
-    const allowedFields = ['is_visited', 'is_favorite', 'in_waitlist', 'rating', 'review_text', 'visited_on'];
+    const allowedFields = ['is_visited', 'is_favorite', 'in_waitlist', 'rating', 'review_text', 'visited_on', 'is_revisit'];
     const patch = Object.fromEntries(
       allowedFields
         .filter((key) => Object.prototype.hasOwnProperty.call(updates, key) && updates[key] !== undefined)
@@ -441,7 +285,6 @@ export function CoffeeDataProvider({ children }) {
       updated_at: new Date().toISOString(),
     };
     const optimisticInteraction = {
-      id: createNewVisit ? `optimistic:${cafeId}:${Date.now()}` : (persistedInteraction?.id || `optimistic:${cafeId}`),
       is_visited: false,
       is_favorite: false,
       in_waitlist: false,
@@ -449,6 +292,7 @@ export function CoffeeDataProvider({ children }) {
       review_text: '',
       visited_on: null,
       ...persistedInteraction,
+      id: createNewVisit ? `optimistic:${cafeId}:${Date.now()}` : (persistedInteraction?.id || `optimistic:${cafeId}`),
       ...payload,
     };
 
@@ -479,21 +323,6 @@ export function CoffeeDataProvider({ children }) {
       ...data,
       cafe: data.cafe ? normalizeCafe(data.cafe) : persistedInteraction?.cafe || null,
     };
-
-    if (Object.prototype.hasOwnProperty.call(patch, 'review_text')) {
-      if (String(data.review_text || '').trim()) {
-        const { error: reviewSyncError } = await supabase
-          .from('posts')
-          .upsert(toReviewPost(data), { onConflict: 'interaction_id' });
-        if (reviewSyncError) throw reviewSyncError;
-      } else {
-        const { error: hideReviewError } = await supabase
-          .from('posts')
-          .update({ status: 'hidden', updated_at: data.updated_at })
-          .eq('interaction_id', data.id);
-        if (hideReviewError) throw hideReviewError;
-      }
-    }
 
     setInteractions((current) => {
       const exists = current.some((interaction) => interaction.id === normalizedInteraction.id);
@@ -570,12 +399,14 @@ export function CoffeeDataProvider({ children }) {
     loadCafes,
     refreshCafes: () => loadCafes({ force: true }),
     addCafes,
+    updateCafe,
     preloadInitialData,
     refreshUserInteractions,
     saveCafeInteraction,
     deleteCafeInteraction,
   }), [
     addCafes,
+    updateCafe,
     cafeById,
     cafesLoading,
     cafesState.cafes,

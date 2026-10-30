@@ -2187,6 +2187,59 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 .new-post-toolbar .new-post-add-photos > span { margin-left: 0; font-size: 13px; }
 .new-post-shell .new-post-photo-gallery { margin-top: 6px; }
 .new-post-draft-note { margin-top: 8px; color: rgba(238,229,210,.45); font-size: 10px; }
+
+/* Full publication editor uses the same dark palette as the composer. */
+.activity-edit-sheet { color: #e8ddc5; background: #2a211b; border-color: rgba(232,221,197,.15); max-height: 88dvh; overflow-y: auto; }
+.activity-edit-sheet > header small { color: #bba583; }
+.activity-edit-sheet > header button { color: #e8ddc5; background: rgba(232,221,197,.08); }
+.activity-edit-fields { display: grid; gap: 14px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.activity-edit-fields > label { display: grid; gap: 6px; color: rgba(232,221,197,.8); font-size: 13px; }
+.activity-edit-fields select, .activity-edit-fields input[type="date"], .activity-edit-sheet textarea { width: 100%; min-width: 0; padding: 10px 12px; color: #e8ddc5; color-scheme: dark; background: #211a15; border: 1px solid rgba(232,221,197,.16); border-radius: 12px; font: 16px "Inria Serif", Georgia, serif; }
+.activity-edit-sheet textarea { line-height: 1.5; }
+.activity-edit-sheet textarea:focus { border-color: #bba583; box-shadow: none; }
+.activity-edit-review-options { display: flex; justify-content: space-between; gap: 12px; align-items: center; color: #e8ddc5; }
+.activity-edit-review-options > div { display: grid; gap: 7px; font-size: 13px; }
+.activity-edit-review-options > button { padding: 8px; color: #e8ddc5; background: transparent; border: 0; cursor: pointer; }
+.activity-edit-review-options > button[aria-pressed="false"] { color: #9e8d77; }
+.activity-edit-visit, .activity-edit-add-photo { padding: 10px 12px; color: #e8ddc5; background: #3d3026; border: 1px solid rgba(232,221,197,.16); border-radius: 12px; cursor: pointer; }
+.activity-edit-section-label { margin: 0; }
+.activity-edit-section-label small { color: rgba(232,221,197,.6); }
+.activity-edit-empty { color: rgba(232,221,197,.6); background: #211a15; }
+.activity-edit-image { background: #211a15; }
+.activity-edit-photo-order { position: absolute; bottom: 4px; left: 4px; right: 4px; display: flex; justify-content: space-between; }
+.activity-edit-photo-order button { display: grid; place-items: center; padding: 3px; color: #211a15; background: #e8ddc5; border: 0; border-radius: 5px; cursor: pointer; }
+.activity-edit-photo-order button:disabled { opacity: .35; cursor: default; }
+.activity-edit-feedback { color: #ffc2ba; }
+.activity-edit-cancel { color: #e8ddc5; background: #3d3026; }
+.activity-edit-save { color: #211a15; background: #e8ddc5; }
+
+.cafe-disclosure > summary { display: flex; align-items: center; gap: 12px; list-style: none; cursor: pointer; }
+.cafe-disclosure > summary::-webkit-details-marker { display: none; }
+.cafe-disclosure > summary::marker { content: ''; }
+.cafe-disclosure-chevron { flex: 0 0 18px; margin-left: auto; transition: transform .15s; }
+.cafe-disclosure[open] > summary .cafe-disclosure-chevron { transform: rotate(180deg); }
+.cafe-disclosure-body { margin-top: 14px; }
+.cafe-menu-heading { flex: 1; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.cafe-menu-heading h2 { margin: 4px 0 0; font: 400 26px "Lancelot", Georgia, serif; }
+.cafe-menu-heading > span { font-size: 10px; color: rgba(232,221,197,.55); }
+.cafe-hours-heading { flex: 1; min-width: 0; }
+.cafe-hours-status-row { display: flex; align-items: center; gap: 12px; margin-top: 6px; }
+.cafe-hours-status-row h2 { margin: 0; }
+.cafe-hours-status-row .cafe-hours-status { margin: 0; }
+.cafe-menu-gallery-grid { align-items: stretch; }
+.cafe-menu-gallery-grid button { display: grid; place-items: center; width: 100%; height: clamp(200px, 24vw, 300px); aspect-ratio: auto; min-height: 0; }
+.cafe-menu-gallery-grid img { width: 100%; height: 100%; min-height: 0; max-height: 100%; object-fit: contain; }
+.cafe-map-credits { margin-top: -16px; color: rgba(232,221,197,.5); font-size: 9px; }
+.cafe-map-credits summary { cursor: pointer; }
+.cafe-map-credits p { margin: 6px 0 0; }
+.cafe-personal-review > p { font-size: 14px; line-height: 1.5; -webkit-line-clamp: 6; }
+.cafe-cover-frame { align-self: end; }
+.cafe-profile-column { align-self: stretch; display: flex; flex-direction: column; justify-content: flex-end; }
+.cafe-my-reviews { flex: 1; }
+@media (max-width: 899px) {
+  .cafe-personal-review > p { font-size: 13px; }
+  .cafe-menu-gallery, .cafe-hours-card { padding: 16px; border-radius: 18px; }
+}
 @media (max-width: 639px) {
   .new-post-shell { padding-inline: 18px; padding-top: max(14px, env(safe-area-inset-top, 0px)); }
   .new-post-topbar > strong { font-size: 15px; }

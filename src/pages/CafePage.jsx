@@ -11,6 +11,7 @@ import CoffeeBeanIcon, { CoffeeBeanRating } from '../components/CoffeeBeanIcon';
 import CafeMapPreview from '../components/CafeMapPreview';
 import TikTokCover from '../components/TikTokCover';
 import ConfirmDialog from '../components/ConfirmDialog';
+import ResponsiveDisclosure from '../components/ResponsiveDisclosure';
 
 const MAP_TARGET_STORAGE_KEY = 'coffee-map:focus-cafe';
 const getLocalDate = () => {
@@ -340,24 +341,23 @@ function CafePage({ cafeId }) {
             <span>{!user ? 'Inicia sesión para ver las visitas de tus amigos' : friendVisitorsStatus === 'loading' ? 'Cargando visitas de amigos…' : friendVisitorsStatus === 'error' ? 'No se pudieron cargar las visitas de tus amigos' : friendVisitors.length ? 'Amigos que lo han visitado' : 'Tus amigos aún no lo han visitado'}</span>
             {user && friendVisitorsStatus === 'ready' && <strong>{friendVisitors.length}</strong>}
           </div>
-          <section className="cafe-hours-card">
-            <header><div><span className="cafe-section-kicker">HORARIOS</span><h2>{openStatus.label}</h2></div><i className={`cafe-hours-status is-${openStatus.state}`} /></header>
+          <ResponsiveDisclosure className="cafe-hours-card" summary={<div className="cafe-hours-heading"><span className="cafe-section-kicker">HORARIOS</span><div className="cafe-hours-status-row"><h2>{openStatus.label}</h2><i className={`cafe-hours-status is-${openStatus.state}`} /></div></div>}>
             {scheduleRows.length > 0 ? <div className="cafe-hours-list">{scheduleRows.map((row) => <p key={row.day}><span>{row.day}</span><strong>{row.hours}</strong></p>)}</div> : <p className="cafe-hours-pending">Aún no tenemos un horario verificado para esta cafetería.</p>}
             {scheduleRows.length > 0 && cafe.openingHoursSource === 'osm' && <small className="cafe-hours-source">Horario de OpenStreetMap; puede cambiar.</small>}
             {scheduleRows.length > 0 && cafe.openingHoursSource === 'web' && <small className="cafe-hours-source">Horario verificado en una fuente pública{cafe.openingHoursSourceUrl ? <> · <a href={cafe.openingHoursSourceUrl} target="_blank" rel="noreferrer">ver fuente</a></> : null}.</small>}
             {scheduleRows.length > 0 && cafe.openingHoursSource === 'admin' && <small className="cafe-hours-source">Horario verificado por Coffee Map.</small>}
-          </section>
+          </ResponsiveDisclosure>
           <button type="button" className="cafe-map-card" onClick={showInAppMap} aria-label={`Ver ${cafe.nombre} en el mapa de Coffee Map`}><CafeMapPreview lat={mapCoordinates?.lat} lng={mapCoordinates?.lng} /><span><MapPin size={17} /> {cafe.address || cafe.neighborhood || 'Ver ubicación'}</span></button>
+          <details className="cafe-map-credits"><summary>Créditos del mapa</summary><p><a href="https://openfreemap.org" target="_blank" rel="noreferrer">OpenFreeMap</a> · © OpenMapTiles · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap</a></p></details>
         </aside>
 
         <div className="cafe-main-column">
-          {cafe.menuImages?.length > 0 && <section id="cafe-menu-gallery" className="cafe-menu-gallery">
-            <header><div><span className="cafe-section-kicker">CONSULTA AQUÍ</span><h2>Menú</h2></div><span>{cafe.menuImages.length} imágenes</span></header>
+          {cafe.menuImages?.length > 0 && <ResponsiveDisclosure className="cafe-menu-gallery" summary={<div className="cafe-menu-heading"><div><span className="cafe-section-kicker">CONSULTA AQUÍ</span><h2>Menú</h2></div><span>{cafe.menuImages.length} imágenes</span></div>}>
             <div className="cafe-menu-gallery-grid">{cafe.menuImages.map((url, index) => <button type="button" key={`${url}-${index}`} onClick={() => setExpandedImage({ src: url, alt: `Menú ${index + 1} de ${cafe.nombre}` })} aria-label={`Ampliar imagen ${index + 1} del menú de ${cafe.nombre}`}><img src={url} alt={`Menú ${index + 1} de ${cafe.nombre}`} loading="lazy" decoding="async" /></button>)}</div>
-          </section>}
+          </ResponsiveDisclosure>}
 
           <section className="cafe-reviews-section">
-            <header><div><span className="cafe-section-kicker">LA COMUNIDAD OPINA</span><h2>Reviews</h2></div><button type="button" onClick={openReviewComposer}><Plus size={16} /> Escribir</button></header>
+            <header><div><span className="cafe-section-kicker">LA COMUNIDAD OPINA</span><h2>Reviews</h2></div><button type="button" onClick={openReviewComposer} aria-label="Escribir reseña"><Plus size={18} /></button></header>
             {communityReviews.length ? <div className="cafe-community-reviews">{communityReviews.map((review) => <article className="cafe-community-review" key={review.id}>
               <div className="cafe-review-top"><div className="cafe-review-user"><img src={review.profile?.avatar_url || `https://api.dicebear.com/7.x/miniavs/svg?seed=${encodeURIComponent(review.profile?.username || 'coffee-user')}`} alt="" onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = '/logo.png'; }} /><strong>{review.profile?.username || 'Coffee Map member'}</strong></div><div className="cafe-review-rating"><CoffeeBeanRating value={Number(review.rating || 0)} size={17} /><b>{Number(review.rating || 0) || '—'}</b></div></div>
               <div className="cafe-review-content">{review.images?.[0] && <img className="cafe-review-photo cafe-expandable-photo" src={review.images[0].public_url} alt={`Foto de ${cafe.nombre}`} loading="lazy" decoding="async" onClick={() => setExpandedImage({ src: review.images[0].public_url, alt: `Foto de ${cafe.nombre}` })} /> }<p>{review.content}</p></div>
@@ -367,8 +367,8 @@ function CafePage({ cafeId }) {
 
           <section className="cafe-gallery-section">
             <header><div><span className="cafe-section-kicker">UN VISTAZO AL LUGAR</span><h2>Galería</h2></div>{communityPhotos.length > 0 && <span>{communityPhotos.length} fotos</span>}</header>
-            <div className="cafe-gallery-grid">{[...(cafe.imageUrl ? [{ id: 'cover', public_url: cafe.imageUrl }] : []), ...communityPhotos].slice(0, 9).map((photo) => <button type="button" className="cafe-photo-open" key={photo.id} onClick={() => setExpandedImage({ src: photo.public_url, alt: cafe.nombre })} aria-label={`Ampliar foto de ${cafe.nombre}`}><img src={photo.public_url} alt={cafe.nombre} loading="lazy" decoding="async" /></button>)}</div>
-            {!cafe.imageUrl && !communityPhotos.length && <p className="cafe-gallery-empty">Las fotos de esta cafetería aparecerán aquí.</p>}
+            <div className="cafe-gallery-grid">{communityPhotos.slice(0, 9).map((photo) => <button type="button" className="cafe-photo-open" key={photo.id} onClick={() => setExpandedImage({ src: photo.public_url, alt: cafe.nombre })} aria-label={`Ampliar foto de ${cafe.nombre}`}><img src={photo.public_url} alt={cafe.nombre} loading="lazy" decoding="async" /></button>)}</div>
+            {!communityPhotos.length && <p className="cafe-gallery-empty">Las fotos de esta cafetería aparecerán aquí.</p>}
           </section>
         </div>
       </div>

@@ -275,6 +275,7 @@ function NewPostPage() {
           rating: rating || null,
           review_text: content,
           visited_on: visitedOn,
+          is_revisit: visitMode === 'returning',
         }, { createNewVisit: visitMode === 'returning' });
       }
 
@@ -286,6 +287,7 @@ function NewPostPage() {
         kind: cafeId ? 'review' : 'post',
         rating: cafeId && rating ? rating : null,
         visited_on: interaction?.visited_on || (cafeId ? visitedOn : getLocalDate()),
+        is_revisit: visitMode === 'returning',
         interaction_id: interactionId,
         status: 'published',
         updated_at: new Date().toISOString(),

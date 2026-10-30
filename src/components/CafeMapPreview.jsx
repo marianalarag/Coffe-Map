@@ -21,11 +21,10 @@ export default function CafeMapPreview({ lat, lng }) {
       interactive: false,
       icon: L.divIcon({
         className: 'cafe-preview-pin',
-        html: '<svg viewBox="0 0 32 42" width="32" height="42" aria-hidden="true"><path d="M16 40S2 25 2 16a14 14 0 0 1 28 0c0 9-14 24-14 24Z" fill="#7a5533" stroke="#fffaf0" stroke-width="3"/><circle cx="16" cy="16" r="5" fill="#fffaf0"/></svg>',
+        html: '<svg viewBox="0 0 32 42" width="32" height="42" aria-hidden="true"><path d="M16 40S2 25 2 16a14 14 0 0 1 28 0c0 9-14 24-14 24Z" fill="#7a5533"/></svg>',
         iconSize: [32, 42], iconAnchor: [16, 42],
       }),
     }).addTo(map);
-    L.control.attribution({ position: 'topright', prefix: false }).addTo(map);
     const showFallback = () => {
       if (cancelled || fallbackLayer) return;
       vectorLayer?.remove();
@@ -39,7 +38,7 @@ export default function CafeMapPreview({ lat, lng }) {
     } else {
       import('@maplibre/maplibre-gl-leaflet').then(({ maplibreGL }) => {
         if (cancelled) return;
-        vectorLayer = maplibreGL({ style: import.meta.env.VITE_MAP_STYLE_URL || 'https://tiles.openfreemap.org/styles/liberty', interactive: false, maxZoom: 19 }).addTo(map);
+        vectorLayer = maplibreGL({ style: import.meta.env.VITE_MAP_STYLE_URL || 'https://tiles.openfreemap.org/styles/liberty', interactive: false, attributionControl: false, maxZoom: 19 }).addTo(map);
         vectorLayer.getMaplibreMap().on('error', showFallback);
         vectorLayer.getMaplibreMap().once('idle', markReady);
       }).catch(showFallback);

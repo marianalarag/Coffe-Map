@@ -1,12 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Check, ChevronLeft, ChevronRight, Coffee, Edit3, Heart, Image as ImageIcon, ImagePlus, MessageCircle, MoreHorizontal, Send, Trash2, UserPlus, Users, X, MapPin } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import BottomNav from '../components/BottomNav';
 import { CoffeeBeanRating } from '../components/CoffeeBeanIcon';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../supabase';
 import { repairCafeText } from '../utils/cafeDeduplication';
 import { formatRating } from '../utils/formatRating';
+import { useCoffeeData } from '../context/CoffeeDataContext';
+import HalfStarRating from '../components/HalfStarRating';
+import PostPhoto from '../components/PostPhoto';
+import { editPublication } from '../utils/editPublication';
+import { compareActivityDates } from '../utils/activityDate';
 
 const fallbackAvatar = (seed) => `https://api.dicebear.com/7.x/miniavs/svg?seed=${encodeURIComponent(seed || 'coffee-user')}`;
 const getActivityAvatar = (url) => url || '';
@@ -53,7 +58,7 @@ function PostImageCarousel({ images, cafeName }) {
       <div className="activity-image-track" ref={trackRef} onScroll={updateActiveIndex}>
         {images.map((image, index) => (
           <div className="activity-image-slide" role="group" aria-roledescription="diapositiva" aria-label={`${index + 1} de ${images.length}`} key={image.id}>
-            <button type="button" className="activity-image-open" onClick={() => setViewerIndex(index)} aria-label={`Abrir foto ${index + 1} en pantalla completa`}><img src={image.public_url} alt={`${cafeName || 'Publicación'}, foto ${index + 1} de ${images.length}`} loading={index === 0 ? 'eager' : 'lazy'} decoding="async" /></button>
+            <button type="button" className="activity-image-open" onClick={() => setViewerIndex(index)} aria-label={`Abrir foto ${index + 1} en pantalla completa`}><PostPhoto image={image} alt={`${cafeName || 'Publicación'}, foto ${index + 1} de ${images.length}`} loading={index === 0 ? 'eager' : 'lazy'} decoding="async" /></button>
           </div>
         ))}
       </div>
@@ -87,25 +92,29 @@ export function ActivityFeed({ userIdFilter = null, userIdsFilter = null, kindFi
   const [socialByPost, setSocialByPost] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [isDesktop, setIsDesktop] = useState(() => (
-    typeof window !== 'undefined' && window.matchMedia('(min-width: 900px)').matches
-  ));
   const [commentPost, setCommentPost] = useState(null);
   const [commentRows, setCommentRows] = useState([]);
   const [commentProfiles, setCommentProfiles] = useState({});
   const [commentText, setCommentText] = useState('');
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [postMenuId, setPostMenuId] = useState(null);
+  const location = useLocation();
+  const { cafes, interactions, refreshUserInteractions } = useCoffeeData();
+  const [editCafeId, setEditCafeId] = useState('');
+  const [editDate, setEditDate] = useState('');
+  const [editRating, setEditRating] = useState(0);
+  const [editFavorite, setEditFavorite] = useState(false);
+  const [editRevisit, setEditRevisit] = useState(false);
+  const [editPhotos, setEditPhotos] = useState([]);
   const [editingPost, setEditingPost] = useState(null);
   const [editText, setEditText] = useState('');
-  const [editImages, setEditImages] = useState([]);
-  const [editFiles, setEditFiles] = useState([]);
-  const [editPreviews, setEditPreviews] = useState([]);
   const [editFeedback, setEditFeedback] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
   const editFileInputRef = useRef(null);
+  const loadVersionRef = useRef(0);
 
   const loadPosts = useCallback(async () => {
+    const loadVersion = ++loadVersionRef.current;
     const cacheKey = `${user.id}:${kindFilter || 'all'}:${userIdFilter || (Array.isArray(userIdsFilter) ? `users:${userIdsFilter.slice().sort().join(',')}` : 'all')}`;
     const cached = activityCache.get(cacheKey);
     const hasFreshCache = cached && Date.now() - cached.savedAt < ACTIVITY_CACHE_TTL_MS;
@@ -125,9 +134,9 @@ export function ActivityFeed({ userIdFilter = null, userIdsFilter = null, kindFi
 
       let postsQuery = supabase
         .from('posts')
-        .select('id,user_id,cafe_id,content,image_url,kind,rating,visited_on,interaction_id,created_at,updated_at')
+        .select('id,user_id,cafe_id,content,image_url,kind,rating,visited_on,is_revisit,interaction_id,created_at,updated_at')
         .eq('status', 'published')
-        .order('updated_at', { ascending: false })
+        .order('activity_date', { ascending: false })
         .order('created_at', { ascending: false })
         .limit(60);
 
@@ -138,11 +147,7 @@ export function ActivityFeed({ userIdFilter = null, userIdsFilter = null, kindFi
       const { data: postRows, error: postError } = await postsQuery;
       if (postError) throw postError;
 
-      const orderedPostRows = [...(postRows || [])].sort((first, second) => (
-        String(second.updated_at || second.created_at || '').localeCompare(String(first.updated_at || first.created_at || ''))
-        || String(second.created_at || '').localeCompare(String(first.created_at || ''))
-        || String(second.id).localeCompare(String(first.id))
-      ));
+      const orderedPostRows = [...(postRows || [])].sort(compareActivityDates);
       const userIds = [...new Set(orderedPostRows.map((post) => post.user_id))];
       const cafeIds = [...new Set(orderedPostRows.map((post) => post.cafe_id).filter(Boolean))];
       const postIds = orderedPostRows.map((post) => post.id);
@@ -231,9 +236,8 @@ export function ActivityFeed({ userIdFilter = null, userIdsFilter = null, kindFi
           images: [],
         }))
         .filter((event) => event.cafe?.nombre);
-      const nextActivity = [...nextPosts, ...waitlistEvents].sort((first, second) => (
-        String(second.updated_at || second.created_at || '').localeCompare(String(first.updated_at || first.created_at || ''))
-      ));
+      const nextActivity = [...nextPosts, ...waitlistEvents].sort(compareActivityDates);
+      if (loadVersion !== loadVersionRef.current) return;
       activityCache.set(cacheKey, { savedAt: Date.now(), posts: nextActivity, socialByPost: nextSocial });
       setPosts(nextActivity);
     } catch (loadError) {
@@ -243,17 +247,9 @@ export function ActivityFeed({ userIdFilter = null, userIdsFilter = null, kindFi
     } finally {
       setLoading(false);
     }
-  }, [kindFilter, user.id, userIdFilter, userIdsFilter]);
+  }, [kindFilter, user.id, user.user_metadata?.username, userIdFilter, userIdsFilter]);
 
-  useEffect(() => { loadPosts(); }, [loadPosts]);
-
-  useEffect(() => {
-    const mediaQuery = window.matchMedia('(min-width: 900px)');
-    const updateLayout = (event) => setIsDesktop(event.matches);
-    setIsDesktop(mediaQuery.matches);
-    mediaQuery.addEventListener('change', updateLayout);
-    return () => mediaQuery.removeEventListener('change', updateLayout);
-  }, []);
+  useEffect(() => { loadPosts(); }, [loadPosts, location.key]);
 
   const toggleLike = async (postId) => {
     const current = socialByPost[postId] || { likes: 0, comments: 0, liked: false, likeProfiles: [] };
@@ -331,144 +327,61 @@ export function ActivityFeed({ userIdFilter = null, userIdsFilter = null, kindFi
   };
 
   const startEditingPost = (post) => {
+    const visit = interactions.find((item) => item.id === post.interaction_id);
     setPostMenuId(null);
     setEditingPost(post);
     setEditText(post.content || '');
-    setEditImages(post.images || []);
-    setEditFiles([]);
-    setEditPreviews([]);
+    setEditCafeId(post.cafe_id || '');
+    setEditDate(post.visited_on || post.created_at.slice(0, 10));
+    setEditRating(Number(post.rating) || 0);
+    setEditFavorite(Boolean(visit?.is_favorite));
+    setEditRevisit(post.is_revisit ?? visit?.is_revisit ?? interactions.some((item) => item.cafe_id === post.cafe_id && item.id !== post.interaction_id && item.visited_on < (post.visited_on || post.created_at.slice(0, 10))));
+    setEditPhotos(post.images || []);
     setEditFeedback('');
   };
 
-  const closeEditPost = () => {
-    editPreviews.forEach((preview) => URL.revokeObjectURL(preview));
+  const closeEditPost = ({ preservePreviews = false } = {}) => {
+    if (!preservePreviews) editPhotos.forEach((photo) => { if (photo.file && photo.preview_url) URL.revokeObjectURL(photo.preview_url); });
     setEditingPost(null);
-    setEditFiles([]);
-    setEditPreviews([]);
+    setEditPhotos([]);
     setEditFeedback('');
   };
-
-  const removeEditImage = (imageId) => {
-    setEditImages((images) => images.filter((image) => image.id !== imageId));
+  const removeEditImage = (id) => {
+    const photo = editPhotos.find((item) => item.id === id);
+    if (photo?.file && photo.preview_url) URL.revokeObjectURL(photo.preview_url);
+    setEditPhotos((items) => items.filter((item) => item.id !== id));
   };
-
+  const moveEditImage = (index, direction) => {
+    const to = index + direction;
+    if (to < 0 || to >= editPhotos.length) return;
+    setEditPhotos((items) => { const next = [...items]; [next[index],next[to]] = [next[to],next[index]]; return next; });
+  };
   const chooseEditPhotos = (event) => {
     const files = [...(event.target.files || [])];
-    if (!files.length) return;
     if (files.some((file) => !file.type.startsWith('image/') || file.size > MAX_EDIT_PHOTO_BYTES)) {
-      setEditFeedback('Cada imagen debe pesar máximo 8 MB.');
-      return;
+      setEditFeedback('Cada imagen debe pesar máximo 8 MB.'); return;
     }
-    const availableSlots = Math.max(0, 10 - editImages.length - editFiles.length);
-    const nextFiles = files.slice(0, availableSlots);
-    setEditFiles((current) => [...current, ...nextFiles]);
-    setEditPreviews((current) => [...current, ...nextFiles.map((file) => URL.createObjectURL(file))]);
-    setEditFeedback('');
+    setEditPhotos((items) => [...items,...files.slice(0,Math.max(0,10-items.length)).map((file) => ({ id: crypto.randomUUID(), file, preview_url: URL.createObjectURL(file) }))]);
     event.target.value = '';
+    setEditFeedback('');
   };
-
   const saveEditedPost = async () => {
     if (!editingPost || savingEdit) return;
-    const content = editText.trim();
-    if (editingPost.kind === 'review' && !content) {
-      setEditFeedback('Las reseñas necesitan conservar un texto.');
-      return;
-    }
-    if (!content && editImages.length === 0 && editFiles.length === 0) {
-      setEditFeedback('Agrega texto o al menos una foto.');
-      return;
-    }
-
-    setSavingEdit(true);
-    setEditFeedback('');
-    const updatedAt = new Date().toISOString();
+    if (!editText.trim() && !editPhotos.length) { setEditFeedback('Agrega texto o al menos una foto.'); return; }
+    setSavingEdit(true); setEditFeedback('');
     try {
-      const existingImages = editingPost.images || [];
-      const keptImageIds = new Set(editImages.map((image) => image.id));
-      const removedImages = existingImages.filter((image) => (
-        !String(image.id).endsWith(':legacy') && !keptImageIds.has(image.id)
-      ));
-      const removedPaths = removedImages.map((image) => image.storage_path).filter(Boolean);
-
-      if (removedImages.length) {
-        const { error: removeRowsError } = await supabase
-          .from('post_images')
-          .delete()
-          .in('id', removedImages.map((image) => image.id))
-          .eq('post_id', editingPost.id);
-        if (removeRowsError) throw removeRowsError;
-        if (removedPaths.length) {
-          await supabase.storage.from('cafe-photos').remove(removedPaths);
-          await supabase
-            .from('cafe_photos')
-            .delete()
-            .in('storage_path', removedPaths)
-            .eq('post_id', editingPost.id)
-            .eq('user_id', user.id);
-        }
-      }
-
-      let uploadedImages = [];
-      for (const [index, photo] of editFiles.entries()) {
-        const extension = photo.name.split('.').pop()?.toLowerCase() || 'jpg';
-        const storagePath = `${user.id}/posts/${editingPost.id}/edit-${Date.now()}-${index}.${extension}`;
-        const { error: uploadError } = await supabase.storage
-          .from('cafe-photos')
-          .upload(storagePath, photo, { contentType: photo.type, upsert: false });
-        if (uploadError) throw uploadError;
-        const { data: publicData } = supabase.storage.from('cafe-photos').getPublicUrl(storagePath);
-        uploadedImages.push({
-          post_id: editingPost.id,
-          user_id: user.id,
-          storage_path: storagePath,
-          public_url: publicData.publicUrl,
-          position: editImages.length + index,
-        });
-      }
-
-      if (uploadedImages.length) {
-        const { data: insertedImages, error: imageError } = await supabase
-          .from('post_images')
-          .insert(uploadedImages)
-          .select('id,post_id,public_url,position,storage_path');
-        if (imageError) throw imageError;
-        uploadedImages = insertedImages || uploadedImages;
-      }
-
-      const nextImages = [...editImages, ...uploadedImages.map((image, index) => ({
-        ...image,
-        id: image.id || `local:${Date.now()}:${index}`,
-      }))];
-      const nextImageUrl = nextImages[0]?.public_url || null;
-
-      if (editingPost.kind === 'review' && editingPost.interaction_id) {
-        const { error: interactionError } = await supabase
-          .from('user_cafes')
-          .update({ review_text: content, updated_at: updatedAt })
-          .eq('id', editingPost.interaction_id)
-          .eq('user_id', user.id);
-        if (interactionError) throw interactionError;
-      }
-
-      const { error: postError } = await supabase
-        .from('posts')
-        .update({ content, image_url: nextImageUrl, updated_at: updatedAt })
-        .eq('id', editingPost.id)
-        .eq('user_id', user.id);
-      if (postError) throw postError;
-
-      setPosts((currentPosts) => currentPosts.map((post) => (
-        post.id === editingPost.id
-          ? { ...post, content, image_url: nextImageUrl, updated_at: updatedAt, images: nextImages }
-          : post
-      )));
+      const saved = await editPublication({ post: editingPost, userId: user.id, photos: editPhotos, changes: {
+        content: editText.trim(), cafe_id: editCafeId || null, visited_on: editDate,
+        rating: editRating || null, is_favorite: editFavorite, is_revisit: editRevisit,
+      } });
+      const cafe = cafes.find((item) => item.id === editCafeId) || (editingPost.cafe_id === editCafeId ? editingPost.cafe : null);
+      loadVersionRef.current += 1;
+      setPosts((items) => items.map((post) => post.id === editingPost.id ? { ...post,...saved,cafe } : post).sort(compareActivityDates));
       activityCache.clear();
-      closeEditPost();
-    } catch (saveError) {
-      setEditFeedback(saveError.message || 'No se pudo guardar la publicación.');
-    } finally {
-      setSavingEdit(false);
-    }
+      closeEditPost({ preservePreviews: true });
+      refreshUserInteractions().catch(() => {});
+    } catch (error) { setEditFeedback(error.message || 'No se pudo guardar la publicación.'); }
+    finally { setSavingEdit(false); }
   };
 
   const deletePost = async (post) => {
@@ -544,7 +457,7 @@ export function ActivityFeed({ userIdFilter = null, userIdsFilter = null, kindFi
         {post.cafe?.nombre && <button type="button" className="activity-cafe-link" onClick={() => navigate(`/cafe/${post.cafe_id}`)}>{post.cafe.nombre}</button>}
         {Number(post.rating) > 0 && <div className="activity-rating"><CoffeeBeanRating value={Number(post.rating)} size={14} /><span>{formatRating(post.rating)}</span></div>}
         <div className="activity-post-body">
-          {post.images.length > 0 && <PostImageCarousel images={post.images} cafeName={post.cafe?.nombre} />}
+          {post.images.length > 0 && <PostImageCarousel key={post.images.map((image) => image.id).join(':')} images={post.images} cafeName={post.cafe?.nombre} />}
           {post.content && <p className="activity-post-copy">{post.content}</p>}
         </div>
         {social.likes > 0 && (
@@ -577,12 +490,7 @@ export function ActivityFeed({ userIdFilter = null, userIdsFilter = null, kindFi
         {loading && <div className="activity-empty"><Coffee size={28} /><p>Cargando actividad…</p></div>}
         {!loading && error && <div className="activity-empty"><p>{error}</p></div>}
         {!loading && !error && posts.length === 0 && <div className="activity-empty"><ImageIcon size={30} /><p>Aún no hay publicaciones en la comunidad.</p></div>}
-        {!loading && !error && posts.length > 0 && (isDesktop ? (
-          <>
-            <div className="activity-feed-column">{posts.filter((_, index) => index % 2 === 0).map(renderPost)}</div>
-            <div className="activity-feed-column">{posts.filter((_, index) => index % 2 === 1).map(renderPost)}</div>
-          </>
-        ) : posts.map(renderPost))}
+        {!loading && !error && posts.length > 0 && posts.map(renderPost)}
       </div>
       {commentPost && (
         <div className="comments-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setCommentPost(null); }}>
@@ -604,30 +512,30 @@ export function ActivityFeed({ userIdFilter = null, userIdsFilter = null, kindFi
         </div>
       )}
       {editingPost && (
-        <div className="activity-edit-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeEditPost(); }}>
+        <div className="activity-edit-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !savingEdit) closeEditPost(); }}>
           <section className="activity-edit-sheet" role="dialog" aria-modal="true" aria-labelledby="activity-edit-title">
             <header>
               <div><small>PUBLICACIÓN</small><h2 id="activity-edit-title">Editar publicación</h2></div>
-              <button type="button" onClick={closeEditPost} aria-label="Cerrar editor"><X size={19} /></button>
+              <button type="button" onClick={closeEditPost} disabled={savingEdit} aria-label="Cerrar editor"><X size={19} /></button>
             </header>
-            <textarea value={editText} onChange={(event) => setEditText(event.target.value)} maxLength={1000} placeholder="Escribe algo sobre tu visita…" autoFocus />
-            <div className="activity-edit-section-label"><span>Fotos</span><small>{editImages.length + editFiles.length}/10</small></div>
-            {(editImages.length > 0 || editPreviews.length > 0) ? (
-              <div className="activity-edit-images">
-                {editImages.map((image) => (
-                  <div className="activity-edit-image" key={image.id}>
-                    <img src={image.public_url} alt="" />
-                    <button type="button" onClick={() => removeEditImage(image.id)} aria-label="Eliminar esta foto"><X size={14} /></button>
-                  </div>
-                ))}
-                {editPreviews.map((preview) => <div className="activity-edit-image" key={preview}><img src={preview} alt="Nueva foto" /><span className="activity-edit-new-badge">Nueva</span></div>)}
-              </div>
-            ) : <p className="activity-edit-empty">No hay fotos en esta publicación.</p>}
-            <input ref={editFileInputRef} hidden type="file" accept="image/*" multiple onChange={chooseEditPhotos} />
-            <button type="button" className="activity-edit-add-photo" onClick={() => editFileInputRef.current?.click()} disabled={editImages.length + editFiles.length >= 10}><ImagePlus size={17} /> Agregar fotos</button>
+            <fieldset className="activity-edit-fields" disabled={savingEdit}>
+              <label>Cafetería<select aria-label="Cafetería de la publicación" value={editCafeId} onChange={(event) => setEditCafeId(event.target.value)}><option value="">Sin cafetería relacionada</option>{editingPost.cafe_id && !cafes.some((item) => item.id === editingPost.cafe_id) && <option value={editingPost.cafe_id}>{editingPost.cafe?.nombre || 'Cafetería anterior'}</option>}{cafes.map((cafe) => <option key={cafe.id} value={cafe.id}>{cafe.nombre}</option>)}</select></label>
+              <label>Fecha<input type="date" aria-label="Fecha de la publicación" value={editDate} onChange={(event) => setEditDate(event.target.value)} /></label>
+              {editCafeId && <div className="activity-edit-review-options"><div><span>Calificación</span><HalfStarRating value={editRating} onChange={setEditRating} size={22} readOnly={savingEdit} /></div><button type="button" onClick={() => setEditFavorite((value) => !value)} aria-pressed={editFavorite} aria-label="Favorita"><Heart size={28} fill={editFavorite ? 'currentColor' : 'none'} /></button></div>}
+              <label>Texto<textarea aria-label="Texto de la publicación" value={editText} onChange={(event) => setEditText(event.target.value)} maxLength={1000} placeholder="Escribe algo sobre tu visita…" /></label>
+              {editCafeId && <button className="activity-edit-visit" type="button" onClick={() => setEditRevisit((value) => !value)} aria-pressed={editRevisit}>{editRevisit ? 'Ya había ido antes' : 'Primera visita'}</button>}
+              <div className="activity-edit-section-label"><span>Fotos</span><small>{editPhotos.length}/10</small></div>
+              {editPhotos.length ? <div className="activity-edit-images">{editPhotos.map((photo,index) => <div className="activity-edit-image" key={photo.id}>
+                <img src={photo.preview_url || photo.public_url} alt={`Foto ${index+1}`} />
+                <button type="button" onClick={() => removeEditImage(photo.id)} aria-label={`Eliminar foto ${index+1}`}><X size={14} /></button>
+                <div className="activity-edit-photo-order"><button type="button" onClick={() => moveEditImage(index,-1)} disabled={index===0} aria-label={`Mover foto ${index+1} antes`}><ChevronLeft size={15} /></button><button type="button" onClick={() => moveEditImage(index,1)} disabled={index===editPhotos.length-1} aria-label={`Mover foto ${index+1} después`}><ChevronRight size={15} /></button></div>
+              </div>)}</div> : <p className="activity-edit-empty">No hay fotos en esta publicación.</p>}
+              <input ref={editFileInputRef} hidden type="file" accept="image/*" multiple onChange={chooseEditPhotos} />
+              <button type="button" className="activity-edit-add-photo" onClick={() => editFileInputRef.current?.click()} disabled={editPhotos.length >= 10}><ImagePlus size={17} /> Agregar fotos</button>
+            </fieldset>
             {editFeedback && <p className="activity-edit-feedback" role="alert">{editFeedback}</p>}
             <footer>
-              <button type="button" className="activity-edit-cancel" onClick={closeEditPost}>Cancelar</button>
+              <button type="button" className="activity-edit-cancel" onClick={closeEditPost} disabled={savingEdit}>Cancelar</button>
               <button type="button" className="activity-edit-save" onClick={saveEditedPost} disabled={savingEdit}>{savingEdit ? 'Guardando…' : <><Check size={16} /> Guardar cambios</>}</button>
             </footer>
           </section>
@@ -697,7 +605,7 @@ function ActivityPage() {
 }
 
 function PostHeader({ avatar, name, date, canManage, menuOpen, onOpenMenu, onEdit, onDelete, onOpenProfile }) {
-  const formattedDate = new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short' }).format(new Date(date));
+  const formattedDate = new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short' }).format(new Date(String(date).length === 10 ? `${date}T12:00:00` : date));
   return (
     <div className="activity-post-header">
       <button type="button" className="activity-author" onClick={onOpenProfile}><img src={avatar} alt="" onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = fallbackAvatar(name); }} /><span>{name}</span></button>

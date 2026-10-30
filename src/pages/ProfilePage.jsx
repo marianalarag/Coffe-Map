@@ -26,6 +26,7 @@ import CoffeeBeanIcon, { CoffeeBeanRating } from '../components/CoffeeBeanIcon';
 import { formatRating } from '../utils/formatRating';
 import HalfStarRating from '../components/HalfStarRating';
 import ProfileCafeCard from '../components/ProfileCafeCard';
+import { getPersonalCafeRating } from '../utils/personalRating';
 
 
 const getOptimizedProfileImageUrl = (url) => url;
@@ -307,7 +308,6 @@ function ProfilePage() {
   const { user, userProfile, logout, updateCachedProfile } = useAuth();
   const {
     cafeById,
-    cafes,
     cafesLoaded,
     loadCafes,
     interactions,
@@ -402,7 +402,7 @@ function ProfilePage() {
     interactions
       .filter((interaction) => interaction.is_visited)
       .forEach((interaction) => {
-        const cafe = interaction.cafe || cafeById.get(interaction.cafe_id);
+        const cafe = cafeById.get(interaction.cafe_id) || interaction.cafe;
         if (!cafe) return;
         const visitedAt = interaction.visited_on || interaction.updated_at || '';
         const current = grouped.get(cafe.id) || { cafe, latestInteraction: null, latestAt: '', visitCount: 0 };
@@ -426,14 +426,14 @@ function ProfilePage() {
   const favoritePlaces = useMemo(() => {
     return interactions
       .filter((interaction) => interaction.is_favorite)
-      .map((interaction) => interaction.cafe || cafeById.get(interaction.cafe_id))
+      .map((interaction) => cafeById.get(interaction.cafe_id) || interaction.cafe)
       .filter(Boolean);
   }, [cafeById, interactions]);
 
   const visitedCafeStats = useMemo(() => {
     const grouped = new Map();
     interactions.filter((interaction) => interaction.is_visited).forEach((interaction) => {
-      const cafe = interaction.cafe || cafeById.get(interaction.cafe_id);
+      const cafe = cafeById.get(interaction.cafe_id) || interaction.cafe;
       if (!cafe) return;
       const current = grouped.get(cafe.id) || { cafe, count: 0, rating: 0, lastVisited: '', latestVisitId: null, reviewCount: 0 };
       current.count += 1;
@@ -469,8 +469,8 @@ function ProfilePage() {
   const deleteVisit = (visit) => deleteCafeInteraction(visit.id);
 
   const recentCafes = visitedPlaces.length > 0
-    ? visitedPlaces.map((visit) => visit.cafe).filter(Boolean).slice(0, 4)
-    : cafes.slice(0, 4);
+    ? visitedPlaces.filter((visit) => visit.cafe && !visit.cafe.deleted_at).slice(0, 4).map((visit) => ({ ...visit.cafe, rating: getPersonalCafeRating(interactions, visit.cafe.id) }))
+    : [];
 
   const persistProfileUpdates = async (updates) => {
     if (!user?.id) return;
