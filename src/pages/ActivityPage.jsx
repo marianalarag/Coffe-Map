@@ -10,6 +10,7 @@ import { formatRating } from '../utils/formatRating';
 import { useCoffeeData } from '../context/CoffeeDataContext';
 import HalfStarRating from '../components/HalfStarRating';
 import PostPhoto from '../components/PostPhoto';
+import MasonryFeed from '../components/MasonryFeed';
 import { editPublication } from '../utils/editPublication';
 import { compareActivityDates } from '../utils/activityDate';
 
@@ -486,12 +487,12 @@ export function ActivityFeed({ userIdFilter = null, userIdsFilter = null, kindFi
   return (
     <>
       {!compact && <header className="activity-header"><span>Comunidad Mérida</span><button type="button" onClick={loadPosts} className="activity-refresh">Actualizar</button></header>}
-      <div className={`activity-feed ${compact ? 'is-compact' : ''}`}>
+      <MasonryFeed className={compact ? 'is-compact' : ''}>
         {loading && <div className="activity-empty"><Coffee size={28} /><p>Cargando actividad…</p></div>}
         {!loading && error && <div className="activity-empty"><p>{error}</p></div>}
         {!loading && !error && posts.length === 0 && <div className="activity-empty"><ImageIcon size={30} /><p>Aún no hay publicaciones en la comunidad.</p></div>}
         {!loading && !error && posts.length > 0 && posts.map(renderPost)}
-      </div>
+      </MasonryFeed>
       {commentPost && (
         <div className="comments-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setCommentPost(null); }}>
           <section className="comments-sheet" role="dialog" aria-modal="true" aria-label="Comentarios">

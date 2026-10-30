@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, BookOpen, Check, Heart, ListPlus, MapPin, SlidersHorizontal } from 'lucide-react';
+import { ArrowLeft, BookOpen, Check, Heart, ListPlus, SlidersHorizontal } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import BottomNav from '../components/BottomNav';
 import PageLoading from '../components/PageLoading';
 import { useCoffeeData } from '../context/CoffeeDataContext';
 import HalfStarRating from '../components/HalfStarRating';
-import { getCafeNeighborhood } from '../utils/cafeAddress';
+import ProfileCafeCard from '../components/ProfileCafeCard';
 import CoffeeBeanIcon from '../components/CoffeeBeanIcon';
 import { formatRating } from '../utils/formatRating';
 
@@ -119,16 +119,7 @@ function CafeGrid({ entries, onOpen }) {
   return (
     <div className="collection-grid">
       {entries.map(({ cafe, interaction }) => (
-        <button className="collection-cafe-card" type="button" key={interaction.id} onClick={() => onOpen(cafe.id)}>
-          <div className="collection-cafe-image-wrap">
-            <img src={getImage(cafe)} alt={cafe.nombre} loading="lazy" decoding="async" />
-          </div>
-          <div className="collection-cafe-copy">
-            <strong>{cafe.nombre}</strong>
-            <span><CoffeeBeanIcon size={13} filled tone="dark" /> {formatRating(getRating(interaction, cafe))}</span>
-            <span title={cafe.address || 'Dirección no disponible'}><MapPin size={13} strokeWidth={2.4} /> {getCafeNeighborhood(cafe)}</span>
-          </div>
-        </button>
+        <ProfileCafeCard key={interaction.id} cafe={{ ...cafe, rating: Number(interaction.rating || 0) }} onClick={() => onOpen(cafe.id)} />
       ))}
     </div>
   );

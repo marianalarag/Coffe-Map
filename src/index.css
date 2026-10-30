@@ -1716,10 +1716,10 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 .cafe-gallery-section > header > span, .cafe-tiktok-section > header > span { color: rgba(232,221,197,.48); font-size: 10px; }
 .cafe-gallery-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; }
 .cafe-gallery-grid img { width: 100%; aspect-ratio: .82; object-fit: cover; border-radius: 5px; background: #382a21; }
-.cafe-photo-open { display: block; overflow: hidden; padding: 0; color: inherit; background: transparent; border: 0; cursor: zoom-in; }
+.cafe-photo-open { display: block; overflow: hidden; padding: 0; color: inherit; background: transparent; border: 0; cursor: pointer; }
 .cafe-cover-open { position: absolute; inset: 0; width: 100%; height: 100%; }
 .cafe-gallery-grid .cafe-photo-open { width: 100%; border-radius: 5px; }
-.cafe-expandable-photo { cursor: zoom-in; }
+.cafe-expandable-photo { cursor: pointer; }
 .cafe-image-viewer { position: fixed; inset: 0; z-index: 7000; display: flex; align-items: center; justify-content: center; padding: 60px 24px; background: rgba(8,7,6,.96); backdrop-filter: blur(12px); }
 .cafe-image-viewer > img { display: block; width: auto; height: auto; max-width: calc(100vw - 48px); max-height: calc(100dvh - 120px); object-fit: contain; border-radius: 8px; box-shadow: 0 16px 70px rgba(0,0,0,.4); }
 .cafe-image-viewer-close { position: absolute; top: max(14px, env(safe-area-inset-top, 0px)); right: 18px; z-index: 1; width: 42px; height: 42px; display: grid; place-items: center; color: white; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.16); border-radius: 50%; cursor: pointer; }
@@ -1832,7 +1832,7 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 .activity-image-carousel { min-width: 0; margin: 0; }
 .activity-image-track { border-radius: 13px; }
 .activity-image-slide { height: clamp(205px, 27vw, 410px); }
-.activity-image-open { width: 100%; height: 100%; display: block; overflow: hidden; padding: 0; background: transparent; border: 0; cursor: zoom-in; }
+.activity-image-open { width: 100%; height: 100%; display: block; overflow: hidden; padding: 0; background: transparent; border: 0; cursor: pointer; }
 .activity-image-slide img { transition: transform 240ms ease; }
 .activity-image-open:hover img { transform: scale(1.025); }
 .activity-post-copy { width: 100%; min-height: 0; max-height: none; align-self: stretch; display: block; box-sizing: border-box; overflow-y: auto; color: rgba(232,221,197,.8); font-size: clamp(12px, 1.2vw, 17px); line-height: 1.48; white-space: pre-wrap; }
@@ -1921,7 +1921,7 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 }
 
 .profile-cafe-card > img, .profile-visited-grid img { transform: none; }
-.profile-avatar-viewer img { width: min(82vw, 640px); max-height: 72dvh; object-fit: contain; }
+.profile-avatar-viewer img { width: min(82vw, 640px, 68dvh); height: min(82vw, 640px, 68dvh); object-fit: cover; object-position: center; }
 
 .profile-visited-grid > button {
   padding-bottom: 7px;
@@ -2080,7 +2080,7 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 .cafe-menu-gallery > header h2 { margin: 4px 0 0; color: var(--cafe-cream); font: 400 26px/1 "Lancelot", Georgia, serif; }
 .cafe-menu-gallery > header > span { color: rgba(232,221,197,.48); font-size: 10px; }
 .cafe-menu-gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
-.cafe-menu-gallery-grid button { min-width: 0; overflow: hidden; padding: 0; background: #1d1915; border: 0; border-radius: 12px; cursor: zoom-in; }
+.cafe-menu-gallery-grid button { min-width: 0; overflow: hidden; padding: 0; background: #1d1915; border: 0; border-radius: 12px; cursor: pointer; }
 .cafe-menu-gallery-grid img { width: 100%; max-height: 520px; display: block; object-fit: contain; }
 @media (max-width: 640px) {
   .cafe-menu-gallery { margin-bottom: 18px; padding: 14px; border-radius: 20px; }
@@ -2108,7 +2108,7 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 .profile-visit-ranking-main:focus-visible { outline: 2px solid #d4bd96; outline-offset: 3px; border-radius: 8px; }
 
 /* Portrait cards in the profile, with all four recent cafes visible on phones. */
-.profile-place-card { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 7px; padding: 0; color: #eee5d2; text-align: left; background: transparent; border: 0; border-radius: 14px; cursor: pointer; }
+.profile-place-card { min-width: 0; align-self: start; display: grid; grid-template-columns: minmax(0, 1fr); gap: 7px; padding: 0; color: #eee5d2; text-align: left; background: transparent; border: 0; border-radius: 14px; cursor: pointer; }
 .profile-place-media { position: relative; display: block; aspect-ratio: 3 / 4; overflow: hidden; width: 100%; background: #342a22; border-radius: 14px; }
 .profile-place-media > img { width: 100%; height: 100%; display: block; object-fit: cover; }
 .profile-place-media::after { content: ''; position: absolute; inset: 35% 0 0; background: linear-gradient(transparent, rgba(16,12,9,.85)); pointer-events: none; }
@@ -2119,6 +2119,17 @@ html.is-app-mode .screen-transition-enter { animation-name: coffee-screen-enter-
 .profile-place-location > svg { flex: 0 0 13px; margin-top: 1px; }
 .profile-place-location > span { min-width: 0; overflow-wrap: anywhere; }
 .profile-place-card:focus-visible { outline: 2px solid #e6dac1; outline-offset: 4px; }
+.profile-place-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 12px; }
+.home-cafe-row > .profile-place-card { flex: 0 0 132px; }
+.activity-feed.is-masonry { position: relative; display: flex; flex-direction: column; }
+@media (min-width: 640px) {
+  .home-cafe-row > .profile-place-card { width: 100%; }
+  .profile-place-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (min-width: 900px) {
+  .activity-feed.is-masonry, .profile-activity-panel .activity-feed.is-masonry { display: block; }
+  .profile-place-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
 @media (max-width: 639px) {
   .profile-place-card { gap: 5px; }
   .profile-place-media { border-radius: 8px; }

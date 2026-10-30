@@ -7,8 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { useCoffeeData } from '../context/CoffeeDataContext';
 import { getCafeCoordinates } from '../utils/cafeLocation';
 import { getCafeFullAddress, getCafeNeighborhood } from '../utils/cafeAddress';
-import CoffeeBeanIcon from '../components/CoffeeBeanIcon';
-import { formatRating } from '../utils/formatRating';
+import ProfileCafeCard from '../components/ProfileCafeCard';
 
 const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=1200&q=85';
 const MAP_TARGET_STORAGE_KEY = 'coffee-map:focus-cafe';
@@ -101,22 +100,7 @@ const getPersonalizedCafe = ({ cafes, interactions, cafeById, userId }) => {
 };
 
 function CafeCard({ cafe, interaction, onOpen }) {
-  const rating = Number(interaction?.rating || cafe?.rating || 4.5);
-
-  return (
-    <button type="button" className="home-cafe-card" onClick={() => onOpen(cafe.id)}>
-      <div className="home-cafe-image-wrap">
-        <img src={getCafeImage(cafe)} alt={cafe.nombre} className="home-cafe-image" loading="lazy" decoding="async" />
-      </div>
-      <div className="home-cafe-copy">
-        <strong>{cafe.nombre}</strong>
-        <div className="home-cafe-details">
-          <span><CoffeeBeanIcon size={12} filled tone="dark" /> {formatRating(rating)}</span>
-          <span className="home-cafe-location" title={getCafeAddress(cafe)}><MapPin size={12} strokeWidth={2.4} /><span>{getCompactAddress(cafe)}</span></span>
-        </div>
-      </div>
-    </button>
-  );
+  return <ProfileCafeCard cafe={{ ...cafe, rating: Number(interaction?.rating || cafe?.rating || 0) }} onClick={() => onOpen(cafe.id)} />;
 }
 
 function HomePage() {

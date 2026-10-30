@@ -6,7 +6,6 @@ import {
   Coffee,
   Loader2,
   LogOut,
-  MapPin,
   Plus,
   Settings,
   Share2,
@@ -21,11 +20,11 @@ import { useCoffeeData } from '../context/CoffeeDataContext';
 import PageLoading from '../components/PageLoading';
 import { supabase } from '../supabase';
 import { ActivityFeed } from './ActivityPage';
-import { getCafeNeighborhood } from '../utils/cafeAddress';
 import CoffeeBeanIcon, { CoffeeBeanRating } from '../components/CoffeeBeanIcon';
 import { formatRating } from '../utils/formatRating';
 import HalfStarRating from '../components/HalfStarRating';
 import ProfileCafeCard from '../components/ProfileCafeCard';
+import ProfileAvatar from '../components/ProfileAvatar';
 import { getPersonalCafeRating } from '../utils/personalRating';
 
 
@@ -725,7 +724,7 @@ function ProfilePage() {
               }}
             >
               <div className="profile-avatar">
-                <img
+                <ProfileAvatar
                   src={avatarDisplayUrl}
                   alt={profile.username}
                   width="320"
@@ -833,13 +832,9 @@ function ProfilePage() {
         {activeTab === 'visited' && (
           <section className="profile-tab-panel">
             <div className="profile-tab-heading"><div><small>TUS LUGARES</small><h2>Visitadas</h2></div><span>{visitedPlaces.length}</span></div>
-            <div className="profile-visited-grid">
-              {visitedPlaces.map(({ cafe, rating: visitRating, id: visitId }) => (
-                <button type="button" key={visitId} onClick={() => navigate(`/cafe/${cafe.id}`)}>
-                  {cafe.imageUrl ? <img src={cafe.imageUrl} alt={cafe.nombre} /> : <div className="profile-cafe-placeholder"><Coffee size={26} /></div>}
-                  <strong>{cafe.nombre}</strong>
-                  <span><CoffeeBeanIcon size={14} filled tone="dark" /> {formatRating(visitRating || cafe.rating || 0)} <b><MapPin size={10} /> {getCafeNeighborhood(cafe)}</b></span>
-                </button>
+            <div className="profile-place-grid">
+              {visitedPlaces.map(({ cafe, id: visitId }) => (
+                <ProfileCafeCard key={visitId} cafe={{ ...cafe, rating: getPersonalCafeRating(interactions, cafe.id) }} onClick={() => navigate(`/cafe/${cafe.id}`)} />
               ))}
             </div>
             {visitedPlaces.length === 0 && <div className="profile-tab-empty"><Coffee size={30} /><p>Aún no has marcado cafeterías como visitadas.</p></div>}
@@ -864,8 +859,9 @@ function ProfilePage() {
         <div className="profile-avatar-viewer" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowAvatarViewer(false); }}>
           <section role="dialog" aria-modal="true" aria-label="Foto de perfil">
             <button type="button" onClick={() => setShowAvatarViewer(false)} aria-label="Cerrar"><X size={20} /></button>
-            <img
+            <ProfileAvatar
               src={avatarViewerUrl}
+              size={1024}
               alt={profile.username}
               width="900"
               height="900"
