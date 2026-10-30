@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Eye, FileText, Heart, ImagePlus, MapPin, RefreshCw, Trash2, X } from 'lucide-react';
+import { CalendarDays, ChevronLeft, ChevronRight, Coffee, Eye, FileText, Heart, ImagePlus, MapPin, RefreshCw, Trash2, X } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import BottomNav from '../components/BottomNav';
 import HalfStarRating from '../components/HalfStarRating';
-import CoffeeBeanIcon from '../components/CoffeeBeanIcon';
+import { formatRating } from '../utils/formatRating';
 import { useAuth } from '../context/AuthContext';
 import { useCoffeeData } from '../context/CoffeeDataContext';
 import { supabase } from '../supabase';
@@ -43,6 +43,7 @@ function NewPostPage() {
   const [text, setText] = useState('');
   const [cafeId, setCafeId] = useState(requestedCafeId);
   const [rating, setRating] = useState(0);
+  const [visitedOn, setVisitedOn] = useState(getLocalDate);
   const [visitMode, setVisitMode] = useState('first');
   const [isFavorite, setIsFavorite] = useState(false);
   const [photos, setPhotos] = useState([]);
@@ -71,6 +72,7 @@ function NewPostPage() {
         setText(savedDraft.text || '');
         setCafeId(requestedCafeId || savedDraft.cafeId || '');
         setRating(Number(savedDraft.rating) || 0);
+        setVisitedOn(savedDraft.visitedOn || getLocalDate());
         setIsFavorite(Boolean(savedDraft.isFavorite));
         setVisitMode(savedDraft.visitMode || 'first');
       } else if (requestedCafeId) {
@@ -100,6 +102,7 @@ function NewPostPage() {
     setText('');
     setCafeId(requestedCafeId);
     setRating(0);
+    setVisitedOn(getLocalDate());
     setVisitMode('first');
     setIsFavorite(false);
     setPhotos([]);
@@ -134,11 +137,11 @@ function NewPostPage() {
       setDraftSaved(false);
       return;
     }
-    const draft = { text, cafeId, rating, isFavorite, visitMode, savedAt: Date.now() };
+    const draft = { text, cafeId, rating, visitedOn, isFavorite, visitMode, savedAt: Date.now() };
     draftRef.current = draft;
     window.localStorage.setItem(storageKey, JSON.stringify(draft));
     setDraftSaved(true);
-  }, [cafeId, draftMode, isFavorite, photos.length, rating, text, user?.id, visitMode]);
+  }, [cafeId, draftMode, isFavorite, photos.length, rating, text, user?.id, visitMode, visitedOn]);
 
   const storedDraft = readStoredDraft(user?.id);
   const storedDraftCafe = storedDraft?.cafeId ? cafes.find((cafe) => cafe.id === storedDraft.cafeId) : null;
@@ -153,6 +156,7 @@ function NewPostPage() {
       text,
       cafeId,
       rating,
+      visitedOn,
       isFavorite,
       visitMode,
       savedAt: Date.now(),
@@ -254,6 +258,10 @@ function NewPostPage() {
   const publishPost = async () => {
     const content = text.trim();
     if ((!content && photos.length === 0) || !user || submitting) return;
+    if (cafeId && (!visitedOn || visitedOn > getLocalDate())) {
+      setFeedback({ type: 'error', message: 'Elige la fecha de la visita, hasta el día de hoy.' });
+      return;
+    }
     setSubmitting(true);
     setFeedback({ type: '', message: '' });
     let createdPost = null;
@@ -261,13 +269,12 @@ function NewPostPage() {
     try {
       let interaction = null;
       if (cafeId) {
-        const currentInteraction = interactionsByCafeId.get(cafeId);
         interaction = await saveCafeInteraction(cafeId, {
           is_visited: true,
-          is_favorite: isFavorite || currentInteraction?.is_favorite || false,
+          is_favorite: isFavorite,
           rating: rating || null,
           review_text: content,
-          visited_on: getLocalDate(),
+          visited_on: visitedOn,
         }, { createNewVisit: visitMode === 'returning' });
       }
 
@@ -278,7 +285,7 @@ function NewPostPage() {
         content,
         kind: cafeId ? 'review' : 'post',
         rating: cafeId && rating ? rating : null,
-        visited_on: interaction?.visited_on || getLocalDate(),
+        visited_on: interaction?.visited_on || (cafeId ? visitedOn : getLocalDate()),
         interaction_id: interactionId,
         status: 'published',
         updated_at: new Date().toISOString(),
@@ -334,6 +341,7 @@ function NewPostPage() {
       setText('');
       setCafeId('');
       setRating(0);
+      setVisitedOn(getLocalDate());
       setVisitMode('first');
       setIsFavorite(false);
       clearPhotos();
@@ -353,12 +361,44 @@ function NewPostPage() {
   return (
     <main className="social-page new-post-page">
       <div className="social-shell new-post-shell">
-        <header className="social-topbar"><button type="button" aria-label="Cerrar" onClick={requestCloseComposer}><X size={19} /></button><button type="button" className="new-post-drafts-link" onClick={() => setShowDraftsPanel(true)}><FileText size={15} /> Borradores</button><button type="button" className="social-post-button" disabled={(!text.trim() && photos.length === 0) || submitting} onClick={publishPost}>{submitting ? 'Subiendo…' : 'Publicar'}</button></header>
-        {feedback.message && <p className={`post-feedback post-feedback-${feedback.type}`}>{feedback.message}</p>}
+        <header className="social-topbar new-post-topbar">
+          <button type="button" className="new-post-cancel" onClick={requestCloseComposer}>Cancelar</button>
+          <strong>{selectedCafe ? 'Registrar visita' : 'Nueva publicación'}</strong>
+          <button type="button" className="social-post-button" disabled={(!text.trim() && photos.length === 0) || submitting} onClick={publishPost}>{submitting ? 'Subiendo…' : 'Publicar'}</button>
+        </header>
+        {feedback.message && <p className={`post-feedback post-feedback-${feedback.type}`} role="status">{feedback.message}</p>}
         <section className="new-post-composer">
-          <div className="new-post-actions"><button type="button" onClick={requestCloseComposer}>Cerrar</button><span>{draftSaved ? 'Borrador guardado' : 'Comunidad Mérida'}</span></div>
-          <div className="new-post-author"><img src={avatar} alt="" /><strong>{username}</strong></div>
-          <textarea value={text} onChange={(event) => setText(event.target.value)} placeholder="¿Qué cafetería visitaste hoy?" maxLength={1000} autoFocus />
+          {selectedCafe ? <div className="new-post-cafe-summary">
+            <button type="button" className="new-post-selected-cafe" onClick={() => navigate('/search?selectCafe=1&returnTo=%2Fnew-post')} aria-label={`Cambiar cafetería: ${selectedCafe.nombre}`}>
+              <span className="new-post-cafe-thumbnail">{selectedCafe.imageUrl ? <img src={selectedCafe.imageUrl} alt="" /> : <Coffee size={28} />}</span>
+              <span><small>CAFETERÍA</small><strong>{selectedCafe.nombre}</strong><em>Cambiar cafetería</em></span>
+            </button>
+            <button type="button" className="new-post-cafe-remove" onClick={() => setCafeId('')} aria-label="Quitar cafetería relacionada"><X size={17} /></button>
+          </div> : <>
+            <div className="new-post-author"><img src={avatar} alt="" /><strong>{username}</strong></div>
+            <div className="new-post-cafe-picker"><MapPin size={16} /><button type="button" onClick={() => navigate('/search?selectCafe=1&returnTo=%2Fnew-post')}>Elegir una cafetería</button></div>
+          </>}
+          {selectedCafe && <>
+            <label className="new-post-date-row"><span><CalendarDays size={17} /> Fecha de visita</span><input type="date" aria-label="Fecha de visita" value={visitedOn} max={getLocalDate()} onChange={(event) => setVisitedOn(event.target.value)} disabled={submitting} /></label>
+            <div className="new-post-review-options">
+              <div className="new-post-rating"><span>Calificación</span><div className="new-post-rating-input"><HalfStarRating value={rating} onChange={setRating} size={22} /><output>{rating > 0 ? formatRating(rating) : '—'}</output></div></div>
+              <button type="button" className={`new-post-favorite ${isFavorite ? 'is-active' : ''}`} aria-label={isFavorite ? 'Quitar de favoritas' : 'Marcar como favorita'} aria-pressed={isFavorite} onClick={() => setIsFavorite((current) => !current)} disabled={submitting}><span>Favorita</span><Heart size={32} fill={isFavorite ? 'currentColor' : 'none'} /></button>
+            </div>
+          </>}
+          <label className="new-post-review-text"><span>{selectedCafe ? 'Tu reseña' : 'Tu publicación'}</span><textarea value={text} onChange={(event) => setText(event.target.value)} placeholder={selectedCafe ? 'Escribe tu reseña…' : '¿Qué cafetería visitaste hoy?'} maxLength={1000} aria-label={selectedCafe ? 'Tu reseña' : 'Tu publicación'} /><small>{text.length}/1000</small></label>
+          {selectedCafe && (
+            <button
+              type="button"
+              className={`new-post-visit-button ${visitMode === 'returning' ? 'is-returning' : 'is-first'}`}
+              onClick={toggleVisitMode}
+              aria-label="Cambiar tipo de visita"
+              aria-pressed={visitMode === 'returning'}
+            >
+              {visitMode === 'returning' ? <RefreshCw size={22} /> : <Eye size={22} />}
+              <span><strong>{visitMode === 'returning' ? 'Ya fuiste antes' : 'Primera visita'}</strong><small>Toca para cambiar este estado antes de publicar.</small></span>
+            </button>
+          )}
+          <div className="new-post-toolbar"><button type="button" className="new-post-add-photos" onClick={() => fileInputRef.current?.click()}><ImagePlus size={20} /><span>Agregar fotos{photos.length > 0 ? ` (${photos.length}/6)` : ''}</span></button><button type="button" className="new-post-drafts-link" onClick={() => setShowDraftsPanel(true)}><FileText size={15} /> Borradores</button></div>
           {photoPreviews.length > 0 && <div className="new-post-photo-preview new-post-photo-gallery">
             {photoPreviews.map((preview, index) => (
               <div className="new-post-photo-item" key={preview}>
@@ -373,26 +413,7 @@ function NewPostPage() {
             ))}
             <button type="button" className="new-post-photo-clear" onClick={clearPhotos} aria-label="Quitar fotos"><X size={16} /></button>
           </div>}
-          <div className="new-post-cafe-picker"><MapPin size={16} /><button type="button" onClick={() => navigate('/search?selectCafe=1&returnTo=%2Fnew-post')}>{selectedCafe?.nombre || 'Relacionar una cafetería (opcional)'}</button>{selectedCafe && <button type="button" className="new-post-cafe-clear" onClick={() => setCafeId('')} aria-label="Quitar cafetería relacionada"><X size={15} /></button>}</div>
-          {selectedCafe && (
-            <div className="new-post-review-options">
-              <label className="new-post-rating"><CoffeeBeanIcon size={17} filled tone="dark" /><span>Calificación</span><HalfStarRating value={rating} onChange={setRating} size={23} /></label>
-              <label className="new-post-favorite"><input type="checkbox" checked={isFavorite} onChange={(event) => setIsFavorite(event.target.checked)} /><Heart size={18} fill={isFavorite ? 'currentColor' : 'none'} /> Agregar a favoritos</label>
-            </div>
-          )}
-          {selectedCafe && (
-            <button
-              type="button"
-              className={`new-post-visit-button ${visitMode === 'returning' ? 'is-returning' : 'is-first'}`}
-              onClick={toggleVisitMode}
-              aria-label="Cambiar tipo de visita"
-              aria-pressed={visitMode === 'returning'}
-            >
-              {visitMode === 'returning' ? <RefreshCw size={22} /> : <Eye size={22} />}
-              <span><strong>{visitMode === 'returning' ? 'Ya fuiste antes' : 'Primera visita'}</strong><small>Toca para cambiar este estado antes de publicar.</small></span>
-            </button>
-          )}
-          <div className="new-post-toolbar"><button type="button" aria-label="Elegir imágenes de la galería" onClick={() => fileInputRef.current?.click()}><ImagePlus size={19} /></button><span>{text.length}/1000</span></div>
+          {draftSaved && <p className="new-post-draft-note">Borrador guardado</p>}
           <input ref={fileInputRef} hidden type="file" accept="image/*" multiple onChange={choosePhotos} />
         </section>
         {showCloseDialog && (

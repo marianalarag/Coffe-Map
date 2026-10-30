@@ -112,7 +112,7 @@ function CafeCard({ cafe, interaction, onOpen }) {
         <strong>{cafe.nombre}</strong>
         <div className="home-cafe-details">
           <span><CoffeeBeanIcon size={12} filled tone="dark" /> {formatRating(rating)}</span>
-          <span title={getCafeAddress(cafe)}><MapPin size={14} strokeWidth={2.4} /> {getCompactAddress(cafe)}</span>
+          <span className="home-cafe-location" title={getCafeAddress(cafe)}><MapPin size={12} strokeWidth={2.4} /><span>{getCompactAddress(cafe)}</span></span>
         </div>
       </div>
     </button>
