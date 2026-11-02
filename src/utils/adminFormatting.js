@@ -1,0 +1,2 @@
+export const adminDate = (value) => value ? new Date(String(value).length === 10 ? `${value}T12:00:00` : value).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Sin fecha';
+export const statusLabel = (status) => ({ active: 'Activa', closed: 'Inactiva', needs_review: 'Pendiente', published: 'Publicada', hidden: 'Oculta', pending: 'Pendiente', approved: 'Aprobada', rejected: 'Rechazada' }[status] || status);

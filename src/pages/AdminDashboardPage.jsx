@@ -9,6 +9,11 @@ import { geocodeCafeLocation, isGoogleMapsLink, normalizeGoogleMapsLink } from '
 import { sendCafeSubmission } from '../utils/cafeSubmissions';
 import { toCafeDbRow } from '../utils/cafeDatabase';
 import AdminMenuImageList from '../components/AdminMenuImageList';
+import { AdminOverview, AdminCafeOverview, AdminRequests, AdminPhotos, AdminPosts, AdminUsers } from '../components/AdminModules';
+import { statusLabel } from '../utils/adminFormatting';
+import { readAdminDraft, writeAdminDraft } from '../utils/adminDraft';
+import CafeMapPreview from '../components/AdminMapPreview';
+import ConfirmDialog from '../components/ConfirmDialog';
 import DesktopSidebar from '../components/DesktopSidebar';
 
 const MERIDA_BBOX = { south: 20.86, west: -89.75, north: 21.08, east: -89.52 };
@@ -22,7 +27,6 @@ const OVERTURE_CAFE_CATEGORIES = new Set(['cafe', 'coffee_shop', 'coffee', 'tea_
 const OPEN_IMAGE_CACHE = new Map();
 const OPENVERSE_API_URL = 'https://api.openverse.org/v1/images/';
 const OPENVERSE_LICENSES = new Set(['by', 'by-sa', 'cc0', 'pdm']);
-const ADMIN_CAFE_PAGE_SIZE = 24;
 const ADMIN_TAB_STORAGE_KEY = 'coffee-map:admin-tab';
 const TABS = [
   { id: 'overview', label: 'Resumen', icon: <BarChart3 size={17} /> },
@@ -477,7 +481,7 @@ const BUILDER_OPTIONS = [
   { type: 'chart', label: 'Gráfica', icon: <BarChart3 size={15} />, description: 'Indicadores del panel' },
 ];
 
-function AdminCustomBlock({ block, metrics, selected, onSelect, onRemove, onDragStart, onDragOver, onDrop }) {
+function AdminCustomBlock({ block, metrics, readOnly = false, selected, onSelect, onRemove, onDragStart, onDragOver, onDrop }) {
   const option = BUILDER_OPTIONS.find((item) => item.type === block.type) || BUILDER_OPTIONS[0];
   const previewStyle = {
     color: block.color || '#eee5d2',
@@ -488,12 +492,12 @@ function AdminCustomBlock({ block, metrics, selected, onSelect, onRemove, onDrag
     fontSize: `${Math.max(10, Number(block.fontSize) || 16)}px`,
   };
   return (
-    <article className={`admin-custom-block ${selected ? 'is-selected' : ''}`} draggable onClick={onSelect} onDragStart={onDragStart} onDragOver={(event) => { event.preventDefault(); onDragOver?.(); }} onDrop={onDrop}>
-      <header>
+    <article className={`admin-custom-block ${selected ? 'is-selected' : ''}`} draggable={!readOnly} onClick={readOnly ? undefined : onSelect} onDragStart={onDragStart} onDragOver={(event) => { event.preventDefault(); onDragOver?.(); }} onDrop={onDrop}>
+      {!readOnly && <header>
         <span className="admin-block-handle" title="Arrastrar bloque"><GripVertical size={15} /></span>
         <span className="admin-custom-block-kind">{option.icon}{option.label}</span>
         <button type="button" className="admin-custom-block-remove" onClick={(event) => { event.stopPropagation(); onRemove(); }} aria-label="Eliminar bloque" title="Eliminar bloque"><X size={14} /></button>
-      </header>
+      </header>}
       <div className={`admin-custom-block-preview is-${block.type}`} style={previewStyle}>
         {block.type === 'heading' && <h2>{block.content || 'Título del bloque'}</h2>}
         {block.type === 'text' && <p>{block.content || 'Escribe aquí una descripción para tu panel.'}</p>}
@@ -559,7 +563,8 @@ function AdminSectionBuilder({ section, blocks, metrics, menuOpen, onToggleMenu,
     </section>
   );
 }
-function AdminCafeCard({ cafe, tiktoks = [], saving = false, menuSaving = false, onSave: persistCafe, onUpload, onDeleteCover, onMenuUpload, onDeleteMenuImage, onMoveMenuImage, onFindImage, onAddTikTok, onDeleteTikTok, onDelete }) {
+function AdminCafeCard({ cafe, tiktoks = [], busy = false, saving = false, menuSaving = false, onSave: persistCafe, onUpload, onDeleteCover, onMenuUpload, onDeleteMenuImage, onMoveMenuImage, onFindImage, onAddTikTok, onDeleteTikTok, onMoveTikTok, gallery = [], onGalleryAction, onDuplicate, onBack, onDelete }) {
+  const [recoveredDraft] = useState(() => readAdminDraft(cafe.id));
   const [draft, setDraft] = useState(() => ({
     nombre: cafe.nombre || '',
     address: cafe.address || '',
@@ -568,36 +573,62 @@ function AdminCafeCard({ cafe, tiktoks = [], saving = false, menuSaving = false,
     category: cafe.category || 'cafeteria',
     image_url: cafe.image_url || '',
     instagram_url: cafe.instagram_url || '',
+    status: cafe.status,
+    ...recoveredDraft?.draft,
   }));
   const menuImages = parseCafeMenuImages(cafe.menu_url);
-  const [dirtyFields, setDirtyFields] = useState(() => new Set());
-  const [scheduleDraft, setScheduleDraft] = useState(() => parseAdminHoursWithSplits(cafe.opening_hours));
-  const [hoursDirty, setHoursDirty] = useState(false);
+  const [dirtyFields, setDirtyFields] = useState(() => new Set(recoveredDraft?.dirtyFields || []));
+  const [scheduleDraft, setScheduleDraft] = useState(() => recoveredDraft?.schedule || parseAdminHoursWithSplits(cafe.opening_hours));
+  const [hoursDirty, setHoursDirty] = useState(Boolean(recoveredDraft?.hoursDirty));
   const schedule = hoursDirty ? scheduleDraft : parseAdminHoursWithSplits(cafe.opening_hours);
   const setSchedule = (update) => setScheduleDraft(typeof update === 'function' ? update(schedule) : update);
   const [bulkHours, setBulkHours] = useState({ from: '08:00', to: '18:00' });
   const [bulkSecondHours, setBulkSecondHours] = useState({ from: '16:00', to: '20:00' });
-  const editorRef = useRef(null);
-  const goToSection = (name) => {
-    const section = editorRef.current?.querySelector(`[data-editor-section="${name}"]`);
-    if (section?.tagName === 'DETAILS') section.open = true;
-    section?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
+  const [editorSection, setEditorSection] = useState('information');
+  const [saveState, setSaveState] = useState(recoveredDraft ? 'dirty' : 'saved');
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const revisionRef = useRef(0);
+  const lastAttemptRef = useRef('');
+  const goToSection = (name) => setEditorSection(name);
   const applySecondHours = () => {
-    setHoursDirty(true);
+    revisionRef.current += 1; setSaveState('dirty'); setHoursDirty(true);
     setSchedule((current) => Object.fromEntries(ADMIN_DAYS.map((day) => [day.key, current[day.key].open && current[day.key].split ? { ...current[day.key], from2: bulkSecondHours.from, to2: bulkSecondHours.to } : current[day.key]])));
   };
-  const [locationDirty, setLocationDirty] = useState(false);
-  const [locationField, setLocationField] = useState(null);
+  const [locationDirty, setLocationDirty] = useState(Boolean(recoveredDraft?.locationDirty));
+  const [locationField, setLocationField] = useState(recoveredDraft?.locationField || null);
+  const pendingSaveRef = useRef(null);
+  useEffect(() => {
+    writeAdminDraft(cafe.id, dirtyFields.size || hoursDirty ? { draft, dirtyFields: [...dirtyFields], schedule, hoursDirty, locationDirty, locationField } : null);
+  }, [cafe.id, dirtyFields, draft, schedule, hoursDirty, locationDirty, locationField]);
 
   const fieldValue = (field) => (dirtyFields.has(field) ? draft[field] : (cafe[field] || ''));
-  const onSave = async (_cafe, options) => {
+  const onSave = useCallback(async () => {
+    const revision = revisionRef.current;
     const editedFields = Object.fromEntries([...dirtyFields].map((field) => [field, draft[field]]));
-    const saved = await persistCafe({ ...cafe, ...editedFields }, { ...options, dirtyFields: [...dirtyFields], hoursDirty });
-    if (saved) { setDirtyFields(new Set()); setHoursDirty(false); setLocationDirty(false); }
+    setSaveState('saving');
+    const saved = await persistCafe({ ...cafe, ...editedFields }, { locationDirty, locationField, opening_hours: serializeAdminHours(schedule), dirtyFields: [...dirtyFields], hoursDirty });
+    if (revision === revisionRef.current) {
+      setSaveState(saved ? 'saved' : 'error');
+      if (saved) { setDirtyFields(new Set()); setHoursDirty(false); setLocationDirty(false); }
+    }
+    return saved;
+  }, [cafe, dirtyFields, draft, hoursDirty, locationDirty, locationField, persistCafe, schedule]);
+  const changeKey = JSON.stringify({ draft: Object.fromEntries([...dirtyFields].map((field) => [field, draft[field]])), hours: hoursDirty ? schedule : null });
+  const duplicateCurrent = async () => {
+    const current = { ...cafe, ...Object.fromEntries([...dirtyFields].map((field) => [field, draft[field]])), ...(hoursDirty ? { opening_hours: serializeAdminHours(schedule), opening_hours_source: 'admin' } : {}) };
+    if ((dirtyFields.size || hoursDirty) && !(await onSave())) return;
+    await onDuplicate(current);
   };
+  useEffect(() => {
+    if ((!dirtyFields.size && !hoursDirty) || saving || busy || changeKey === lastAttemptRef.current) return;
+    const timer = window.setTimeout(() => { lastAttemptRef.current = changeKey; onSave(); }, 1400);
+    return () => window.clearTimeout(timer);
+  }, [changeKey, dirtyFields.size, hoursDirty, saving, busy, onSave]);
+  useEffect(() => { pendingSaveRef.current = (dirtyFields.size || hoursDirty) && !saving ? onSave : null; }, [dirtyFields.size, hoursDirty, saving, onSave]);
+  useEffect(() => () => { pendingSaveRef.current?.(); }, []);
 
   const changeField = (field, value) => {
+    revisionRef.current += 1; setSaveState('dirty');
     setDraft((current) => ({ ...current, [field]: value }));
     setDirtyFields((current) => new Set(current).add(field));
     if (field === 'address' || field === 'link') {
@@ -611,9 +642,9 @@ function AdminCafeCard({ cafe, tiktoks = [], saving = false, menuSaving = false,
     return <Component value={fieldValue(field)} placeholder={placeholder} onChange={(event) => changeField(field, event.target.value)} />;
   };
 
-  const updateDay = (key, patch) => { setHoursDirty(true); setSchedule((current) => ({ ...current, [key]: { ...current[key], ...patch } })); };
+  const updateDay = (key, patch) => { revisionRef.current += 1; setSaveState('dirty'); setHoursDirty(true); setSchedule((current) => ({ ...current, [key]: { ...current[key], ...patch } })); };
   const applySchedulePreset = (dayKeys) => {
-    setHoursDirty(true);
+    revisionRef.current += 1; setSaveState('dirty'); setHoursDirty(true);
     const selectedDays = new Set(dayKeys);
     setSchedule((current) => Object.fromEntries(ADMIN_DAYS.map((day) => [
       day.key,
@@ -622,23 +653,17 @@ function AdminCafeCard({ cafe, tiktoks = [], saving = false, menuSaving = false,
         : { ...current[day.key], open: false },
     ])));
   };
-  const applyBulkHours = () => { setHoursDirty(true); setSchedule((current) => Object.fromEntries(ADMIN_DAYS.map((day) => [
+  const applyBulkHours = () => { revisionRef.current += 1; setSaveState('dirty'); setHoursDirty(true); setSchedule((current) => Object.fromEntries(ADMIN_DAYS.map((day) => [
     day.key,
     current[day.key].open ? { ...current[day.key], from: bulkHours.from, to: bulkHours.to } : current[day.key],
   ]))); };
 
   return (
-    <article className="admin-cafe-card admin-cafe-detail" ref={editorRef}>
-      <div className="admin-cafe-detail-cover">
-        {cafe.image_url ? <img src={cafe.image_url} alt={`Portada de ${cafe.nombre}`} /> : <Coffee size={64} strokeWidth={1.2} />}
-        <label className="admin-detail-upload"><Camera size={16} /> Cambiar portada<input hidden type="file" accept="image/*" onChange={(event) => { onUpload(cafe, event.target.files?.[0]); event.target.value = ''; }} /></label>
-      </div>
-      <header className="admin-cafe-detail-header">
-        <div><h2>{fieldValue('nombre')}</h2><p><MapPin size={15} /> {fieldValue('neighborhood') || 'Zona por confirmar'}</p></div>
-        <div className="admin-detail-header-actions"><a href={`/cafe/${cafe.id}`} target="_blank" rel="noreferrer"><ExternalLink size={15} /> Vista previa</a><button type="button" className="admin-cafe-save" onClick={() => onSave(cafe, { locationDirty, locationField, opening_hours: serializeAdminHours(schedule) })} disabled={saving}><Database size={15} /> {saving ? 'Guardando…' : 'Guardar cambios'}</button></div>
-      </header>
+    <article className="admin-cafe-card admin-cafe-detail cms-record-editor" data-current-section={editorSection}>
+      <div className="cms-record-actions"><button type="button" onClick={onBack}><ArrowLeft size={17} /> Cafeterías</button><span role="status" className={`cms-save-state is-${saveState}`}>{saveState === 'saving' || saving ? 'Guardando…' : saveState === 'dirty' ? 'Cambios pendientes' : saveState === 'error' ? 'Error al guardar · reintenta' : 'Todos los cambios guardados'}</span><label className="cms-active-toggle"><input type="checkbox" role="switch" aria-label={`Activar ${cafe.nombre}`} checked={fieldValue('status') === 'active'} onChange={(event) => changeField('status', event.target.checked ? 'active' : 'closed')} />{statusLabel(fieldValue('status'))}</label><button type="button" onClick={duplicateCurrent} disabled={saving || busy}>Duplicar</button><button type="button" className="cms-danger" disabled={busy} onClick={() => setConfirmDelete(true)}>Eliminar</button><button type="button" className="cms-primary" onClick={onSave} disabled={saving || busy}>Guardar</button></div>
+      <div className="cms-record-layout"><aside className="cms-live-preview"><small>VISTA PREVIA</small><div className="cms-preview-cover">{fieldValue('image_url') ? <img src={fieldValue('image_url')} alt="Vista previa de portada" /> : <Coffee size={54} />}<strong>{fieldValue('nombre')}</strong></div><p><MapPin size={15} /> {fieldValue('neighborhood') || fieldValue('address') || 'Zona por confirmar'}</p><div className="cms-preview-meta"><span>{fieldValue('category') === 'panaderia' ? 'Panadería' : 'Cafetería'}</span><span>{menuImages.length} páginas de menú</span><span>{tiktoks.length} TikToks</span></div><a href={`/cafe/${cafe.id}`} target="_blank" rel="noreferrer"><ExternalLink size={15} /> Abrir en Coffee Map</a></aside><div className="cms-editor-panel">
       <nav className="admin-detail-tabs" aria-label="Secciones de la cafetería">
-        {[["information", "Información", Coffee], ["hours", "Horarios", Clock], ["location", "Ubicación", MapPin], ["multimedia", "Multimedia", Image], ["social", "Redes sociales", Instagram], ["tiktoks", "TikToks relacionados", Music2]].map((entry) => { const [key,label,Icon] = entry; return <button key={key} type="button" onClick={() => goToSection(key)}><Icon size={16} /> {label}</button>; })}
+        {[["information", "Información", Coffee], ["hours", "Horarios", Clock], ["location", "Ubicación", MapPin], ["multimedia", "Multimedia", Image], ["social", "Redes sociales", Instagram], ["tiktoks", "TikToks relacionados", Music2]].map((entry) => { const [key,label,Icon] = entry; return <button key={key} type="button" aria-pressed={editorSection === key} onClick={() => goToSection(key)}><Icon size={16} /> {label}</button>; })}
       </nav>
       <div className="admin-cafe-card-body">
         <section className="admin-editor-section admin-general-fields" data-editor-section="information">
@@ -646,7 +671,7 @@ function AdminCafeCard({ cafe, tiktoks = [], saving = false, menuSaving = false,
           <div className="admin-field-grid"><label>Nombre de la cafetería{textField('nombre', 'Nombre de la cafetería')}</label><label>Tipo<select value={fieldValue('category') || 'cafeteria'} onChange={(event) => changeField('category', event.target.value)}><option value="cafeteria">Cafetería</option><option value="panaderia">Panadería</option></select></label><label className="admin-field-wide">Zona / colonia{textField('neighborhood', 'Zona')}</label></div>
         </section>
         <section className="admin-editor-section" data-editor-section="location">
-          <h3><MapPin size={18} /> Ubicación</h3>
+          <h3><MapPin size={18} /> Ubicación</h3>{editorSection === 'location' && cafe.lat != null && cafe.lng != null && <div className="cms-location-map"><CafeMapPreview lat={Number(cafe.lat)} lng={Number(cafe.lng)} /><small>Ubicación guardada. Se recalcula automáticamente al guardar el enlace o la dirección.</small></div>}
           <div className="admin-field-grid"><label>Dirección{textField('address', 'Dirección completa', true)}</label><label>Google Maps{textField('link', 'Enlace de Google Maps')}</label></div>
           <small className="admin-location-note">Al guardar, obtenemos las coordenadas del enlace o la dirección para ubicarla en el mapa.</small>
         </section>
@@ -701,26 +726,27 @@ function AdminCafeCard({ cafe, tiktoks = [], saving = false, menuSaving = false,
             </div>;
           })}
         </fieldset>
-        <details className="admin-editor-section" data-editor-section="multimedia"><summary><Image size={18} /> Multimedia y menú</summary><div className="admin-editor-section-content">
+        <section className="admin-editor-section cms-tab-section" data-editor-section="multimedia"><h3><Image size={18} /> Multimedia y menú</h3><label className="cms-cover-upload"><Camera size={16} /> Cambiar portada<input hidden type="file" accept="image/*" onChange={(event) => { onUpload(cafe, event.target.files?.[0]); event.target.value = ''; }} /></label><div className="admin-editor-section-content">
           <label>URL de portada{textField('image_url', 'URL de foto de portada')}</label>
           <div className="admin-detail-cover-actions"><button type="button" onClick={() => onFindImage(cafe)}><Search size={15} /> Buscar foto</button>{cafe.image_url && <button type="button" onClick={() => onDeleteCover(cafe)}><Trash2 size={15} /> Eliminar portada</button>}</div>
+        <div className="cms-editor-gallery"><h3>Fotos de publicaciones</h3><p>Administra las imágenes de la comunidad sin cambiar sus publicaciones desde aquí.</p><div>{gallery.map((photo) => <article key={photo.id}><img src={photo.public_url} alt="Foto de la cafetería" loading="lazy" /><button type="button" onClick={() => onGalleryAction(photo, 'cover')}>Usar como portada</button><button type="button" onClick={() => onGalleryAction(photo, 'approve')}>Aprobar foto</button></article>)}</div>{!gallery.length && <small>Aún no hay fotos de publicaciones.</small>}</div>
         <div className="admin-cafe-menu-images">
           <div className="admin-cafe-menu-images-heading"><span><Coffee size={14} /> Imágenes del menú</span><small>{menuImages.length}</small></div>
           {menuImages.length > 0 ? <AdminMenuImageList images={menuImages} cafeName={cafe.nombre} saving={menuSaving} onMove={(from, to) => onMoveMenuImage(cafe, from, to)} onDelete={(url) => onDeleteMenuImage(cafe, url)} /> : <p>Aún no hay imágenes adjuntas.</p>}
           <label className="admin-cafe-menu-upload"><FileUp size={13} /> {menuSaving ? 'Guardando…' : 'Adjuntar imágenes'}<input hidden type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" multiple disabled={menuSaving} onChange={(event) => { onMenuUpload(cafe, [...(event.target.files || [])]); event.target.value = ''; }} /></label>
           <small className="admin-cafe-menu-note">Usa las flechas para ordenar las páginas. El orden se guarda automáticamente. Hasta 8 MB por imagen.</small>
         </div>
-        </div></details>
-        <details className="admin-editor-section" data-editor-section="social"><summary><Instagram size={18} /> Redes sociales</summary><div className="admin-editor-section-content"><label>Instagram<input value={fieldValue('instagram_url')} placeholder="Instagram" onChange={(event) => changeField('instagram_url', event.target.value)} /></label></div></details>
-        <details className="admin-editor-section" data-editor-section="tiktoks"><summary><Music2 size={18} /> TikToks relacionados</summary><div className="admin-editor-section-content">
+        </div></section>
+        <section className="admin-editor-section cms-tab-section" data-editor-section="social"><h3><Instagram size={18} /> Redes sociales</h3><div className="admin-editor-section-content"><label>Instagram<input value={fieldValue('instagram_url')} placeholder="Instagram" onChange={(event) => changeField('instagram_url', event.target.value)} /></label></div></section>
+        <section className="admin-editor-section cms-tab-section" data-editor-section="tiktoks"><h3><Music2 size={18} /> TikToks relacionados</h3><div className="admin-editor-section-content">
         <div className="admin-cafe-tiktoks">
           <div className="admin-cafe-tiktoks-heading"><span><Music2 size={14} /> TikToks relacionados</span><small>{tiktoks.length}</small></div>
-          {tiktoks.map((tiktok) => <div className="admin-cafe-tiktok-row" key={tiktok.id}><a href={tiktok.url} target="_blank" rel="noreferrer" title={tiktok.title || tiktok.url}>{tiktok.title || tiktok.url}</a><button type="button" onClick={() => onDeleteTikTok(tiktok)} aria-label="Eliminar TikTok" title="Eliminar TikTok"><Trash2 size={13} /></button></div>)}
+          {tiktoks.map((tiktok, index) => <div className="admin-cafe-tiktok-row" key={tiktok.id}><a href={tiktok.url} target="_blank" rel="noreferrer" title={tiktok.title || tiktok.url}>{tiktok.title || tiktok.url}</a><button type="button" disabled={index === 0} onClick={() => onMoveTikTok(cafe, index, index - 1)} aria-label="Subir TikTok">↑</button><button type="button" disabled={index === tiktoks.length - 1} onClick={() => onMoveTikTok(cafe, index, index + 1)} aria-label="Bajar TikTok">↓</button><button type="button" onClick={() => onDeleteTikTok(tiktok)} aria-label="Eliminar TikTok" title="Eliminar TikTok"><Trash2 size={13} /></button></div>)}
           <button type="button" className="admin-add-tiktok" onClick={() => onAddTikTok(cafe)}><Plus size={13} /> Añadir TikTok</button>
         </div>
-        </div></details>
-        <footer className="admin-detail-footer"><span>Los cambios de información y horarios se guardan con «Guardar cambios».</span><button type="button" className="is-danger" onClick={() => onDelete(cafe)}><Trash2 size={15} /> Eliminar cafetería</button></footer>
-      </div>
+        </div></section>
+      </div></div></div>
+      {confirmDelete && <ConfirmDialog title="Eliminar cafetería" description={`Se retirará ${cafe.nombre} del catálogo y del mapa.`} confirmLabel="Eliminar cafetería" busy={saving} onCancel={() => setConfirmDelete(false)} onConfirm={async () => { if (await onDelete(cafe)) { setConfirmDelete(false); onBack(); } }} />}
     </article>
   );
 }
@@ -897,7 +923,6 @@ function AdminDashboardPage() {
   const dashboardVersionRef = useRef(0);
   const [actionLoading, setActionLoading] = useState('');
   const [notice, setNotice] = useState('');
-  const [photoFeedback, setPhotoFeedback] = useState({});
   const [metrics, setMetrics] = useState({});
   const [cafes, setCafes] = useState([]);
   const [photos, setPhotos] = useState([]);
@@ -911,13 +936,11 @@ function AdminDashboardPage() {
   const [openImageLoading, setOpenImageLoading] = useState(false);
   const [openImageError, setOpenImageError] = useState('');
   const [openImageVerified, setOpenImageVerified] = useState(false);
-  const [cafeSearch, setCafeSearch] = useState('');
+  const [catalogEditing, setCatalogEditing] = useState(false);
   const [selectedCafeId, setSelectedCafeId] = useState(null);
   const [openedCafeIds, setOpenedCafeIds] = useState([]);
   const [showAddCafe, setShowAddCafe] = useState(false);
-  const [cafeVisibleCount, setCafeVisibleCount] = useState(ADMIN_CAFE_PAGE_SIZE);
   const [coverCropRequest, setCoverCropRequest] = useState(null);
-  const cafeLoadMoreRef = useRef(null);
   const [adminTheme, setAdminTheme] = useState(() => {
     try { return JSON.parse(window.localStorage.getItem('coffee-map:admin-theme')) || { background: '#191511', panel: '#27211b', accent: '#e6dac1' }; } catch { return { background: '#191511', panel: '#27211b', accent: '#e6dac1' }; }
   });
@@ -954,16 +977,9 @@ function AdminDashboardPage() {
     });
     return grouped;
   }, [cafeTiktoks]);
-  const filteredCafes = useMemo(() => {
-    const search = normalizeName(cafeSearch);
-    if (!search) return cafes;
-    return cafes.filter((cafe) => normalizeName([cafe.nombre, cafe.address, cafe.neighborhood].filter(Boolean).join(' ')).includes(search));
-  }, [cafeSearch, cafes]);
-  const visibleCafes = useMemo(() => filteredCafes.slice(0, cafeVisibleCount), [cafeVisibleCount, filteredCafes]);
-
-  const selectedCafe = cafes.find((cafe) => cafe.id === selectedCafeId) || visibleCafes[0];
+  const selectedCafe = cafes.find((cafe) => cafe.id === selectedCafeId) || cafes[0];
   const keepCurrentEditor = () => { if (selectedCafe) setOpenedCafeIds((ids) => [...new Set([...ids, selectedCafe.id])]); };
-  const selectCafe = (id) => { keepCurrentEditor(); setSelectedCafeId(id); };
+  const selectCafe = (id) => { keepCurrentEditor(); setSelectedCafeId(id); setCatalogEditing(true); };
 
   const loadDashboard = useCallback(async () => {
     const version = ++dashboardVersionRef.current;
@@ -978,7 +994,7 @@ function AdminDashboardPage() {
         supabase.from('user_cafes').select('id', { count: 'exact', head: true }).not('review_text', 'eq', ''),
         supabase.from('cafes').select('id,nombre,lat,lng,address,link,source_url,neighborhood,category,image_url,image_source_url,image_attribution,image_license,instagram_url,tiktok_url,menu_url,opening_hours,opening_hours_source,opening_hours_source_url,opening_hours_verified_at,source,source_id,status,submitted_by,created_at,last_verified_at').is('deleted_at', null).order('nombre').limit(1000),
         supabase.from('cafe_tiktoks').select('id,cafe_id,url,thumbnail_url,title,position,created_at').order('position').order('created_at'),
-        supabase.from('cafe_photos').select('id,cafe_id,user_id,post_id,storage_path,public_url,status,is_cover,rights_confirmed,rights_basis,rights_note,created_at').eq('status', 'pending').is('post_id', null).order('created_at', { ascending: false }).limit(100),
+        supabase.from('cafe_photos').select('id,cafe_id,user_id,post_id,storage_path,public_url,status,is_cover,rights_confirmed,rights_basis,rights_note,created_at').order('created_at', { ascending: false }).limit(2000),
         supabase.from('posts').select('id,user_id,cafe_id,content,image_url,status,created_at').order('created_at', { ascending: false }).limit(1000),
         supabase.from('post_images').select('id,post_id,user_id,storage_path,public_url,position,created_at').order('created_at', { ascending: false }).limit(1000),
         supabase.from('profiles').select('id,username,avatar_url,role,updated_at').order('updated_at', { ascending: false }).limit(250),
@@ -1009,17 +1025,6 @@ function AdminDashboardPage() {
     const timeoutId = window.setTimeout(() => setNotice(''), 5000);
     return () => window.clearTimeout(timeoutId);
   }, [notice]);
-  useEffect(() => { setCafeVisibleCount(ADMIN_CAFE_PAGE_SIZE); }, [cafeSearch]);
-  useEffect(() => {
-    if (tab !== 'cafes' || visibleCafes.length >= filteredCafes.length || !cafeLoadMoreRef.current || !('IntersectionObserver' in window)) return undefined;
-    const observer = new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting)) {
-        setCafeVisibleCount((current) => Math.min(current + ADMIN_CAFE_PAGE_SIZE, filteredCafes.length));
-      }
-    }, { rootMargin: '700px 0px' });
-    observer.observe(cafeLoadMoreRef.current);
-    return () => observer.disconnect();
-  }, [filteredCafes.length, tab, visibleCafes.length]);
   useEffect(() => { window.localStorage.setItem('coffee-map:admin-theme', JSON.stringify(adminTheme)); }, [adminTheme]);
   useEffect(() => { window.localStorage.setItem('coffee-map:admin-blocks', JSON.stringify(overviewBlocks)); }, [overviewBlocks]);
   useEffect(() => { window.localStorage.setItem('coffee-map:admin-custom-blocks', JSON.stringify(customBlocksBySection)); }, [customBlocksBySection]);
@@ -1069,14 +1074,15 @@ function AdminDashboardPage() {
     setDraggedCustomBlock(null);
   };
 
-  const runAction = async (key, action, successMessage, { reload = true } = {}) => {
+  const runAction = async (key, action, successMessage, { reload = true, quiet = false } = {}) => {
     dashboardVersionRef.current += 1;
     setActionLoading(key);
-    setNotice('');
+    if (!quiet) setNotice('');
     try {
       const actionMessage = await action();
       if (reload) await loadDashboard();
-      setNotice(actionMessage || successMessage);
+      if (!quiet) setNotice(actionMessage || successMessage);
+      else setNotice((current) => current.startsWith('Error:') ? '' : current);
       return true;
     } catch (error) {
       setNotice(`Error: ${error.message}`);
@@ -1243,7 +1249,9 @@ function AdminDashboardPage() {
     if (error) throw error;
     const marker = '/storage/v1/object/public/cafe-photos/';
     const storagePath = new URL(url).pathname.split(marker)[1];
-    if (storagePath) await supabase.storage.from('cafe-photos').remove([decodeURIComponent(storagePath)]);
+    // Duplicates can share a menu URL. Never remove an image used by another record or cover.
+    const isShared = cafes.some((item) => item.image_url === url || (item.id !== cafe.id && parseCafeMenuImages(item.menu_url).includes(url)));
+    if (storagePath && !isShared && cafes.length < 1000) await supabase.storage.from('cafe-photos').remove([decodeURIComponent(storagePath)]);
     setCafes((current) => current.map((item) => item.id === cafe.id ? { ...item, menu_url: savedMenu } : item));
     await refreshCafes();
     return `Imagen del menú eliminada de ${cafe.nombre}.`;
@@ -1322,7 +1330,7 @@ function AdminDashboardPage() {
   const moderatePhoto = (photo, status, makeCover = false) => runAction(`photo:${photo.id}`, async () => {
     const { error } = await supabase.from('cafe_photos').update({
       status,
-      is_cover: status === 'approved' && makeCover,
+      is_cover: status === 'approved' && (makeCover || Boolean(photo.is_cover)),
       moderated_at: new Date().toISOString(),
       moderated_by: user.id,
     }).eq('id', photo.id);
@@ -1341,11 +1349,19 @@ function AdminDashboardPage() {
 
   const moderatePostPhoto = (photo, action) => {
     const actionKey = 'post-photo:' + photo.id + ':' + action;
-    setPhotoFeedback((current) => ({ ...current, [photo.id]: '' }));
     return runAction(actionKey, async () => {
       const post = postMap.get(photo.post_id);
       const cafeId = post?.cafe_id;
 
+      if (action === 'approve') {
+        if (!cafeId) throw new Error('Asocia esta publicación a una cafetería antes de aprobar su foto para la galería.');
+        const { data: existing, error: readError } = await supabase.from('cafe_photos').select('id').eq('storage_path', photo.storage_path).maybeSingle();
+        if (readError) throw readError;
+        const approval = { status: 'approved', moderated_at: new Date().toISOString(), moderated_by: user.id };
+        const { error } = existing ? await supabase.from('cafe_photos').update(approval).eq('id', existing.id) : await supabase.from('cafe_photos').insert({ ...approval, cafe_id: cafeId, post_id: photo.post_id, user_id: photo.user_id, storage_path: photo.storage_path, public_url: photo.public_url, is_cover: false, rights_confirmed: true, rights_basis: 'own', rights_note: 'Foto propia de una publicación.' });
+        if (error) throw error;
+        return 'Foto aprobada para la galería.';
+      }
       if (action === 'cover') {
         if (!cafeId) throw new Error('Esta publicación no está relacionada con una cafetería.');
         const { error: cafeError } = await supabase.from('cafes').update({
@@ -1365,7 +1381,6 @@ function AdminDashboardPage() {
         }).eq('storage_path', photo.storage_path);
         if (coverError) throw coverError;
         await refreshCafes();
-        setPhotoFeedback((current) => ({ ...current, [photo.id]: 'Portada actualizada correctamente.' }));
         return 'Portada actualizada correctamente.';
       }
 
@@ -1415,6 +1430,7 @@ function AdminDashboardPage() {
       link: normalizedLink || null,
       neighborhood: String(cafe.neighborhood || '').trim() || null,
       category: cafe.category || 'cafeteria',
+      status: cafe.status,
       opening_hours: options.opening_hours || null,
       opening_hours_source: options.opening_hours ? 'admin' : null,
       opening_hours_source_url: null,
@@ -1443,11 +1459,12 @@ function AdminDashboardPage() {
       patch.neighborhood = location.neighborhood || patch.neighborhood;
       patch.last_verified_at = timestamp;
     }
+    if (patch.status === 'active' && cafe.source === 'community' && cafe.status === 'needs_review') await sendCafeSubmission({ id: cafe.id }, 'PATCH');
     const { data: saved, error } = await supabase.from('cafes').update(patch).eq('id', cafe.id).is('deleted_at', null).select('*').single();
     if (error) throw error;
     setCafes((current) => current.map((item) => item.id === cafe.id ? saved : item));
     updateCafe(saved);
-  }, 'Cafetería guardada. El mapa ya usa la nueva ubicación.', { reload: false });
+  }, 'Cafetería guardada.', { reload: false, quiet: true });
 
   const addCafeTikTok = (cafe, suppliedUrl = '') => {
     const url = suppliedUrl || window.prompt('Pega el enlace del TikTok relacionado con esta cafetería:');
@@ -1479,7 +1496,6 @@ function AdminDashboardPage() {
   }, 'TikTok eliminado.');
 
   const deleteCafe = (cafe) => {
-    if (!window.confirm(`¿Eliminar “${cafe.nombre}” del catálogo y del mapa?`)) return;
     return runAction(`cafe:delete:${cafe.id}`, async () => {
       const deleted_at = new Date().toISOString();
       const { error } = await supabase.from('cafes').update({ status: 'closed', deleted_at, updated_at: deleted_at }).eq('id', cafe.id);
@@ -1488,6 +1504,29 @@ function AdminDashboardPage() {
       setCafes((current) => current.filter((item) => item.id !== cafe.id));
     }, 'Cafetería eliminada.');
   };
+
+  const duplicateCafe = (cafe) => runAction(`duplicate:${cafe.id}`, async () => {
+    const copy = { id: `manual:${crypto.randomUUID()}`, nombre: `${cafe.nombre} (copia)`, address: cafe.address, link: cafe.link, lat: cafe.lat, lng: cafe.lng, neighborhood: cafe.neighborhood, category: cafe.category, image_url: cafe.image_url, image_source_url: cafe.image_source_url, image_attribution: cafe.image_attribution, image_license: cafe.image_license, instagram_url: cafe.instagram_url, tiktok_url: cafe.tiktok_url, menu_url: cafe.menu_url, opening_hours: cafe.opening_hours, opening_hours_source: cafe.opening_hours_source, source: 'manual', status: 'needs_review', submitted_by: user.id };
+    const { data, error } = await supabase.from('cafes').insert(copy).select('*').single();
+    if (error) throw error;
+    setCafes((items) => [...items, data]); selectCafe(data.id);
+    const tiktoks = cafeTiktoksByCafeId.get(cafe.id) || [];
+    if (tiktoks.length) {
+      const { error: relatedError } = await supabase.from('cafe_tiktoks').insert(tiktoks.map(({ url, title, thumbnail_url }, position) => ({ cafe_id: data.id, url, title, thumbnail_url, position })));
+      if (relatedError) return 'Copia creada. No pudimos copiar los TikToks; puedes volver a agregarlos desde su pestaña.';
+      await loadDashboard();
+    }
+
+  }, 'Copia creada. Revisa sus datos antes de activarla.', { reload: false });
+  const moveCafeTikTok = (cafe, from, to) => runAction(`tiktok-order:${cafe.id}`, async () => {
+    const rows = [...(cafeTiktoksByCafeId.get(cafe.id) || [])];
+    if (to < 0 || to >= rows.length || from === to) return;
+    const [row] = rows.splice(from, 1); rows.splice(to, 0, row);
+    for (let position = 0; position < rows.length; position += 1) {
+      const { error } = await supabase.from('cafe_tiktoks').update({ position }).eq('id', rows[position].id);
+      if (error) throw error;
+    }
+  }, 'Orden de TikToks guardado.');
 
   const updateRole = (profile, role) => runAction(`user:${profile.id}`, async () => {
     if (profile.id === user.id && role !== 'administrador') throw new Error('No puedes quitarte tu propio acceso admin.');
@@ -1502,7 +1541,7 @@ function AdminDashboardPage() {
       <header className="admin-header">
         <button type="button" onClick={() => navigate('/')} aria-label="Volver"><ArrowLeft size={22} /></button>
         <div><small>COFFEE MAP MÉRIDA</small><h1>Centro de control</h1></div>
-        <button type="button" onClick={loadDashboard} disabled={loading} aria-label="Actualizar"><RefreshCw size={19} className={loading ? 'admin-spin' : ''} /></button>
+        <button type="button" className="cms-personalize" onClick={() => setBuilderOpen(true)}><Palette size={16} /> Personalizar vista</button><button type="button" onClick={loadDashboard} disabled={loading} aria-label="Actualizar"><RefreshCw size={19} className={loading ? 'admin-spin' : ''} /></button>
       </header>
 
       <nav className="admin-tabs" aria-label="Secciones de administración">
@@ -1515,13 +1554,50 @@ function AdminDashboardPage() {
       {notice && <p className="admin-notice">{notice}</p>}
 
       <div className="admin-content">
-        {tab !== 'cafes' && <button type="button" className="admin-editor-launch" onClick={() => setBuilderOpen(true)}>
-          <Palette size={17} />
-          <span><strong>Editor visual</strong><small>Personaliza {TABS.find((item) => item.id === tab)?.label || 'esta sección'} con bloques</small></span>
-          <span className="admin-editor-launch-action">Abrir editor</span>
-        </button>}
-        {tab === 'overview' && (
-          <section>
+        {tab === 'overview' && <AdminOverview metrics={metrics} cafes={cafes} photos={photos} posts={posts} profiles={profileMap} loading={loading} notice={notice} onModule={setTab} onNewCafe={() => { setTab('cafes'); setShowAddCafe(true); }} onNewPost={() => navigate('/new-post')} />}
+
+        {tab === 'cafes' && (
+          <section className="admin-catalog">
+            {showAddCafe && <>            <form className="admin-panel admin-manual-form" onSubmit={addManualCafe}>
+              <h2><MapPinned size={19} /> Agregar cafetería faltante</h2>
+              <input placeholder="Nombre" value={manualCafe.nombre} onChange={(event) => setManualCafe({ ...manualCafe, nombre: event.target.value })} />
+              <input placeholder="Dirección" value={manualCafe.address} onChange={(event) => setManualCafe({ ...manualCafe, address: event.target.value })} />
+              <input type="url" inputMode="url" placeholder="Enlace de Google Maps (opcional)" value={manualCafe.link} onChange={(event) => setManualCafe({ ...manualCafe, link: event.target.value })} />
+              <small className="admin-manual-location-note">La ubicación se obtiene primero del enlace de Google Maps y después de la dirección.</small>
+              <button type="submit" disabled={Boolean(actionLoading)}>Guardar cafetería</button>
+            </form></>}
+            {!catalogEditing && <AdminCafeOverview cafes={cafes} onSelect={selectCafe} onNew={() => setShowAddCafe(true)} onDuplicate={duplicateCafe} busy={Boolean(actionLoading)} />}
+            <div className="admin-catalog-editor">{cafes.filter((cafe) => cafe.id === selectedCafe?.id || openedCafeIds.includes(cafe.id)).map((cafe) => <div key={cafe.id} hidden={!catalogEditing || cafe.id !== selectedCafe?.id}><AdminCafeCard busy={Boolean(actionLoading)} cafe={cafe} tiktoks={cafeTiktoksByCafeId.get(cafe.id) || []} saving={actionLoading === `cafe-save:${cafe.id}`} menuSaving={actionLoading === `menu:${cafe.id}` || actionLoading === `menu-delete:${cafe.id}` || actionLoading === `menu-order:${cafe.id}`} onBack={() => setCatalogEditing(false)} onDuplicate={duplicateCafe} gallery={postPhotos.filter((photo) => postMap.get(photo.post_id)?.cafe_id === cafe.id)} onGalleryAction={moderatePostPhoto} onMoveTikTok={moveCafeTikTok} onSave={saveCafe} onUpload={uploadCafeCover} onDeleteCover={deleteCafeCover} onMenuUpload={uploadCafeMenuImages} onDeleteMenuImage={deleteCafeMenuImage} onMoveMenuImage={moveCafeMenuImage} onFindImage={findOpenImages} onAddTikTok={addCafeTikTok} onDeleteTikTok={deleteCafeTikTok} onDelete={deleteCafe} /></div>)}{!selectedCafe && <div className="admin-panel admin-catalog-empty"><Coffee size={40} /><p>Selecciona o agrega una cafetería para comenzar.</p></div>}</div>
+            <details className="admin-catalog-import"><summary>Importar cafeterías de fuentes abiertas</summary>            <article className="admin-panel admin-scan-panel">
+              <div><ScanSearch size={24} /><h2>Escáner abierto de Mérida</h2><p>Recorre 16 zonas de OpenStreetMap, obtiene fotos reutilizables de Wikimedia Commons, evita duplicados contra toda la base y permite sumar datos abiertos de Overture.</p></div>
+              <div className="admin-scan-actions">
+                <button type="button" onClick={importOsm} disabled={Boolean(actionLoading)}>{actionLoading === 'scan' ? 'Escaneando OSM…' : 'Escanear OSM gratis'}</button>
+                <label className="admin-import-action">
+                  <FileUp size={15} /> {actionLoading === 'overture' ? 'Importando…' : 'Importar Overture'}
+                  <input hidden type="file" accept=".json,.geojson,application/json" onChange={importOverture} disabled={Boolean(actionLoading)} />
+                </label>
+              </div>
+            </article></details>
+          </section>
+        )}
+
+        {tab === 'requests' && <AdminRequests cafes={cafes} profiles={profileMap} busy={Boolean(actionLoading)} onModerate={moderateCafeRequest} />}
+        {tab === 'photos' && <AdminPhotos photos={photos} postPhotos={postPhotos} posts={postMap} cafes={cafeMap} profiles={profileMap} busy={Boolean(actionLoading)} onPhotoAction={moderatePhoto} onPostAction={moderatePostPhoto} />}
+        {tab === 'posts' && <AdminPosts posts={posts} profiles={profileMap} cafes={cafeMap} busy={Boolean(actionLoading)} onStatus={updatePost} onDelete={deletePost} onNew={() => navigate('/new-post')} />}
+        {tab === 'users' && <AdminUsers profiles={users} currentUserId={user.id} onRole={updateRole} busy={Boolean(actionLoading)} />}
+        {(customBlocksBySection[tab] || []).length > 0 && <div className="cms-custom-content">{customBlocksBySection[tab].map((block) => <AdminCustomBlock key={block.id} block={block} metrics={metrics} readOnly />)}</div>}
+
+      </div>
+
+      {builderOpen && (
+        <div className="admin-editor-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) { setBuilderOpen(false); setOpenBuilderMenu(null); } }}>
+          <aside className="admin-editor-drawer" role="dialog" aria-modal="true" aria-label={`Editor visual de ${TABS.find((item) => item.id === tab)?.label || 'esta sección'}`}>
+            <header className="admin-editor-drawer-header">
+              <div><Palette size={18} /><span><strong>Editor visual</strong><small>{TABS.find((item) => item.id === tab)?.label || 'Esta sección'}</small></span></div>
+              <button type="button" onClick={() => { setBuilderOpen(false); setOpenBuilderMenu(null); }} aria-label="Cerrar editor"><X size={18} /></button>
+            </header>
+            <div className="admin-editor-drawer-body">
+              {tab === 'overview' && <>          <section>
             <article className="admin-panel admin-visual-editor">
               <div><Palette size={18} /><strong>Personaliza tu centro</strong><small>Arrastra los bloques y ajusta los colores sin tocar código.</small></div>
               <label>Fondo <input type="color" value={adminTheme.background} onChange={(event) => setAdminTheme((current) => ({ ...current, background: event.target.value }))} /></label>
@@ -1553,142 +1629,8 @@ function AdminDashboardPage() {
                 </div>
               ))}
             </div>
-          </section>
-        )}
+          </section></>}
 
-        {tab === 'cafes' && (
-          <section className="admin-catalog">
-            <header className="admin-catalog-heading"><div><h2>Administra tus cafeterías</h2><p>Selecciona un lugar para editar su información.</p></div><div className="admin-catalog-heading-actions"><button type="button" onClick={() => setBuilderOpen(true)}><Palette size={16} /> Editor visual</button><a href="/" target="_blank" rel="noreferrer"><ExternalLink size={16} /> Ver sitio</a><button type="button" onClick={() => setShowAddCafe((value) => !value)}><Plus size={17} /> {showAddCafe ? 'Cerrar formulario' : 'Nueva cafetería'}</button></div></header>
-            {showAddCafe && <>            <form className="admin-panel admin-manual-form" onSubmit={addManualCafe}>
-              <h2><MapPinned size={19} /> Agregar cafetería faltante</h2>
-              <input placeholder="Nombre" value={manualCafe.nombre} onChange={(event) => setManualCafe({ ...manualCafe, nombre: event.target.value })} />
-              <input placeholder="Dirección" value={manualCafe.address} onChange={(event) => setManualCafe({ ...manualCafe, address: event.target.value })} />
-              <input type="url" inputMode="url" placeholder="Enlace de Google Maps (opcional)" value={manualCafe.link} onChange={(event) => setManualCafe({ ...manualCafe, link: event.target.value })} />
-              <small className="admin-manual-location-note">La ubicación se obtiene primero del enlace de Google Maps y después de la dirección.</small>
-              <button type="submit" disabled={Boolean(actionLoading)}>Guardar cafetería</button>
-            </form></>}
-            <div className="admin-catalog-workspace">
-              <aside className="admin-catalog-list">
-                <h2>Cafeterías <span>({filteredCafes.length})</span></h2>
-                <label className="admin-cafe-search"><Search size={18} /><input value={cafeSearch} onChange={(event) => { keepCurrentEditor(); setCafeSearch(event.target.value); }} placeholder="Buscar cafeterías" aria-label="Buscar cafeterías" /></label>
-                <div className="admin-catalog-items">{visibleCafes.map((cafe) => <button type="button" key={cafe.id} className={selectedCafe?.id === cafe.id ? 'is-active' : ''} onClick={() => selectCafe(cafe.id)}>
-                  {cafe.image_url ? <img src={cafe.image_url} alt="" /> : <span className="admin-catalog-placeholder"><Coffee size={25} /></span>}<span><strong>{cafe.nombre}</strong><small><MapPin size={12} /> {cafe.neighborhood || 'Zona por confirmar'}</small></span>
-                </button>)}</div>
-                {visibleCafes.length === 0 && <p className="admin-empty">No encontramos cafeterías.</p>}
-                {visibleCafes.length < filteredCafes.length && <div className="admin-cafe-load-more" ref={cafeLoadMoreRef}><button type="button" onClick={() => setCafeVisibleCount((count) => count + ADMIN_CAFE_PAGE_SIZE)}>Cargar más</button></div>}
-              </aside>
-              <div className="admin-catalog-editor">{cafes.filter((cafe) => cafe.id === selectedCafe?.id || openedCafeIds.includes(cafe.id)).map((cafe) => <div key={cafe.id} hidden={cafe.id !== selectedCafe?.id}><AdminCafeCard cafe={cafe} tiktoks={cafeTiktoksByCafeId.get(cafe.id) || []} saving={actionLoading === `cafe-save:${cafe.id}`} menuSaving={actionLoading === `menu:${cafe.id}` || actionLoading === `menu-delete:${cafe.id}` || actionLoading === `menu-order:${cafe.id}`} onSave={saveCafe} onUpload={uploadCafeCover} onDeleteCover={deleteCafeCover} onMenuUpload={uploadCafeMenuImages} onDeleteMenuImage={deleteCafeMenuImage} onMoveMenuImage={moveCafeMenuImage} onFindImage={findOpenImages} onAddTikTok={addCafeTikTok} onDeleteTikTok={deleteCafeTikTok} onDelete={deleteCafe} /></div>)}{!selectedCafe && <div className="admin-panel admin-catalog-empty"><Coffee size={40} /><p>Selecciona o agrega una cafetería para comenzar.</p></div>}</div>
-            </div>
-            <details className="admin-catalog-import"><summary>Importar cafeterías de fuentes abiertas</summary>            <article className="admin-panel admin-scan-panel">
-              <div><ScanSearch size={24} /><h2>Escáner abierto de Mérida</h2><p>Recorre 16 zonas de OpenStreetMap, obtiene fotos reutilizables de Wikimedia Commons, evita duplicados contra toda la base y permite sumar datos abiertos de Overture.</p></div>
-              <div className="admin-scan-actions">
-                <button type="button" onClick={importOsm} disabled={Boolean(actionLoading)}>{actionLoading === 'scan' ? 'Escaneando OSM…' : 'Escanear OSM gratis'}</button>
-                <label className="admin-import-action">
-                  <FileUp size={15} /> {actionLoading === 'overture' ? 'Importando…' : 'Importar Overture'}
-                  <input hidden type="file" accept=".json,.geojson,application/json" onChange={importOverture} disabled={Boolean(actionLoading)} />
-                </label>
-              </div>
-            </article></details>
-          </section>
-        )}
-
-        {tab === 'requests' && (
-          <section className="admin-stack">
-            <article className="admin-panel admin-request-panel">
-              <div className="admin-request-heading">
-                <div><h2>Solicitudes de nuevas cafeterías</h2><p>Revisa la dirección y el enlace de Google Maps. Al aprobar una solicitud, el sistema verifica la ubicación y guarda el lugar correcto para el mapa.</p></div>
-                <strong>{pendingCafeRequests.length}</strong>
-              </div>
-              <div className="admin-request-list">
-                {pendingCafeRequests.length === 0 && <p className="admin-empty">No hay solicitudes pendientes.</p>}
-                {pendingCafeRequests.map((cafe) => (
-                  <div className="admin-request-row" key={cafe.id}>
-                    <div className="admin-row-copy">
-                      <strong>{cafe.nombre}</strong>
-                      <span>{cafe.address || 'Dirección por confirmar'}</span>
-                      {cafe.link && <a href={cafe.link} target="_blank" rel="noreferrer"><ExternalLink size={12} /> Ver enlace de Maps</a>}
-                      <small>{cafe.created_at ? new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium' }).format(new Date(cafe.created_at)) : 'Solicitud reciente'}</small>
-                    </div>
-                    <div className="admin-request-actions">
-                      <button type="button" onClick={() => moderateCafeRequest(cafe, 'active')} disabled={Boolean(actionLoading)}>Aceptar y ubicar</button>
-                      <button type="button" className="danger" onClick={() => moderateCafeRequest(cafe, 'closed')} disabled={Boolean(actionLoading)}>Rechazar</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </article>
-          </section>
-        )}
-
-        {tab === 'photos' && <section className="admin-stack">
-          <article className="admin-panel admin-photo-guide">
-            <Image size={22} />
-            <div><h2>Moderación de fotos</h2><p>Aquí aparecen las fotos de las publicaciones. Descárgalas para revisarlas, bloquéalas si son indebidas y decide manualmente cuál será la portada de cada cafetería.</p></div>
-          </article>
-          <div className="admin-photo-grid">
-            {postPhotos.length === 0 && <p className="admin-empty">No hay fotos en publicaciones.</p>}
-            {postPhotos.map((photo) => {
-              const post = postMap.get(photo.post_id);
-              const cafe = post?.cafe_id ? cafeMap.get(post.cafe_id) : null;
-              return (
-                <article className={`admin-photo-card ${photoFeedback[photo.id] ? 'is-success' : ''}`} key={photo.id}>
-                  <img src={photo.public_url} alt={cafe?.nombre || 'Foto de publicación'} />
-                  <div><strong>{cafe?.nombre || 'Publicación general'}</strong><small>{profileMap.get(photo.user_id)?.username || 'Usuario'} · Publicación</small></div>
-                  <div className="admin-photo-rights">{post?.content || 'Sin texto en la publicación.'}</div>
-                  <div className="admin-photo-actions">
-                    <button disabled={!cafe || Boolean(actionLoading)} onClick={() => moderatePostPhoto(photo, 'cover')}>
-                      {actionLoading === `post-photo:${photo.id}:cover` ? 'Guardando portada…' : photoFeedback[photo.id] || 'Usar como portada'}
-                    </button>
-                    <button className="danger" onClick={() => moderatePostPhoto(photo, 'block')}>Bloquear</button>
-                    <a className="admin-photo-download" href={photo.public_url} download target="_blank" rel="noreferrer" aria-label="Descargar foto" title="Descargar"><Download size={15} /></a>
-                  </div>
-                  {photoFeedback[photo.id] && <p className="admin-photo-success" role="status">✓ Esta foto ya es la portada de {cafe?.nombre || 'la cafetería'}.</p>}
-                </article>
-              );
-            })}
-          </div>
-          {photos.length > 0 && <article className="admin-panel">
-            <h2>Fotos enviadas directamente a cafeterías</h2>
-            <p>También puedes moderar las fotos que no pertenecen a una publicación.</p>
-            <div className="admin-photo-grid admin-photo-grid-secondary">
-          {photos.length === 0 && <p className="admin-empty">No hay fotos pendientes de revisión.</p>}
-          {photos.map((photo) => <article className="admin-photo-card" key={photo.id}>
-            <img src={photo.public_url} alt={cafeMap.get(photo.cafe_id)?.nombre || 'Foto de cafetería'} />
-            <div><strong>{cafeMap.get(photo.cafe_id)?.nombre || 'Cafetería'}</strong><small>{profileMap.get(photo.user_id)?.username || 'Usuario'} · {photo.status}</small></div>
-            <div className="admin-photo-rights">{photo.rights_confirmed ? `Derechos confirmados · ${photo.rights_basis === 'own' ? 'foto propia' : 'con permiso'}` : 'Sin declaración de derechos (foto anterior)'}</div>
-            <div className="admin-photo-actions"><button disabled={!photo.rights_confirmed} onClick={() => moderatePhoto(photo, 'approved')}>Aprobar y publicar</button><button disabled={!photo.rights_confirmed} onClick={() => moderatePhoto(photo, 'approved', true)}>Aprobar como portada</button><button className="danger" onClick={() => moderatePhoto(photo, 'rejected')}>Rechazar foto</button></div>
-          </article>)}
-          </div>
-          </article>}
-        </section>}
-
-        {tab === 'posts' && <section className="admin-list">
-          {posts.length === 0 && <p className="admin-empty">No hay publicaciones.</p>}
-          {posts.map((post) => <article className="admin-row admin-post-row" key={post.id}>
-            {post.image_url && <img src={post.image_url} alt="" />}
-            <div className="admin-row-copy"><strong>{profileMap.get(post.user_id)?.username || 'Usuario'} {cafeMap.get(post.cafe_id)?.nombre ? `· ${cafeMap.get(post.cafe_id).nombre}` : ''}</strong><p>{post.content}</p><small>{post.status} · {new Date(post.created_at).toLocaleDateString('es-MX')}</small></div>
-            <button onClick={() => updatePost(post, post.status === 'hidden' ? 'published' : 'hidden')}>{post.status === 'hidden' ? 'Mostrar' : 'Ocultar'}</button>
-            <button className="admin-delete" onClick={() => deletePost(post)} aria-label="Eliminar"><Trash2 size={17} /></button>
-          </article>)}
-        </section>}
-
-        {tab === 'users' && <section className="admin-list">
-          {users.map((profile) => <article className="admin-row" key={profile.id}>
-            <div className="admin-thumb admin-avatar">{profile.avatar_url ? <img src={profile.avatar_url} alt="" /> : <Users size={18} />}</div>
-            <div className="admin-row-copy"><strong>{profile.username}</strong><small>{profile.id === user.id ? 'Tu cuenta' : profile.id.slice(0, 8)}</small></div>
-            <select value={profile.role} onChange={(event) => updateRole(profile, event.target.value)} disabled={profile.id === user.id}><option value="usuario">Usuario</option><option value="administrador">Administrador</option></select>
-          </article>)}
-        </section>}
-      </div>
-
-      {builderOpen && (
-        <div className="admin-editor-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) { setBuilderOpen(false); setOpenBuilderMenu(null); } }}>
-          <aside className="admin-editor-drawer" role="dialog" aria-modal="true" aria-label={`Editor visual de ${TABS.find((item) => item.id === tab)?.label || 'esta sección'}`}>
-            <header className="admin-editor-drawer-header">
-              <div><Palette size={18} /><span><strong>Editor visual</strong><small>{TABS.find((item) => item.id === tab)?.label || 'Esta sección'}</small></span></div>
-              <button type="button" onClick={() => { setBuilderOpen(false); setOpenBuilderMenu(null); }} aria-label="Cerrar editor"><X size={18} /></button>
-            </header>
-            <div className="admin-editor-drawer-body">
               <AdminSectionBuilder
                 section={tab}
                 blocks={customBlocksBySection[tab] || []}

@@ -1,15 +1,12 @@
-import { Coffee, Home, Search, Map, Heart, List, UserRound, Settings, Camera, Users, Shield } from 'lucide-react';
+import { Coffee, Home, Search, Map, Heart, List, UserRound, Settings, Shield } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export default function DesktopSidebar({ admin = false, tab, onTabChange }) {
   const navigate = useNavigate();
   const links = admin ? [
-    ['Inicio', Home, () => onTabChange('overview'), tab === 'overview'],
-    ['Cafeterías', Coffee, () => onTabChange('cafes'), tab === 'cafes'],
-    ['Solicitudes', Shield, () => onTabChange('requests'), tab === 'requests'],
-    ['Publicaciones', Camera, () => onTabChange('posts'), tab === 'posts'],
-    ['Usuarios', Users, () => onTabChange('users'), tab === 'users'],
-    ['Ver sitio', Home, () => navigate('/'), false],
+    ['Inicio', Home, () => navigate('/'), false],
+    ['Centro de control', Shield, () => onTabChange(tab || 'overview'), true],
+    ['Ajustes', Settings, () => navigate('/settings'), false],
   ] : [
     ['Inicio', Home, () => navigate('/'), false],
     ['Explorar', Search, () => navigate('/search'), false],
