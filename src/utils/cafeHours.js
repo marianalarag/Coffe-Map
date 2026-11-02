@@ -47,6 +47,13 @@ export const getCafeOpenDays = (expression) => {
   return DAY_KEYS.filter((day) => schedule[day]?.length > 0);
 };
 
+export const formatCafeTime = (time) => {
+  const match = String(time || '').match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return time;
+  const hour = Number(match[1]) % 24;
+  return `${hour % 12 || 12}:${match[2]} ${hour >= 12 ? 'pm' : 'am'}`;
+};
+
 export const isCafeOpenOnDay = (expression, day) => {
   if (!day || day === 'any') return true;
   return getCafeOpenDays(expression).includes(day);
@@ -56,6 +63,7 @@ export const getCafeOpenStatus = (expression, date = new Date()) => {
   if (!expression) return { state: 'unknown', label: 'Horario por confirmar' };
   const schedule = parseHours(expression);
   if (!schedule) return { state: 'known', label: 'Consultar horario' };
+  if (expression.trim() === '24/7') return { state: 'open', label: 'Abierto 24 horas' };
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: 'America/Merida', weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
   }).formatToParts(date);
@@ -67,7 +75,7 @@ export const getCafeOpenStatus = (expression, date = new Date()) => {
     return end > start ? current >= start && current < end : current >= start || current < end;
   });
   if (!activeRange) return { state: 'closed', label: 'Cerrado ahora' };
-  return { state: 'open', label: `Abierto · cierra ${activeRange.split('-')[1]}` };
+  return { state: 'open', label: `Abierto · Cierra ${formatCafeTime(activeRange.split('-')[1])}` };
 };
 
 export const getCafeScheduleRows = (expression) => {
@@ -75,6 +83,6 @@ export const getCafeScheduleRows = (expression) => {
   if (!schedule) return [];
   return ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map((day) => ({
     day: DAY_LABELS[day],
-    hours: schedule[day].length ? schedule[day].join(', ').replaceAll('-', ' – ') : 'Cerrado',
+    hours: expression.trim() === '24/7' ? '24 horas' : schedule[day].length ? schedule[day].map((range) => range.split('-').map(formatCafeTime).join(' – ')).join(', ') : 'Cerrado',
   }));
 };

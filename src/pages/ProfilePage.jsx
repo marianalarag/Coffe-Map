@@ -179,7 +179,7 @@ function ProfileRatingChart({ interactions, textStyle, navigate }) {
             aria-label={`Ver cafeterías calificadas con ${formatRating(row.rating)} de 5`}
           >
             <span>{row.rating}</span>
-            <CoffeeBeanRating value={row.rating} size={8} />
+            <CoffeeBeanRating value={row.rating} size={10} /><CoffeeBeanIcon className="profile-rating-single-bean" size={13} filled />
             <div className="profile-rating-track"><span style={{ width: `${(row.count / maxCount) * 100}%` }} /></div>
             <strong>{row.count}</strong>
           </button>
@@ -620,22 +620,6 @@ function ProfilePage() {
               <div className="absolute inset-0 opacity-80 bg-[radial-gradient(circle_at_30%_20%,#765446,transparent_34%),radial-gradient(circle_at_70%_30%,#B39978,transparent_30%),linear-gradient(135deg,#372821,#1D1A15)]" />
             )}
           </div>
-
-          <label
-            className="profile-cover-edit"
-            aria-label="Cambiar foto de portada"
-            aria-hidden={showSettings || undefined}
-          >
-            {uploadingField === 'cover' ? <Loader2 className="animate-spin" size={15} /> : <Camera size={15} />}
-            <span>Cambiar portada</span>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(event) => startImageCrop(event, 'cover')}
-              disabled={Boolean(uploadingField)}
-              className="hidden"
-            />
-          </label>
 
           <div className={`relative flex items-center justify-between ${showSettings ? 'z-50' : 'z-20'}`}>
             <button onClick={() => navigate('/')} className="profile-icon-button">

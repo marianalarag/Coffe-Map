@@ -10,11 +10,11 @@ import { sendCafeSubmission } from '../utils/cafeSubmissions';
 import { toCafeDbRow } from '../utils/cafeDatabase';
 import AdminMenuImageList from '../components/AdminMenuImageList';
 import { AdminOverview, AdminCafeOverview, AdminRequests, AdminPhotos, AdminPosts, AdminUsers } from '../components/AdminModules';
+import { formatCafeTime } from '../utils/cafeHours';
 import { statusLabel } from '../utils/adminFormatting';
 import { readAdminDraft, writeAdminDraft } from '../utils/adminDraft';
 import CafeMapPreview from '../components/AdminMapPreview';
 import ConfirmDialog from '../components/ConfirmDialog';
-import DesktopSidebar from '../components/DesktopSidebar';
 
 const MERIDA_BBOX = { south: 20.86, west: -89.75, north: 21.08, east: -89.52 };
 const OVERPASS_URLS = [
@@ -212,7 +212,7 @@ const serializeAdminHours = (schedule) => ADMIN_DAYS
 function AdminTimeSelect({ value, onChange, ariaLabel }) {
   return (
     <select className="admin-hours-time-select" value={value} onChange={(event) => onChange(event.target.value)} aria-label={ariaLabel}>
-      {ADMIN_TIME_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
+      {ADMIN_TIME_OPTIONS.map((option) => <option key={option} value={option}>{formatCafeTime(option)}</option>)}
     </select>
   );
 }
@@ -661,7 +661,7 @@ function AdminCafeCard({ cafe, tiktoks = [], busy = false, saving = false, menuS
   return (
     <article className="admin-cafe-card admin-cafe-detail cms-record-editor" data-current-section={editorSection}>
       <div className="cms-record-actions"><button type="button" onClick={onBack}><ArrowLeft size={17} /> Cafeterías</button><span role="status" className={`cms-save-state is-${saveState}`}>{saveState === 'saving' || saving ? 'Guardando…' : saveState === 'dirty' ? 'Cambios pendientes' : saveState === 'error' ? 'Error al guardar · reintenta' : 'Todos los cambios guardados'}</span><label className="cms-active-toggle"><input type="checkbox" role="switch" aria-label={`Activar ${cafe.nombre}`} checked={fieldValue('status') === 'active'} onChange={(event) => changeField('status', event.target.checked ? 'active' : 'closed')} />{statusLabel(fieldValue('status'))}</label><button type="button" onClick={duplicateCurrent} disabled={saving || busy}>Duplicar</button><button type="button" className="cms-danger" disabled={busy} onClick={() => setConfirmDelete(true)}>Eliminar</button><button type="button" className="cms-primary" onClick={onSave} disabled={saving || busy}>Guardar</button></div>
-      <div className="cms-record-layout"><aside className="cms-live-preview"><small>VISTA PREVIA</small><div className="cms-preview-cover">{fieldValue('image_url') ? <img src={fieldValue('image_url')} alt="Vista previa de portada" /> : <Coffee size={54} />}<strong>{fieldValue('nombre')}</strong></div><p><MapPin size={15} /> {fieldValue('neighborhood') || fieldValue('address') || 'Zona por confirmar'}</p><div className="cms-preview-meta"><span>{fieldValue('category') === 'panaderia' ? 'Panadería' : 'Cafetería'}</span><span>{menuImages.length} páginas de menú</span><span>{tiktoks.length} TikToks</span></div><a href={`/cafe/${cafe.id}`} target="_blank" rel="noreferrer"><ExternalLink size={15} /> Abrir en Coffee Map</a></aside><div className="cms-editor-panel">
+      <div className="cms-record-layout"><aside className="cms-live-preview"><small>VISTA PREVIA</small><div className="cms-preview-cover">{fieldValue('image_url') ? <img src={fieldValue('image_url')} alt="Vista previa de portada" /> : <Coffee size={54} />}<label className="cms-preview-upload"><Camera size={15} /> Portada<input hidden type="file" accept="image/*" onChange={(event) => { onUpload(cafe, event.target.files?.[0]); event.target.value = ''; }} /></label><strong>{fieldValue('nombre')}</strong></div><p><MapPin size={15} /> {fieldValue('neighborhood') || fieldValue('address') || 'Zona por confirmar'}</p><div className="cms-preview-meta"><span>{fieldValue('category') === 'panaderia' ? 'Panadería' : 'Cafetería'}</span><span>{menuImages.length} páginas de menú</span><span>{tiktoks.length} TikToks</span></div><a href={`/cafe/${cafe.id}`} target="_blank" rel="noreferrer"><ExternalLink size={15} /> Abrir en Coffee Map</a></aside><div className="cms-editor-panel">
       <nav className="admin-detail-tabs" aria-label="Secciones de la cafetería">
         {[["information", "Información", Coffee], ["hours", "Horarios", Clock], ["location", "Ubicación", MapPin], ["multimedia", "Multimedia", Image], ["social", "Redes sociales", Instagram], ["tiktoks", "TikToks relacionados", Music2]].map((entry) => { const [key,label,Icon] = entry; return <button key={key} type="button" aria-pressed={editorSection === key} onClick={() => goToSection(key)}><Icon size={16} /> {label}</button>; })}
       </nav>
@@ -793,13 +793,15 @@ function AdminCoverCropper({ file, onCancel, onConfirm }) {
     const left = (viewportWidth - baseWidth) / 2;
     const top = (viewportHeight - baseHeight) / 2;
     setImageSize({ naturalWidth, naturalHeight, viewportWidth, viewportHeight, baseWidth, baseHeight });
-    setCropRect({ x: left, y: top, width: baseWidth, height: baseHeight });
+    const cropWidth = Math.min(baseWidth, baseHeight * .75);
+    const cropHeight = cropWidth / .75;
+    setCropRect({ x: left + (baseWidth - cropWidth) / 2, y: top + (baseHeight - cropHeight) / 2, width: cropWidth, height: cropHeight });
   };
 
   const clampCropRect = (nextRect, bounds) => {
-    const minSize = 70;
-    const width = Math.max(minSize, Math.min(nextRect.width, bounds.right - bounds.left));
-    const height = Math.max(minSize, Math.min(nextRect.height, bounds.bottom - bounds.top));
+    const maxWidth = Math.min(bounds.right - bounds.left, (bounds.bottom - bounds.top) * .75);
+    const width = Math.max(Math.min(70, maxWidth), Math.min(nextRect.width, maxWidth));
+    const height = width / .75;
     return {
       x: Math.max(bounds.left, Math.min(nextRect.x, bounds.right - width)),
       y: Math.max(bounds.top, Math.min(nextRect.y, bounds.bottom - height)),
@@ -836,15 +838,12 @@ function AdminCoverCropper({ file, onCancel, onConfirm }) {
     if (interaction.type === 'move') {
       setCropRect(clampCropRect({ ...start, x: start.x + dx, y: start.y + dy }, bounds));
     } else {
-      let left = start.x;
-      let top = start.y;
-      let right = start.x + start.width;
-      let bottom = start.y + start.height;
-      if (interaction.handle.includes('w')) left += dx;
-      if (interaction.handle.includes('e')) right += dx;
-      if (interaction.handle.includes('n')) top += dy;
-      if (interaction.handle.includes('s')) bottom += dy;
-      setCropRect(clampCropRect({ x: left, y: top, width: right - left, height: bottom - top }, bounds));
+      const horizontal = (interaction.handle.includes('w') ? -dx : dx) / start.width;
+      const vertical = (interaction.handle.includes('n') ? -dy : dy) / start.height;
+      const factor = 1 + (Math.abs(horizontal) >= Math.abs(vertical) ? horizontal : vertical);
+      const width = start.width * factor;
+      const height = width / .75;
+      setCropRect(clampCropRect({ x: interaction.handle.includes('w') ? start.x + start.width - width : start.x, y: interaction.handle.includes('n') ? start.y + start.height - height : start.y, width, height }, bounds));
     }
   };
 
@@ -1536,7 +1535,6 @@ function AdminDashboardPage() {
 
   return (
     <main className="admin-page" style={{ '--admin-page-bg': adminTheme.background, '--admin-panel-bg': adminTheme.panel, '--admin-accent': adminTheme.accent }}>
-      <DesktopSidebar admin tab={tab} onTabChange={setTab} />
       <div className="admin-topbar">
       <header className="admin-header">
         <button type="button" onClick={() => navigate('/')} aria-label="Volver"><ArrowLeft size={22} /></button>

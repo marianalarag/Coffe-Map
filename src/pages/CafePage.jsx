@@ -1,3 +1,4 @@
+import PostImageCarousel from '../components/PostImageCarousel';
 import { useEffect, useState } from 'react';
 import { useLocation, useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, MapPin, Coffee, Heart, CheckCircle2, Clock, Edit3, Instagram, Music2, Plus, MessageCircle, Send, ExternalLink, X } from 'lucide-react';
@@ -134,7 +135,7 @@ function CafePage({ cafeId }) {
         .eq('cafe_id', id)
         .eq('kind', 'review')
         .eq('status', 'published')
-        .order('updated_at', { ascending: false })
+        .order('activity_date', { ascending: false }).order('created_at', { ascending: false })
         .limit(8);
       if (error || !posts?.length) {
         if (!cancelled) setCommunityReviews([]);
@@ -157,7 +158,7 @@ function CafePage({ cafeId }) {
     };
     loadCommunityReviews().catch(() => { if (!cancelled) setCommunityReviews([]); });
     return () => { cancelled = true; };
-  }, [id]);
+  }, [id, location.key, mediaReload]);
 
   useEffect(() => {
     setIsVisited(interaction?.is_visited || false);
@@ -360,7 +361,7 @@ function CafePage({ cafeId }) {
             <header><div><span className="cafe-section-kicker">LA COMUNIDAD OPINA</span><h2>Reviews</h2></div><button type="button" onClick={openReviewComposer} aria-label="Escribir reseña"><Plus size={18} /></button></header>
             {communityReviews.length ? <div className="cafe-community-reviews">{communityReviews.map((review) => <article className="cafe-community-review" key={review.id}>
               <div className="cafe-review-top"><div className="cafe-review-user"><img src={review.profile?.avatar_url || `https://api.dicebear.com/7.x/miniavs/svg?seed=${encodeURIComponent(review.profile?.username || 'coffee-user')}`} alt="" onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = '/logo.png'; }} /><strong>{review.profile?.username || 'Coffee Map member'}</strong></div><div className="cafe-review-rating"><CoffeeBeanRating value={Number(review.rating || 0)} size={17} /><b>{Number(review.rating || 0) || '—'}</b></div></div>
-              <div className="cafe-review-content">{review.images?.[0] && <img className="cafe-review-photo cafe-expandable-photo" src={review.images[0].public_url} alt={`Foto de ${cafe.nombre}`} loading="lazy" decoding="async" onClick={() => setExpandedImage({ src: review.images[0].public_url, alt: `Foto de ${cafe.nombre}` })} /> }<p>{review.content}</p></div>
+              <div className="cafe-review-content">{review.images?.length > 0 && <PostImageCarousel key={review.images.map((image) => image.id).join(':')} images={review.images} cafeName={cafe.nombre} />}<p>{review.content}</p></div>
               <footer><button type="button" onClick={() => navigate('/activity')} aria-label="Ver reseña"><Heart size={17} /></button><button type="button" onClick={() => navigate('/activity')} aria-label="Abrir comentarios"><MessageCircle size={17} /></button><button type="button" onClick={() => navigator.share ? navigator.share({ title: `Reseña de ${cafe.nombre}`, url: window.location.href }).catch(() => {}) : navigator.clipboard?.writeText(window.location.href)} aria-label="Compartir"><Send size={16} /></button></footer>
             </article>)}</div> : <div className="cafe-reviews-empty"><Coffee size={25} /><p>Aún no hay reseñas públicas para esta cafetería.</p><button type="button" onClick={openReviewComposer}>Sé la primera persona en contar tu visita</button></div>}
           </section>

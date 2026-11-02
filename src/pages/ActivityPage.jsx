@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Check, ChevronLeft, ChevronRight, Coffee, Edit3, Heart, Image as ImageIcon, ImagePlus, MessageCircle, MoreHorizontal, Send, Trash2, UserPlus, Users, X, MapPin } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Coffee, Edit3, Heart, Image as ImageIcon, ImagePlus, MessageCircle, MoreHorizontal, RefreshCw, Send, Trash2, UserPlus, Users, X, MapPin } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import BottomNav from '../components/BottomNav';
 import { CoffeeBeanRating } from '../components/CoffeeBeanIcon';
@@ -9,7 +9,9 @@ import { repairCafeText } from '../utils/cafeDeduplication';
 import { formatRating } from '../utils/formatRating';
 import { useCoffeeData } from '../context/CoffeeDataContext';
 import HalfStarRating from '../components/HalfStarRating';
-import PostPhoto from '../components/PostPhoto';
+import PostImageCarousel from '../components/PostImageCarousel';
+import PullToRefresh from '../components/PullToRefresh';
+import { createPortal } from 'react-dom';
 import MasonryFeed from '../components/MasonryFeed';
 import { editPublication } from '../utils/editPublication';
 import { compareActivityDates } from '../utils/activityDate';
@@ -19,72 +21,6 @@ const getActivityAvatar = (url) => url || '';
 const ACTIVITY_CACHE_TTL_MS = 2 * 60 * 1000;
 const MAX_EDIT_PHOTO_BYTES = 8 * 1024 * 1024;
 const activityCache = new Map();
-
-function PostImageCarousel({ images, cafeName }) {
-  const trackRef = useRef(null);
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [viewerIndex, setViewerIndex] = useState(null);
-  const hasMultipleImages = images.length > 1;
-
-  useEffect(() => {
-    if (viewerIndex === null) return undefined;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    const onKeyDown = (event) => {
-      if (event.key === 'Escape') setViewerIndex(null);
-      if (event.key === 'ArrowRight') setViewerIndex((index) => Math.min(images.length - 1, index + 1));
-      if (event.key === 'ArrowLeft') setViewerIndex((index) => Math.max(0, index - 1));
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener('keydown', onKeyDown);
-    };
-  }, [images.length, viewerIndex]);
-
-  const updateActiveIndex = () => {
-    const track = trackRef.current;
-    if (!track?.clientWidth) return;
-    setActiveIndex(Math.max(0, Math.min(images.length - 1, Math.round(track.scrollLeft / track.clientWidth))));
-  };
-
-  const showImage = (index) => {
-    const nextIndex = Math.max(0, Math.min(images.length - 1, index));
-    trackRef.current?.scrollTo({ left: nextIndex * trackRef.current.clientWidth, behavior: 'smooth' });
-    setActiveIndex(nextIndex);
-  };
-
-  return (
-    <section className="activity-image-carousel" aria-roledescription="carrusel" aria-label={`Fotos de ${cafeName || 'la publicación'}`}>
-      <div className="activity-image-track" ref={trackRef} onScroll={updateActiveIndex}>
-        {images.map((image, index) => (
-          <div className="activity-image-slide" role="group" aria-roledescription="diapositiva" aria-label={`${index + 1} de ${images.length}`} key={image.id}>
-            <button type="button" className="activity-image-open" onClick={() => setViewerIndex(index)} aria-label={`Abrir foto ${index + 1} en pantalla completa`}><PostPhoto image={image} alt={`${cafeName || 'Publicación'}, foto ${index + 1} de ${images.length}`} loading={index === 0 ? 'eager' : 'lazy'} decoding="async" /></button>
-          </div>
-        ))}
-      </div>
-
-      {hasMultipleImages && (
-        <>
-          <span className="activity-image-counter" aria-live="polite">{activeIndex + 1}/{images.length}</span>
-          {activeIndex > 0 && <button type="button" className="activity-carousel-button is-previous" onClick={() => showImage(activeIndex - 1)} aria-label="Ver foto anterior"><ChevronLeft size={18} /></button>}
-          {activeIndex < images.length - 1 && <button type="button" className="activity-carousel-button is-next" onClick={() => showImage(activeIndex + 1)} aria-label="Ver foto siguiente"><ChevronRight size={18} /></button>}
-          <div className="activity-carousel-dots" aria-hidden="true">
-            {images.map((image, index) => <span className={index === activeIndex ? 'is-active' : ''} key={image.id} />)}
-          </div>
-        </>
-      )}
-      {viewerIndex !== null && (
-        <div className="activity-image-viewer" role="dialog" aria-modal="true" aria-label="Imagen de la publicación en pantalla completa" onMouseDown={(event) => { if (event.target === event.currentTarget) setViewerIndex(null); }}>
-          <header><span>{viewerIndex + 1} / {images.length}</span><button type="button" onClick={() => setViewerIndex(null)} aria-label="Cerrar imagen"><X size={22} /></button></header>
-          {viewerIndex > 0 && <button type="button" className="activity-viewer-arrow is-previous" onClick={() => setViewerIndex((index) => index - 1)} aria-label="Imagen anterior"><ChevronLeft size={28} /></button>}
-          <img className="activity-image-viewer-photo" src={images[viewerIndex]?.public_url} alt={`${cafeName || 'Publicación'}, foto ${viewerIndex + 1} de ${images.length}`} />
-          {viewerIndex < images.length - 1 && <button type="button" className="activity-viewer-arrow is-next" onClick={() => setViewerIndex((index) => index + 1)} aria-label="Siguiente imagen"><ChevronRight size={28} /></button>}
-        </div>
-      )}
-    </section>
-  );
-}
 
 export function ActivityFeed({ userIdFilter = null, userIdsFilter = null, kindFilter = null, compact = false }) {
   const { user } = useAuth();
@@ -486,13 +422,15 @@ export function ActivityFeed({ userIdFilter = null, userIdsFilter = null, kindFi
 
   return (
     <>
-      {!compact && <header className="activity-header"><span>Comunidad Mérida</span><button type="button" onClick={loadPosts} className="activity-refresh">Actualizar</button></header>}
+      <PullToRefresh onRefresh={loadPosts}>
+      {!compact && <header className="activity-header"><span>Comunidad Mérida</span><button type="button" onClick={loadPosts} className="activity-refresh" aria-label="Actualizar actividad" title="Actualizar"><RefreshCw size={19} /></button></header>}
       <MasonryFeed className={compact ? 'is-compact' : ''}>
         {loading && <div className="activity-empty"><Coffee size={28} /><p>Cargando actividad…</p></div>}
         {!loading && error && <div className="activity-empty"><p>{error}</p></div>}
         {!loading && !error && posts.length === 0 && <div className="activity-empty"><ImageIcon size={30} /><p>Aún no hay publicaciones en la comunidad.</p></div>}
         {!loading && !error && posts.length > 0 && posts.map(renderPost)}
       </MasonryFeed>
+      </PullToRefresh>
       {commentPost && (
         <div className="comments-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setCommentPost(null); }}>
           <section className="comments-sheet" role="dialog" aria-modal="true" aria-label="Comentarios">
@@ -512,7 +450,7 @@ export function ActivityFeed({ userIdFilter = null, userIdsFilter = null, kindFi
           </section>
         </div>
       )}
-      {editingPost && (
+      {editingPost && createPortal(
         <div className="activity-edit-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !savingEdit) closeEditPost(); }}>
           <section className="activity-edit-sheet" role="dialog" aria-modal="true" aria-labelledby="activity-edit-title">
             <header>
@@ -527,7 +465,7 @@ export function ActivityFeed({ userIdFilter = null, userIdsFilter = null, kindFi
               {editCafeId && <button className="activity-edit-visit" type="button" onClick={() => setEditRevisit((value) => !value)} aria-pressed={editRevisit}>{editRevisit ? 'Ya había ido antes' : 'Primera visita'}</button>}
               <div className="activity-edit-section-label"><span>Fotos</span><small>{editPhotos.length}/10</small></div>
               {editPhotos.length ? <div className="activity-edit-images">{editPhotos.map((photo,index) => <div className="activity-edit-image" key={photo.id}>
-                <img src={photo.preview_url || photo.public_url} alt={`Foto ${index+1}`} />
+                <img draggable={false} src={photo.preview_url || photo.public_url} alt={`Foto ${index+1}`} />
                 <button type="button" onClick={() => removeEditImage(photo.id)} aria-label={`Eliminar foto ${index+1}`}><X size={14} /></button>
                 <div className="activity-edit-photo-order"><button type="button" onClick={() => moveEditImage(index,-1)} disabled={index===0} aria-label={`Mover foto ${index+1} antes`}><ChevronLeft size={15} /></button><button type="button" onClick={() => moveEditImage(index,1)} disabled={index===editPhotos.length-1} aria-label={`Mover foto ${index+1} después`}><ChevronRight size={15} /></button></div>
               </div>)}</div> : <p className="activity-edit-empty">No hay fotos en esta publicación.</p>}
@@ -540,7 +478,7 @@ export function ActivityFeed({ userIdFilter = null, userIdsFilter = null, kindFi
               <button type="button" className="activity-edit-save" onClick={saveEditedPost} disabled={savingEdit}>{savingEdit ? 'Guardando…' : <><Check size={16} /> Guardar cambios</>}</button>
             </footer>
           </section>
-        </div>
+        </div>, document.body
       )}
     </>
   );
