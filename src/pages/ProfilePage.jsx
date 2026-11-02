@@ -28,7 +28,6 @@ import { formatRating } from '../utils/formatRating';
 import HalfStarRating from '../components/HalfStarRating';
 import ProfileCafeCard from '../components/ProfileCafeCard';
 import ProfileAvatar from '../components/ProfileAvatar';
-import DesktopSidebar from '../components/DesktopSidebar';
 import { getPersonalCafeRating } from '../utils/personalRating';
 
 
@@ -333,8 +332,6 @@ function ProfilePage() {
   const colorSaveTimerRef = useRef(null);
   const [showAvatarViewer, setShowAvatarViewer] = useState(false);
   const [cropRequest, setCropRequest] = useState(null);
-  const recentRowRef = useRef(null);
-  const [recentSlide, setRecentSlide] = useState(0);
   const [draftTextColor, setDraftTextColor] = useState(userProfile?.text_color || '#E6DAC1');
 
   const openProfileTab = (tab) => navigate(tab === 'profile' ? '/profile' : `/profile?tab=${tab}`);
@@ -609,7 +606,6 @@ function ProfilePage() {
 
   return (
     <main className="profile-page" style={textStyle}>
-      <DesktopSidebar />
       <section className="profile-scroll">
         {interactionsError && <div className="profile-load-error" role="alert"><span>{interactionsError}</span><button type="button" onClick={() => refreshUserInteractions().catch(() => {})} disabled={interactionsLoading}>{interactionsLoading ? 'Reintentando…' : 'Reintentar'}</button></div>}
         <header className="profile-hero">
@@ -651,7 +647,8 @@ function ProfilePage() {
               <button
                 onClick={() => setShowSettings((current) => !current)}
                 className="profile-icon-button"
-                aria-label="Abrir configuración"
+                aria-label="Editar perfil"
+                title="Editar perfil"
                 aria-expanded={showSettings}
                 aria-controls="profile-settings-menu"
               >
@@ -797,7 +794,7 @@ function ProfilePage() {
             <button type="button" style={textStyle} onClick={() => openProfileTab('visited')}>Ver más</button>
           </div>
 
-          <div className="profile-recent-row" ref={recentRowRef} onScroll={(event) => setRecentSlide(event.currentTarget.scrollLeft > 10 ? 1 : 0)}>
+          <div className="profile-recent-row">
             {recentCafes.length > 0 ? (
               recentCafes.map((cafe) => (
                   <ProfileCafeCard key={cafe.id} cafe={cafe} locationInside onClick={() => navigate(`/cafe/${cafe.id}`)} />
@@ -809,7 +806,6 @@ function ProfilePage() {
               </div>
             )}
           </div>
-          {recentCafes.length > 3 && <div className="profile-recent-pagination" aria-label="Navegar cafeterías recientes">{[0, 1].map((page) => <button key={page} type="button" aria-label={page ? 'Ver últimas cafeterías recientes' : 'Ver primeras cafeterías recientes'} aria-pressed={recentSlide === page} onClick={() => recentRowRef.current?.scrollTo({ left: page ? recentRowRef.current.scrollWidth : 0, behavior: 'smooth' })} />)}</div>}
         </section>
 
         <ProfileVisitRanking places={visitedCafeStats} textStyle={textStyle} onSelectCafe={setHistoryCafe} />
@@ -869,6 +865,7 @@ function ProfilePage() {
         <div className="profile-avatar-viewer" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowAvatarViewer(false); }}>
           <section role="dialog" aria-modal="true" aria-label="Foto de perfil">
             <button type="button" onClick={() => setShowAvatarViewer(false)} aria-label="Cerrar"><X size={20} /></button>
+            <div className="profile-avatar-viewer-frame">
             <ProfileAvatar
               src={avatarViewerUrl}
               size={1024}
@@ -880,6 +877,7 @@ function ProfilePage() {
                 if (event.currentTarget.src !== profile.avatarUrl) event.currentTarget.src = profile.avatarUrl;
               }}
             />
+            </div>
             <label><Camera size={16} /> Cambiar foto<input type="file" accept="image/*" onChange={(event) => startImageCrop(event, 'avatar')} disabled={Boolean(uploadingField)} hidden /></label>
           </section>
         </div>

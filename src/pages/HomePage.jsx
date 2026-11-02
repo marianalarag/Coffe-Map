@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Check, Coffee, Croissant, Heart, Info, MapPin, Plus, Search } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import BottomNav from '../components/BottomNav';
 import PageLoading from '../components/PageLoading';
 import { useAuth } from '../context/AuthContext';
@@ -8,96 +8,15 @@ import { useCoffeeData } from '../context/CoffeeDataContext';
 import { getCafeCoordinates } from '../utils/cafeLocation';
 import { getCafeFullAddress, getCafeNeighborhood } from '../utils/cafeAddress';
 import ProfileCafeCard from '../components/ProfileCafeCard';
+import { getCafeCategory, pickFeaturedCafe } from '../utils/featuredCafe';
 
 const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=1200&q=85';
 const MAP_TARGET_STORAGE_KEY = 'coffee-map:focus-cafe';
 
 const getCafeImage = (cafe) => cafe?.imageUrl || FALLBACK_IMAGE;
-const BAKERY_PATTERN = /panader|bakery|pasteler|reposter|bake|bread|croissant|boulanger/i;
-const getCafeCategory = (cafe) => (
-  cafe?.category === 'panaderia' || BAKERY_PATTERN.test(cafe?.nombre || '')
-    ? 'panaderia'
-    : 'cafeteria'
-);
 const getCafeCategoryLabel = (cafe) => getCafeCategory(cafe) === 'panaderia' ? 'Panadería' : 'Cafetería';
 const getCafeAddress = getCafeFullAddress;
 const getCompactAddress = getCafeNeighborhood;
-
-const hashText = (value) => {
-  let hash = 2166136261;
-  for (const character of String(value)) {
-    hash ^= character.charCodeAt(0);
-    hash = Math.imul(hash, 16777619);
-  }
-  return hash >>> 0;
-};
-
-const getDistanceInKm = (origin, destination) => {
-  const toRadians = (degrees) => degrees * (Math.PI / 180);
-  const latitudeDelta = toRadians(destination.lat - origin.lat);
-  const longitudeDelta = toRadians(destination.lng - origin.lng);
-  const originLatitude = toRadians(origin.lat);
-  const destinationLatitude = toRadians(destination.lat);
-  const a = Math.sin(latitudeDelta / 2) ** 2
-    + Math.cos(originLatitude) * Math.cos(destinationLatitude) * Math.sin(longitudeDelta / 2) ** 2;
-  return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-};
-
-const getPersonalizedCafe = ({ cafes, interactions, cafeById, userId }) => {
-  const visitedIds = new Set(
-    interactions.filter((item) => item.is_visited).map((item) => item.cafe_id),
-  );
-  const favoriteIds = new Set(
-    interactions.filter((item) => item.is_favorite).map((item) => item.cafe_id),
-  );
-  const unvisitedCafes = cafes.filter((cafe) => !visitedIds.has(cafe.id));
-  if (unvisitedCafes.length === 0) return cafes[0] || null;
-
-  const preferenceAnchors = interactions
-    .filter((item) => item.is_favorite || Number(item.rating || 0) >= 4)
-    .map((item) => ({ cafe: cafeById.get(item.cafe_id), interaction: item }))
-    .filter((item) => item.cafe);
-  const newToUser = unvisitedCafes.filter((cafe) => !favoriteIds.has(cafe.id));
-  const candidates = newToUser.length > 0 ? newToUser : unvisitedCafes;
-  const categoryPreferences = preferenceAnchors.reduce((preferences, anchor) => {
-    const reviewSuggestsBakery = BAKERY_PATTERN.test(anchor.interaction.review_text || '');
-    const category = reviewSuggestsBakery ? 'panaderia' : getCafeCategory(anchor.cafe);
-    const weight = anchor.interaction.is_favorite ? 2 : Math.max(Number(anchor.interaction.rating || 0) - 2, 1);
-    preferences[category] += weight;
-    return preferences;
-  }, { cafeteria: 0, panaderia: 0 });
-  const preferredCategory = categoryPreferences.panaderia > categoryPreferences.cafeteria
-    ? 'panaderia'
-    : 'cafeteria';
-
-  const rankedCandidates = candidates.map((cafe) => {
-    const publicRating = Number(cafe.rating || 0);
-    const reviewConfidence = Math.min(Math.log10(Number(cafe.reviews || 0) + 1), 3);
-    const affinity = preferenceAnchors.reduce((bestMatch, anchor) => {
-      const distance = getDistanceInKm(anchor.cafe, cafe);
-      const preferenceWeight = anchor.interaction.is_favorite
-        ? 1.35
-        : Math.max(Number(anchor.interaction.rating || 0) / 5, 0.8);
-      return Math.max(bestMatch, preferenceWeight / (1 + distance / 3.5));
-    }, 0);
-
-    return {
-      cafe,
-      score: affinity * 3.2
-        + publicRating * 0.45
-        + reviewConfidence * 0.18
-        + (cafe.imageUrl ? 0.35 : 0)
-        + (cafe.address ? 0.45 : 0)
-        + (preferenceAnchors.length && getCafeCategory(cafe) === preferredCategory ? 0.85 : 0),
-    };
-  }).sort((a, b) => b.score - a.score || a.cafe.nombre.localeCompare(b.cafe.nombre));
-
-  const shortlist = rankedCandidates.slice(0, Math.min(5, rankedCandidates.length));
-  const week = Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000));
-  const preferenceKey = preferenceAnchors.map(({ cafe }) => cafe.id).sort().join(':');
-  const selectedIndex = hashText(`${userId || 'coffee-map'}:${week}:${preferenceKey}`) % shortlist.length;
-  return shortlist[selectedIndex]?.cafe || rankedCandidates[0]?.cafe || null;
-};
 
 function CafeCard({ cafe, interaction, onOpen }) {
   return <ProfileCafeCard cafe={{ ...cafe, rating: Number(interaction?.rating || cafe?.rating || 0) }} onClick={() => onOpen(cafe.id)} />;
@@ -105,13 +24,16 @@ function CafeCard({ cafe, interaction, onOpen }) {
 
 function HomePage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const entryRef = useRef(null);
+  const [featuredId, setFeaturedId] = useState(null);
   const { user } = useAuth();
   const {
     cafes,
     cafeById,
     cafesLoaded,
     cafesLoading,
-    loadCafes,
+    refreshCafes,
     interactions,
     interactionsByCafeId,
     saveCafeInteraction,
@@ -119,21 +41,31 @@ function HomePage() {
   const [savingAction, setSavingAction] = useState('');
   const [actionError, setActionError] = useState('');
 
-  useEffect(() => {
-    if (!cafesLoaded) loadCafes().catch(() => {});
-  }, [cafesLoaded, loadCafes]);
+  const chooseFeaturedForEntry = useCallback(async () => {
+    if (location.pathname !== '/') { entryRef.current = null; return; }
+    const key = `${user?.id || 'guest'}:${location.key}`;
+    if (entryRef.current?.key === key && (entryRef.current.pending || cafes.some((cafe) => cafe.id === entryRef.current.id) || (cafesLoaded && cafes.length === 0))) return;
+    const request = { key, pending: true };
+    entryRef.current = request;
+    let pool = cafes;
+    try { const fresh = await refreshCafes(); if (Array.isArray(fresh)) pool = fresh; } catch { /* The trusted cached catalog remains available offline. */ }
+    if (entryRef.current !== request) return;
+    const storageKey = `coffee-map:featured:v1:${user?.id || 'guest'}`;
+    let previous = { history: [], visit: 0 };
+    try { const stored = JSON.parse(sessionStorage.getItem(storageKey) || 'null'); if (Array.isArray(stored?.history)) previous = stored; } catch { /* Session history is optional. */ }
+    const selected = pickFeaturedCafe({ cafes: pool, interactions, userId: user?.id, history: previous.history, visit: Number(previous.visit) || 0 });
+    request.pending = false; request.id = selected?.id;
+    setFeaturedId(selected?.id || null);
+    if (selected) try { sessionStorage.setItem(storageKey, JSON.stringify({ history: [...previous.history, selected.id].slice(-40), visit: (Number(previous.visit) || 0) + 1 })); } catch { /* Browsing still works without storage. */ }
+  }, [cafes, cafesLoaded, interactions, location.key, location.pathname, refreshCafes, user?.id]);
+  useEffect(() => { chooseFeaturedForEntry(); }, [chooseFeaturedForEntry]);
 
   const sortedCafes = useMemo(() => [...cafes].sort((a, b) => {
     const ratingDifference = Number(b.rating || 0) - Number(a.rating || 0);
     return ratingDifference || (Number(b.reviews || 0) - Number(a.reviews || 0));
   }), [cafes]);
 
-  const featuredCafe = useMemo(() => getPersonalizedCafe({
-    cafes: sortedCafes,
-    interactions,
-    cafeById,
-    userId: user?.id,
-  }), [cafeById, interactions, sortedCafes, user?.id]);
+  const featuredCafe = cafeById.get(featuredId) || null;
   const featuredInteraction = featuredCafe ? interactionsByCafeId.get(featuredCafe.id) : null;
   const popularCafes = sortedCafes.slice(0, 5);
   const savedCafes = cafes.filter((cafe) => {
@@ -171,7 +103,7 @@ function HomePage() {
     navigate('/map');
   };
 
-  if (cafesLoading && !cafesLoaded) {
+  if ((cafesLoading && !cafesLoaded) || (cafes.length > 0 && !featuredCafe)) {
     return <PageLoading message="Preparando tu mapa de café..." />;
   }
 

@@ -176,14 +176,14 @@ function SearchPage() {
           </button>
         </div>
 
-        <h2 className="font-['Inria_Serif'] text-lg italic text-[#E6DAC1] mb-2">
-          {isCafeSelectionMode ? 'Relaciona una cafetería con tu publicación' : 'Encuentra tu nueva cafeteria favorita'}
+        <h2 className="text-lg font-medium text-[#E6DAC1] mb-2">
+          {isCafeSelectionMode ? 'Relaciona una cafetería con tu publicación' : 'Encuentra tu nueva cafetería favorita'}
         </h2>
 
         <div className="flex-1 relative w-full">
           <input
             type="text"
-            placeholder={isCafeSelectionMode ? 'Buscar cafeterías para relacionar...' : 'Buscar cafeterias...'}
+            placeholder={isCafeSelectionMode ? 'Buscar cafeterías para relacionar...' : 'Buscar cafeterías...'}
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
             className="w-full bg-[#372821] text-[#E6DAC1] placeholder-[#E6DAC1]/50 rounded-full py-3 px-4 pl-10 pr-10 outline-none focus:ring-2 focus:ring-[#E6DAC1]/50 transition-all"
@@ -235,7 +235,7 @@ function SearchPage() {
                     </div>
                   )}
                   <div className="flex-1 pr-4 min-w-0">
-                    <h3 className="font-lancelot text-xl text-[#E6DAC1] uppercase tracking-wide truncate">{cafe.nombre}</h3>
+                    <h3 className="font-lancelot text-xl text-[#E6DAC1] truncate">{cafe.nombre}</h3>
                     <div className="flex items-center gap-2 mt-2">
                       <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold ${status.className}`}>
                         <StatusIcon size={14} className={status.label === 'Favorita' ? 'fill-current' : ''} />
