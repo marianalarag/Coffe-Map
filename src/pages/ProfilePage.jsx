@@ -2,8 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
+  BarChart3,
   Camera,
   Coffee,
+  Heart,
+  Pencil,
   Loader2,
   LogOut,
   Plus,
@@ -25,6 +28,7 @@ import { formatRating } from '../utils/formatRating';
 import HalfStarRating from '../components/HalfStarRating';
 import ProfileCafeCard from '../components/ProfileCafeCard';
 import ProfileAvatar from '../components/ProfileAvatar';
+import DesktopSidebar from '../components/DesktopSidebar';
 import { getPersonalCafeRating } from '../utils/personalRating';
 
 
@@ -165,7 +169,7 @@ function ProfileRatingChart({ interactions, textStyle, navigate }) {
 
   return (
     <section className="profile-rating-chart" aria-label="Distribución de tus calificaciones">
-      <div className="profile-rating-heading"><div><small>REPARTO DE CALIFICACIONES</small><h2 style={textStyle}>Tus calificaciones</h2></div><CoffeeBeanIcon size={22} filled /></div>
+      <div className="profile-rating-heading"><CoffeeBeanIcon size={24} filled /><h2 style={textStyle}>Tus calificaciones</h2></div>
       <div className="profile-rating-rows">
         {rows.map((row) => (
           <button
@@ -189,14 +193,14 @@ function ProfileRatingChart({ interactions, textStyle, navigate }) {
 function ProfileVisitRanking({ places, textStyle, onSelectCafe }) {
   return (
     <section className="profile-visit-ranking">
-      <div className="profile-rating-heading"><div><small>HISTORIAL</small><h2 style={textStyle}>Cafés más visitados</h2></div><Coffee size={20} /></div>
+      <div className="profile-rating-heading"><BarChart3 size={23} /><h2 style={textStyle}>Cafés más visitados</h2></div>
       {places.length > 0 ? (
         <div className="profile-visit-ranking-list">
-          {places.slice(0, 6).map(({ cafe, count, rating, reviewCount }) => (
+          {places.slice(0, 6).map(({ cafe, count }) => (
             <article className="profile-visit-ranking-card" key={cafe.id}>
               <button type="button" className="profile-visit-ranking-main" onClick={() => onSelectCafe(cafe)} aria-label={`Abrir tus ${count === 1 ? 'visita' : 'visitas'} a ${cafe.nombre}`}>
                 {cafe.imageUrl ? <img src={cafe.imageUrl} alt={cafe.nombre} /> : <span className="profile-cafe-placeholder"><Coffee size={20} /></span>}
-                <span><strong>{cafe.nombre}</strong><small><Coffee size={12} /> {count} {count === 1 ? 'visita' : 'visitas'}{reviewCount ? ` · ${reviewCount} ${reviewCount === 1 ? 'reseña' : 'reseñas'}` : ''}{rating ? ` · ${formatRating(rating)}` : ''}</small></span>
+                <strong>{cafe.nombre}</strong><small>{count} {count === 1 ? 'visita' : 'visitas'}</small>
               </button>
             </article>
           ))}
@@ -329,6 +333,8 @@ function ProfilePage() {
   const colorSaveTimerRef = useRef(null);
   const [showAvatarViewer, setShowAvatarViewer] = useState(false);
   const [cropRequest, setCropRequest] = useState(null);
+  const recentRowRef = useRef(null);
+  const [recentSlide, setRecentSlide] = useState(0);
   const [draftTextColor, setDraftTextColor] = useState(userProfile?.text_color || '#E6DAC1');
 
   const openProfileTab = (tab) => navigate(tab === 'profile' ? '/profile' : `/profile?tab=${tab}`);
@@ -603,6 +609,7 @@ function ProfilePage() {
 
   return (
     <main className="profile-page" style={textStyle}>
+      <DesktopSidebar />
       <section className="profile-scroll">
         {interactionsError && <div className="profile-load-error" role="alert"><span>{interactionsError}</span><button type="button" onClick={() => refreshUserInteractions().catch(() => {})} disabled={interactionsLoading}>{interactionsLoading ? 'Reintentando…' : 'Reintentar'}</button></div>}
         <header className="profile-hero">
@@ -639,7 +646,8 @@ function ProfilePage() {
               <ArrowLeft size={22} />
             </button>
 
-            <div className="relative" ref={settingsMenuRef}>
+            <div className="relative profile-header-tools" ref={settingsMenuRef}>
+              <button type="button" className="profile-header-share" onClick={shareProfile} aria-label="Compartir perfil"><Share2 size={17} /> Compartir</button>
               <button
                 onClick={() => setShowSettings((current) => !current)}
                 className="profile-icon-button"
@@ -647,7 +655,7 @@ function ProfilePage() {
                 aria-expanded={showSettings}
                 aria-controls="profile-settings-menu"
               >
-                <Settings size={21} />
+                <Pencil size={19} /><span className="profile-edit-label">Editar perfil</span>
               </button>
 
               {showSettings && (
@@ -660,6 +668,7 @@ function ProfilePage() {
                   />
                   <div id="profile-settings-menu" className="profile-settings-panel" role="menu">
                     <p className="profile-settings-title">Configuración</p>
+                    <label className="profile-settings-text-color">Color del texto<input type="color" value={draftTextColor} onInput={(event) => previewAndSaveTextColor(event.currentTarget.value)} aria-label="Color del texto del perfil" /></label>
                     <label className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white/5 cursor-pointer text-sm font-bold">
                       <Camera size={16} />
                       Cambiar portada
@@ -765,7 +774,7 @@ function ProfilePage() {
                 <strong>{profile.stats.waitingList}</strong><span>Lista</span>
               </button>
               <button type="button" onClick={() => navigate('/ratings')}>
-                <strong>{profile.stats.rated}</strong><span>Calificadas</span>
+                <strong>{profile.stats.rated}</strong><span>Calificaciones</span>
               </button>
             </div>
           </div>
@@ -784,14 +793,14 @@ function ProfilePage() {
         <div className="profile-content-main-column">
         <section className="profile-recent-section">
           <div className="profile-section-heading">
-            <h2 style={textStyle}>Lugares recientemente visitados</h2>
+            <h2 style={textStyle}><Coffee size={24} /> Lugares recientemente visitados</h2>
             <button type="button" style={textStyle} onClick={() => openProfileTab('visited')}>Ver más</button>
           </div>
 
-          <div className="profile-recent-row">
+          <div className="profile-recent-row" ref={recentRowRef} onScroll={(event) => setRecentSlide(event.currentTarget.scrollLeft > 10 ? 1 : 0)}>
             {recentCafes.length > 0 ? (
               recentCafes.map((cafe) => (
-                  <ProfileCafeCard key={cafe.id} cafe={cafe} onClick={() => navigate(`/cafe/${cafe.id}`)} />
+                  <ProfileCafeCard key={cafe.id} cafe={cafe} locationInside onClick={() => navigate(`/cafe/${cafe.id}`)} />
                 ))
             ) : (
               <div className="profile-empty-recent">
@@ -800,6 +809,7 @@ function ProfilePage() {
               </div>
             )}
           </div>
+          {recentCafes.length > 3 && <div className="profile-recent-pagination" aria-label="Navegar cafeterías recientes">{[0, 1].map((page) => <button key={page} type="button" aria-label={page ? 'Ver últimas cafeterías recientes' : 'Ver primeras cafeterías recientes'} aria-pressed={recentSlide === page} onClick={() => recentRowRef.current?.scrollTo({ left: page ? recentRowRef.current.scrollWidth : 0, behavior: 'smooth' })} />)}</div>}
         </section>
 
         <ProfileVisitRanking places={visitedCafeStats} textStyle={textStyle} onSelectCafe={setHistoryCafe} />
@@ -810,7 +820,7 @@ function ProfilePage() {
 
         {favoritePlaces.length > 0 && (
           <section className="profile-favorites-section">
-            <h2 className="text-base font-semibold mb-3" style={textStyle}>Favoritos recientes</h2>
+            <div className="profile-section-heading"><h2 style={textStyle}><Heart size={24} /> Favoritos recientes</h2><button type="button" onClick={() => navigate('/favorites')}>Ver todos →</button></div>
             <div className="flex gap-3 overflow-x-auto pb-2 hide-scrollbar">
               {favoritePlaces.slice(0, 8).map((cafe) => (
                 <div key={cafe.id} className="profile-favorite-card">

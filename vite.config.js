@@ -11,7 +11,7 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       manifestFilename: 'coffee-map.webmanifest',
-      includeAssets: ['favicon.png', 'logo.png', 'pwa-192x192.png', 'pwa-512x512.png'],
+      includeAssets: ['favicon.png', 'logo.png', 'pwa-192x192.png', 'pwa-512x512.png', 'fonts/InterVariable.woff2'],
       workbox: {
         cleanupOutdatedCaches: true,
         navigateFallback: '/index.html',
