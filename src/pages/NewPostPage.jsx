@@ -329,7 +329,7 @@ function NewPostPage() {
               post_id: post.id,
               storage_path: image.storage_path,
               public_url: image.public_url,
-              status: 'pending',
+              status: 'approved',
               is_cover: false,
               rights_confirmed: true,
               rights_basis: 'own',

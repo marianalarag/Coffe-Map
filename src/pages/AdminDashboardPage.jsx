@@ -729,7 +729,7 @@ function AdminCafeCard({ cafe, tiktoks = [], busy = false, saving = false, menuS
         <section className="admin-editor-section cms-tab-section" data-editor-section="multimedia"><h3><Image size={18} /> Multimedia y menú</h3><label className="cms-cover-upload"><Camera size={16} /> Cambiar portada<input hidden type="file" accept="image/*" onChange={(event) => { onUpload(cafe, event.target.files?.[0]); event.target.value = ''; }} /></label><div className="admin-editor-section-content">
           <label>URL de portada{textField('image_url', 'URL de foto de portada')}</label>
           <div className="admin-detail-cover-actions"><button type="button" onClick={() => onFindImage(cafe)}><Search size={15} /> Buscar foto</button>{cafe.image_url && <button type="button" onClick={() => onDeleteCover(cafe)}><Trash2 size={15} /> Eliminar portada</button>}</div>
-        <div className="cms-editor-gallery"><h3>Fotos de publicaciones</h3><p>Administra las imágenes de la comunidad sin cambiar sus publicaciones desde aquí.</p><div>{gallery.map((photo) => <article key={photo.id}><img src={photo.public_url} alt="Foto de la cafetería" loading="lazy" /><button type="button" onClick={() => onGalleryAction(photo, 'cover')}>Usar como portada</button><button type="button" onClick={() => onGalleryAction(photo, 'approve')}>Aprobar foto</button></article>)}</div>{!gallery.length && <small>Aún no hay fotos de publicaciones.</small>}</div>
+        <div className="cms-editor-gallery"><h3>Fotos de publicaciones</h3><p>Administra las imágenes de la comunidad sin cambiar sus publicaciones desde aquí.</p><div>{gallery.map((photo) => <article key={photo.id}><img src={photo.public_url} alt="Foto de la cafetería" loading="lazy" /><button type="button" onClick={() => onGalleryAction(photo, 'cover')}>Usar como portada</button><a href={photo.public_url} target="_blank" rel="noreferrer" download><Download size={14} /> Descargar</a></article>)}</div>{!gallery.length && <small>Aún no hay fotos de publicaciones.</small>}</div>
         <div className="admin-cafe-menu-images">
           <div className="admin-cafe-menu-images-heading"><span><Coffee size={14} /> Imágenes del menú</span><small>{menuImages.length}</small></div>
           {menuImages.length > 0 ? <AdminMenuImageList images={menuImages} cafeName={cafe.nombre} saving={menuSaving} onMove={(from, to) => onMoveMenuImage(cafe, from, to)} onDelete={(url) => onDeleteMenuImage(cafe, url)} /> : <p>Aún no hay imágenes adjuntas.</p>}
@@ -1354,15 +1354,6 @@ function AdminDashboardPage() {
       const post = postMap.get(photo.post_id);
       const cafeId = post?.cafe_id;
 
-      if (action === 'approve') {
-        if (!cafeId) throw new Error('Asocia esta publicación a una cafetería antes de aprobar su foto para la galería.');
-        const { data: existing, error: readError } = await supabase.from('cafe_photos').select('id').eq('storage_path', photo.storage_path).maybeSingle();
-        if (readError) throw readError;
-        const approval = { status: 'approved', moderated_at: new Date().toISOString(), moderated_by: user.id };
-        const { error } = existing ? await supabase.from('cafe_photos').update(approval).eq('id', existing.id) : await supabase.from('cafe_photos').insert({ ...approval, cafe_id: cafeId, post_id: photo.post_id, user_id: photo.user_id, storage_path: photo.storage_path, public_url: photo.public_url, is_cover: false, rights_confirmed: true, rights_basis: 'own', rights_note: 'Foto propia de una publicación.' });
-        if (error) throw error;
-        return 'Foto aprobada para la galería.';
-      }
       if (action === 'cover') {
         if (!cafeId) throw new Error('Esta publicación no está relacionada con una cafetería.');
         const { error: cafeError } = await supabase.from('cafes').update({
@@ -1385,6 +1376,7 @@ function AdminDashboardPage() {
         return 'Portada actualizada correctamente.';
       }
 
+      if (action !== 'block') throw new Error('Acción de foto no válida.');
       const { data: replacement, error: replacementError } = await supabase
         .from('post_images')
         .select('public_url')
