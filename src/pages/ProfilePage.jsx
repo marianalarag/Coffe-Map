@@ -7,7 +7,6 @@ import {
   Camera,
   Coffee,
   Heart,
-  Pencil,
   Loader2,
   LogOut,
   Plus,
@@ -643,16 +642,15 @@ function ProfilePage() {
             </button>
 
             <div className="relative profile-header-tools" ref={settingsMenuRef}>
-              <button type="button" className="profile-header-share" onClick={shareProfile} aria-label="Compartir perfil"><Share2 size={17} /> Compartir</button>
               <button
                 onClick={() => setShowSettings((current) => !current)}
                 className="profile-icon-button"
-                aria-label="Editar perfil"
-                title="Editar perfil"
+                aria-label="Configuración del perfil"
+                title="Configuración del perfil"
                 aria-expanded={showSettings}
                 aria-controls="profile-settings-menu"
               >
-                <Pencil size={19} /><span className="profile-edit-label">Editar perfil</span>
+                <Settings size={19} />
               </button>
 
               {showSettings && (
@@ -665,6 +663,7 @@ function ProfilePage() {
                   />
                   <div id="profile-settings-menu" className="profile-settings-panel" role="menu">
                     <p className="profile-settings-title">Configuración</p>
+                    <button type="button" role="menuitem" onClick={() => { setShowSettings(false); shareProfile(); }} className="w-full flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white/5 text-sm font-bold"><Share2 size={16} /> Compartir perfil</button>
                     <label className="profile-settings-text-color">Color del texto<input type="color" value={draftTextColor} onInput={(event) => previewAndSaveTextColor(event.currentTarget.value)} aria-label="Color del texto del perfil" /></label>
                     <label className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white/5 cursor-pointer text-sm font-bold">
                       <Camera size={16} />
@@ -904,13 +903,6 @@ function ProfilePage() {
           {savingColor && <Loader2 className="profile-color-saving animate-spin" size={11} />}
           Editar
         </label>
-        <button
-          onClick={shareProfile}
-          className="profile-bottom-action"
-        >
-          <Share2 size={13} />
-          Compartir
-        </button>
       </div>
 
       <style>{`

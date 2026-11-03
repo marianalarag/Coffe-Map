@@ -228,6 +228,7 @@ function App() {
   }, [cafesLoaded, loadCafes]);
 
   const handleResultsPanelPointerDown = useCallback((event) => {
+    if (event.target.closest('button, a, input, select')) return;
     if (event.pointerType === 'mouse' && event.button !== 0) return;
     resultsPanelDragRef.current = { pointerId: event.pointerId, startY: event.clientY };
     event.currentTarget.setPointerCapture?.(event.pointerId);
@@ -1068,7 +1069,7 @@ function App() {
                   </div>
                   <div className="map-result-copy">
                     <strong>{cafe.nombre}</strong>
-                    <span className="map-result-meta"><CoffeeBeanIcon size={12} filled tone="dark" /> {formatRating(cafe.rating || 0)}</span>
+                    <span className="map-result-meta"><CoffeeBeanIcon size={12} filled /> {formatRating(cafe.rating || 0)}</span>
                     <span className={`map-result-status ${status.state === 'open' ? 'is-open' : ''}`}>
                       {status.state === 'open' ? status.label : status.state === 'closed' ? 'Cerrado ahora' : 'Horario por confirmar'}
                     </span>

@@ -105,3 +105,19 @@
 .cafe-review-content .activity-image-carousel { aspect-ratio: 3/4; }
 .cafe-review-content .activity-image-slide { height: 100%; }
 .cafe-review-content .activity-image-track { position: absolute; inset: 0; }
+.admin-cafe-detail .admin-cafe-menu-upload { color: #2b1f19; background: #e6dac1; }
+.admin-cafe-detail .admin-cafe-menu-upload svg { color: inherit; }
+.map-results-panel { display: flex; flex-direction: column; color: #eee5d2; background: #27201a; border-color: #49382c; backdrop-filter: none; }
+.map-results-header { flex: 0 0 auto; border-bottom-color: #49382c; }
+.map-results-header span { color: #c2b19b; }
+.map-results-header button { color: #eee5d2; background: #49382c; min-width: 34px; min-height: 34px; }
+.map-results-list { flex: 1; min-height: 0; height: auto; scrollbar-width: thin; scrollbar-color: #80664f #27201a; }
+.map-results-context { color: #d8c4a8; background: #35291f; }
+.map-result-card { color: #eee5d2; border-bottom-color: #49382c; }
+.map-result-card:hover { background: #35291f; }
+.map-result-image { color: #c6ad88; background-color: #49382c; }
+.map-result-meta { color: #d8c4a8; }
+.map-result-status { color: #c6ad88; }
+.map-result-status.is-open { color: #a8ce91; }
+.map-results-empty, .map-results-empty strong { color: #d8c4a8; }
+.pull-refresh-region > .activity-empty { width: 100%; }

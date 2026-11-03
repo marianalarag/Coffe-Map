@@ -424,12 +424,10 @@ export function ActivityFeed({ userIdFilter = null, userIdsFilter = null, kindFi
     <>
       <PullToRefresh onRefresh={loadPosts}>
       {!compact && <header className="activity-header"><span>Comunidad Mérida</span><button type="button" onClick={loadPosts} className="activity-refresh" aria-label="Actualizar actividad" title="Actualizar"><RefreshCw size={19} /></button></header>}
-      <MasonryFeed className={compact ? 'is-compact' : ''}>
-        {loading && <div className="activity-empty"><Coffee size={28} /><p>Cargando actividad…</p></div>}
-        {!loading && error && <div className="activity-empty"><p>{error}</p></div>}
-        {!loading && !error && posts.length === 0 && <div className="activity-empty"><ImageIcon size={30} /><p>Aún no hay publicaciones en la comunidad.</p></div>}
-        {!loading && !error && posts.length > 0 && posts.map(renderPost)}
-      </MasonryFeed>
+      {loading ? <div className="activity-empty" role="status"><Coffee size={28} /><p>Cargando actividad…</p></div>
+        : error ? <div className="activity-empty" role="alert"><p>{error}</p></div>
+        : posts.length === 0 ? <div className="activity-empty"><ImageIcon size={30} /><p>Aún no hay publicaciones en la comunidad.</p></div>
+        : <MasonryFeed className={compact ? 'is-compact' : ''}>{posts.map(renderPost)}</MasonryFeed>}
       </PullToRefresh>
       {commentPost && (
         <div className="comments-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setCommentPost(null); }}>
