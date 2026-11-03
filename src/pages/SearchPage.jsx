@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Search, Coffee, CheckCircle2, Clock, Heart, X, MapPinned, Plus } from 'lucide-react';
 import PageLoading from '../components/PageLoading';
@@ -63,12 +64,35 @@ function SearchPage() {
   const [locationResolved, setLocationResolved] = useState(() => !navigator.geolocation);
   const [loadError, setLoadError] = useState('');
   const [showAddCafe, setShowAddCafe] = useState(false);
+  const addCafeBackdropRef = useRef(null);
   const [addingCafe, setAddingCafe] = useState(false);
   const [addCafeFeedback, setAddCafeFeedback] = useState('');
   const [newCafe, setNewCafe] = useState({ nombre: '', address: '', link: '' });
   const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const isCafeSelectionMode = searchParams.get('selectCafe') === '1';
   const returnTo = searchParams.get('returnTo') || '/new-post';
+
+  useEffect(() => {
+    if (!showAddCafe) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const viewport = window.visualViewport;
+    const fitViewport = () => {
+      const backdrop = addCafeBackdropRef.current;
+      if (backdrop) {
+        backdrop.style.height = `${viewport?.height || window.innerHeight}px`;
+        backdrop.style.top = `${viewport?.offsetTop || 0}px`;
+      }
+    };
+    fitViewport();
+    viewport?.addEventListener('resize', fitViewport);
+    viewport?.addEventListener('scroll', fitViewport);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      viewport?.removeEventListener('resize', fitViewport);
+      viewport?.removeEventListener('scroll', fitViewport);
+    };
+  }, [showAddCafe]);
 
   useEffect(() => {
     if (!cafesLoaded) {
@@ -266,8 +290,8 @@ function SearchPage() {
         </button>
       </section>
 
-      {showAddCafe && (
-        <div className="missing-cafe-backdrop" onMouseDown={(event) => {
+      {showAddCafe && createPortal(
+        <div ref={addCafeBackdropRef} className="missing-cafe-backdrop" onMouseDown={(event) => {
           if (event.target === event.currentTarget && !addingCafe) setShowAddCafe(false);
         }}>
           <section className="missing-cafe-modal" role="dialog" aria-modal="true" aria-labelledby="missing-cafe-title">
@@ -277,7 +301,7 @@ function SearchPage() {
             </header>
 
             <form onSubmit={submitMissingCafe}>
-              <label>Nombre<input autoFocus value={newCafe.nombre} onChange={(event) => setNewCafe({ ...newCafe, nombre: event.target.value })} maxLength={100} required /></label>
+              <label>Nombre<input value={newCafe.nombre} onChange={(event) => setNewCafe({ ...newCafe, nombre: event.target.value })} maxLength={100} required /></label>
               <label>Dirección<input value={newCafe.address} onChange={(event) => setNewCafe({ ...newCafe, address: event.target.value })} placeholder="Calle, número y colonia" maxLength={220} /></label>
               <label>Enlace de Maps<input type="url" value={newCafe.link} onChange={(event) => setNewCafe({ ...newCafe, link: event.target.value })} placeholder="https://maps.app.goo.gl/..." /></label>
 
@@ -286,7 +310,7 @@ function SearchPage() {
               <button className="missing-cafe-submit" type="submit" disabled={addingCafe}>{addingCafe ? 'Enviando...' : 'Enviar cafetería'}</button>
             </form>
           </section>
-        </div>
+        </div>, document.body
       )}
     </main>
   );

@@ -46,10 +46,10 @@
 .cms-preview-upload input { display: none; }
 @media (min-width: 900px) {
   .profile-content-grid { align-items: stretch; }
-  .profile-content-main-column { justify-content: space-between; }
-  .profile-content-side-column { align-self: stretch; display: grid; grid-template-rows: minmax(240px,1fr) auto; gap: 20px; }
-  .profile-content-side-column .profile-rating-chart { align-self: stretch; display: flex; flex-direction: column; min-height: 0; height: 100%; padding: 22px; }
-  .profile-rating-rows { flex: 1; grid-template-rows: repeat(5,minmax(0,1fr)); align-items: center; }
+  .profile-content-main-column { justify-content: flex-start; }
+  .profile-content-side-column { align-self: start; display: flex; flex-direction: column; gap: 20px; }
+  .profile-content-side-column .profile-rating-chart { align-self: stretch; display: flex; flex-direction: column; min-height: 0; height: auto; padding: 22px; }
+  .profile-rating-rows { flex: 0 0 auto; grid-template-rows: repeat(5,28px); gap: 8px 16px; align-items: center; }
   .profile-favorites-section { padding: 20px; }
   .profile-favorite-card { height: 140px; }
 }
@@ -79,3 +79,16 @@
   .cms-preview-upload { top: 5px; right: 5px; padding: 6px; font-size: 0; }
   .cms-preview-upload svg { width: 15px; height: 15px; }
 }
+
+.cms-request-state { padding: 12px 14px; border-radius: 12px; background: #382a20; color: #ead8b7; }
+.cms-request-state.is-active { color: #c1d6aa; background: #2e3826; }
+.cms-request-feedback { padding: 12px 14px; border-radius: 12px; line-height: 1.5; }
+.cms-request-feedback.is-error { background: #42281f; color: #f2b5a1; }
+.missing-cafe-backdrop { bottom: auto; height: 100dvh; box-sizing: border-box; place-items: center; padding: max(14px, env(safe-area-inset-top, 0px)) 14px max(14px, env(safe-area-inset-bottom, 0px)); }
+.missing-cafe-modal { width: min(100%,480px); max-height: 100%; min-height: 0; border-radius: 24px; }
+.missing-cafe-modal form > label { font-size: 12px; }
+.missing-cafe-feedback { font-size: 12px; line-height: 1.5; }
+.missing-cafe-submit { min-height: 44px; font-size: 14px; }
+.profile-ranking-scroll-region { position: relative; padding-bottom: 28px; }
+.profile-ranking-more { position: absolute; bottom: 0; left: 0; width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; height: 26px; padding: 0; border: 0; border-radius: 8px; color: #d8c4a8; background: #30251e; font-size: 11px; cursor: pointer; }
+.profile-ranking-more:hover { background: #403024; }

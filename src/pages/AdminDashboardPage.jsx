@@ -1155,7 +1155,8 @@ function AdminDashboardPage() {
 
   const moderateCafeRequest = (cafe, nextStatus) => runAction(`request:${cafe.id}:${nextStatus}`, async () => {
     if (nextStatus === 'active') {
-      await sendCafeSubmission({ id: cafe.id }, 'PATCH');
+      const accepted = await sendCafeSubmission({ id: cafe.id }, 'PATCH');
+      setCafes((current) => current.map((item) => item.id === cafe.id ? { ...item, ...accepted } : item));
       await refreshCafes();
       return;
     }
@@ -1171,6 +1172,7 @@ function AdminDashboardPage() {
       .eq('source', 'community')
       .eq('status', 'needs_review');
     if (error) throw error;
+    setCafes((current) => current.map((item) => item.id === cafe.id ? { ...item, ...update } : item));
   }, nextStatus === 'active' ? `Solicitud aceptada: ${cafe.nombre}.` : `Solicitud rechazada: ${cafe.nombre}.`);
 
   const saveCafeCover = (cafe, file) => runAction(`cover:${cafe.id}`, async () => {
@@ -1579,7 +1581,7 @@ function AdminDashboardPage() {
           </section>
         )}
 
-        {tab === 'requests' && <AdminRequests cafes={cafes} profiles={profileMap} busy={Boolean(actionLoading)} onModerate={moderateCafeRequest} />}
+        {tab === 'requests' && <AdminRequests cafes={cafes} profiles={profileMap} busy={Boolean(actionLoading)} onModerate={moderateCafeRequest} notice={notice} />}
         {tab === 'photos' && <AdminPhotos photos={photos} postPhotos={postPhotos} posts={postMap} cafes={cafeMap} profiles={profileMap} busy={Boolean(actionLoading)} onPhotoAction={moderatePhoto} onPostAction={moderatePostPhoto} />}
         {tab === 'posts' && <AdminPosts posts={posts} profiles={profileMap} cafes={cafeMap} busy={Boolean(actionLoading)} onStatus={updatePost} onDelete={deletePost} onNew={() => navigate('/new-post')} />}
         {tab === 'users' && <AdminUsers profiles={users} currentUserId={user.id} onRole={updateRole} busy={Boolean(actionLoading)} />}

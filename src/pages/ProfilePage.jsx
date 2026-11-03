@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   BarChart3,
+  ChevronDown,
   Camera,
   Coffee,
   Heart,
@@ -190,11 +191,24 @@ function ProfileRatingChart({ interactions, textStyle, navigate }) {
 }
 
 function ProfileVisitRanking({ places, textStyle, onSelectCafe }) {
+  const listRef = useRef(null);
+  const [canScrollDown, setCanScrollDown] = useState(false);
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+    const update = () => setCanScrollDown(list.scrollHeight - list.clientHeight - list.scrollTop > 3);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(list);
+    list.addEventListener('scroll', update, { passive: true });
+    return () => { observer.disconnect(); list.removeEventListener('scroll', update); };
+  }, [places]);
   return (
     <section className="profile-visit-ranking">
       <div className="profile-rating-heading"><BarChart3 size={23} /><h2 style={textStyle}>Cafés más visitados</h2></div>
       {places.length > 0 ? (
-        <div className="profile-visit-ranking-list">
+        <div className="profile-ranking-scroll-region">
+        <div ref={listRef} className="profile-visit-ranking-list">
           {places.slice(0, 6).map(({ cafe, count }) => (
             <article className="profile-visit-ranking-card" key={cafe.id}>
               <button type="button" className="profile-visit-ranking-main" onClick={() => onSelectCafe(cafe)} aria-label={`Abrir tus ${count === 1 ? 'visita' : 'visitas'} a ${cafe.nombre}`}>
@@ -203,6 +217,8 @@ function ProfileVisitRanking({ places, textStyle, onSelectCafe }) {
               </button>
             </article>
           ))}
+        </div>
+        {canScrollDown && <button type="button" className="profile-ranking-more" onClick={() => listRef.current?.scrollBy({ top: listRef.current.clientHeight * .75, behavior: 'smooth' })}><span>Más cafeterías</span><ChevronDown size={15} /></button>}
         </div>
       ) : <p className="profile-ranking-empty">Marca una cafetería como visitada para comenzar tu historial.</p>}
     </section>
