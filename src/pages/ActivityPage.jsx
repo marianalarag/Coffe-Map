@@ -1,3 +1,4 @@
+import CoffeeDatePicker from '../components/CoffeeDatePicker';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Check, ChevronLeft, ChevronRight, Coffee, Edit3, Heart, Image as ImageIcon, ImagePlus, MessageCircle, MoreHorizontal, RefreshCw, Send, Trash2, UserPlus, Users, X, MapPin } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -457,7 +458,7 @@ export function ActivityFeed({ userIdFilter = null, userIdsFilter = null, kindFi
             </header>
             <fieldset className="activity-edit-fields" disabled={savingEdit}>
               <label>Cafetería<select aria-label="Cafetería de la publicación" value={editCafeId} onChange={(event) => setEditCafeId(event.target.value)}><option value="">Sin cafetería relacionada</option>{editingPost.cafe_id && !cafes.some((item) => item.id === editingPost.cafe_id) && <option value={editingPost.cafe_id}>{editingPost.cafe?.nombre || 'Cafetería anterior'}</option>}{cafes.map((cafe) => <option key={cafe.id} value={cafe.id}>{cafe.nombre}</option>)}</select></label>
-              <label>Fecha<input type="date" aria-label="Fecha de la publicación" value={editDate} onChange={(event) => setEditDate(event.target.value)} /></label>
+              <div className="activity-date-field"><span>Fecha</span><CoffeeDatePicker value={editDate} onChange={setEditDate} /></div>
               {editCafeId && <div className="activity-edit-review-options"><div><span>Calificación</span><HalfStarRating value={editRating} onChange={setEditRating} size={22} readOnly={savingEdit} /></div><button type="button" onClick={() => setEditFavorite((value) => !value)} aria-pressed={editFavorite} aria-label="Favorita"><Heart size={28} fill={editFavorite ? 'currentColor' : 'none'} /></button></div>}
               <label>Texto<textarea aria-label="Texto de la publicación" value={editText} onChange={(event) => setEditText(event.target.value)} maxLength={1000} placeholder="Escribe algo sobre tu visita…" /></label>
               {editCafeId && <button className="activity-edit-visit" type="button" onClick={() => setEditRevisit((value) => !value)} aria-pressed={editRevisit}>{editRevisit ? 'Ya había ido antes' : 'Primera visita'}</button>}

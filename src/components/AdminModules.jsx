@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { BarChart3, Camera, Coffee, Download, ExternalLink, Image, LayoutGrid, List, MapPin, Plus, Search, Shield, Users, X } from 'lucide-react';
+import { BarChart3, Camera, Coffee, Download, ExternalLink, Image, LayoutGrid, List, MapPin, Plus, Search, Shield, Trash2, Users, X } from 'lucide-react';
 import CafeMapPreview from './AdminMapPreview';
 import ConfirmDialog from './ConfirmDialog';
 import { adminDate, statusLabel } from '../utils/adminFormatting';
@@ -23,13 +23,54 @@ export function AdminOverview({ metrics, cafes, photos, posts, profiles, onModul
   </section>;
 }
 
-export function AdminCafeOverview({ cafes, onSelect, onNew, onDuplicate, busy }) {
+export function AdminCafeOverview({ cafes, onSelect, onNew, onDuplicate, onDeleteMany, busy }) {
   const [search, setSearch] = useState(''); const [status, setStatus] = useState('all'); const [view, setView] = useState('kanban'); const [limit, setLimit] = useState(24);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [deleting, setDeleting] = useState(null);
+  const [working, setWorking] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
   const filtered = cafes.filter((cafe) => (status === 'all' || cafe.status === status) && includes([cafe.nombre, cafe.address, cafe.neighborhood].join(' '), search));
-  return <section className="cms-catalog-overview"><header className="cms-module-heading"><div><h2>Cafeterías <small>({filtered.length})</small></h2><p>Selecciona una cafetería para abrir su editor.</p></div><button className="cms-primary" type="button" onClick={onNew}><Plus size={17} /> Nueva cafetería</button></header>
-    <div className="cms-toolbar"><AdminSearch value={search} onChange={(value) => { setSearch(value); setLimit(24); }} placeholder="Buscar cafeterías" /><select value={status} onChange={(event) => { setStatus(event.target.value); setLimit(24); }} aria-label="Filtrar estado de cafeterías"><option value="all">Todos los estados</option><option value="active">Activas</option><option value="closed">Inactivas</option><option value="needs_review">Pendientes</option></select><div className="cms-view-toggle"><button type="button" aria-label="Vista de tarjetas" aria-pressed={view === 'kanban'} onClick={() => setView('kanban')}><LayoutGrid size={18} /></button><button type="button" aria-label="Vista de lista" aria-pressed={view === 'list'} onClick={() => setView('list')}><List size={18} /></button></div></div>
-    {filtered.length ? view === 'kanban' ? <div className="cms-kanban">{filtered.slice(0, limit).map((cafe) => <article key={cafe.id}><button type="button" className="cms-cafe-open" onClick={() => onSelect(cafe.id)}>{cafe.image_url ? <img src={cafe.image_url} alt="" /> : <span className="cms-cafe-placeholder"><Coffee size={35} /></span>}<span><strong>{cafe.nombre}</strong><small><MapPin size={13} /> {cafe.neighborhood || cafe.address || 'Zona por confirmar'}</small></span></button><footer><span className={`cms-badge is-${cafe.status}`}>{statusLabel(cafe.status)}</span><button type="button" onClick={() => onSelect(cafe.id)}>Editar</button><button type="button" disabled={busy} onClick={() => onDuplicate(cafe)}>Duplicar</button></footer></article>)}</div> : <div className="cms-table-wrap"><table className="cms-table"><thead><tr><th>Cafetería</th><th>Ubicación</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>{filtered.slice(0, limit).map((cafe) => <tr key={cafe.id}><td><button className="cms-record-link" onClick={() => onSelect(cafe.id)}>{cafe.nombre}</button></td><td>{cafe.neighborhood || cafe.address || 'Por confirmar'}</td><td><span className={`cms-badge is-${cafe.status}`}>{statusLabel(cafe.status)}</span></td><td><button onClick={() => onSelect(cafe.id)}>Editar</button><button disabled={busy} onClick={() => onDuplicate(cafe)}>Duplicar</button></td></tr>)}</tbody></table></div> : <AdminEmpty text="No encontramos cafeterías con esos filtros." />}
+  const visible = filtered.slice(0, limit);
+  const chosen = filtered.filter((cafe) => selectedIds.includes(cafe.id));
+  const visibleSelected = visible.filter((cafe) => selectedIds.includes(cafe.id)).length;
+  const locked = busy || working;
+  const toggleCafe = (id, checked) => setSelectedIds((ids) => checked ? [...new Set([...ids, id])] : ids.filter((entry) => entry !== id));
+  const toggleVisible = (checked) => setSelectedIds((ids) => checked ? [...new Set([...ids, ...visible.map((cafe) => cafe.id)])] : ids.filter((id) => !visible.some((cafe) => cafe.id === id)));
+  const confirmDelete = async () => {
+    if (locked || !deleting?.length) return;
+    setWorking(true);
+    setDeleteError('');
+    try {
+      const result = await onDeleteMany(deleting);
+      const removed = new Set(result.deletedIds);
+      setSelectedIds((ids) => ids.filter((id) => !removed.has(id)));
+      const remaining = deleting.filter((cafe) => !removed.has(cafe.id));
+      if (remaining.length) {
+        setDeleting(remaining);
+        setDeleteError(`${removed.size} de ${deleting.length} eliminadas. ${result.error || 'Las restantes siguen seleccionadas para reintentar.'}`);
+      } else {
+        setDeleting(null);
+      }
+    } catch (error) {
+      setDeleteError(error.message || 'No se pudieron eliminar las cafeterías. Intenta nuevamente.');
+    } finally {
+      setWorking(false);
+    }
+  };
+  const selectionBox = (cafe) => <input type="checkbox" className="cms-cafe-checkbox" aria-label={`Seleccionar ${cafe.nombre}`} checked={selectedIds.includes(cafe.id)} disabled={locked} onChange={(event) => toggleCafe(cafe.id, event.target.checked)} />;
+
+  return <section className="cms-catalog-overview"><header className="cms-module-heading"><div><h2>Cafeterías <small>({filtered.length})</small></h2><p>Abre una cafetería para editarla o marca varias para eliminarlas.</p></div><button className="cms-primary" type="button" disabled={locked} onClick={onNew}><Plus size={17} /> Nueva cafetería</button></header>
+    <div className="cms-toolbar"><AdminSearch value={search} onChange={(value) => { setSearch(value); setLimit(24); setSelectedIds([]); }} placeholder="Buscar cafeterías" /><select value={status} onChange={(event) => { setStatus(event.target.value); setLimit(24); setSelectedIds([]); }} aria-label="Filtrar estado de cafeterías"><option value="all">Todos los estados</option><option value="active">Activas</option><option value="closed">Inactivas</option><option value="needs_review">Pendientes</option></select><div className="cms-view-toggle"><button type="button" aria-label="Vista de tarjetas" aria-pressed={view === 'kanban'} onClick={() => setView('kanban')}><LayoutGrid size={18} /></button><button type="button" aria-label="Vista de lista" aria-pressed={view === 'list'} onClick={() => setView('list')}><List size={18} /></button></div></div>
+    <div className="cms-batch-bar cms-cafe-batch-bar">
+      <label><input type="checkbox" checked={visible.length > 0 && visibleSelected === visible.length} ref={(node) => { if (node) node.indeterminate = visibleSelected > 0 && visibleSelected < visible.length; }} disabled={locked || !visible.length} onChange={(event) => toggleVisible(event.target.checked)} /> Seleccionar visibles ({visible.length})</label>
+      {filtered.length > visible.length && <button type="button" disabled={locked || chosen.length === filtered.length} onClick={() => setSelectedIds(filtered.map((cafe) => cafe.id))}>Seleccionar todas las coincidencias ({filtered.length})</button>}
+      <span role="status" aria-live="polite">{chosen.length} seleccionadas</span>
+      {chosen.length > 0 && <button type="button" disabled={locked} onClick={() => setSelectedIds([])}>Limpiar selección</button>}
+      <button type="button" className="cms-danger cms-cafe-batch-delete" disabled={locked || !chosen.length} onClick={() => { setDeleteError(''); setDeleting(chosen); }}><Trash2 size={16} /> Eliminar seleccionadas ({chosen.length})</button>
+    </div>
+    {filtered.length ? view === 'kanban' ? <div className="cms-kanban">{visible.map((cafe) => <article key={cafe.id} className={selectedIds.includes(cafe.id) ? 'is-selected' : ''}><label className="cms-cafe-selection">{selectionBox(cafe)} Seleccionar</label><button type="button" className="cms-cafe-open" disabled={locked} onClick={() => onSelect(cafe.id)}>{cafe.image_url ? <img src={cafe.image_url} alt="" /> : <span className="cms-cafe-placeholder"><Coffee size={35} /></span>}<span><strong>{cafe.nombre}</strong><small><MapPin size={13} /> {cafe.neighborhood || cafe.address || 'Zona por confirmar'}</small></span></button><footer><span className={`cms-badge is-${cafe.status}`}>{statusLabel(cafe.status)}</span><button type="button" disabled={locked} onClick={() => onSelect(cafe.id)}>Editar</button><button type="button" disabled={locked} onClick={() => onDuplicate(cafe)}>Duplicar</button></footer></article>)}</div> : <div className="cms-table-wrap"><table className="cms-table"><thead><tr><th>Seleccionar</th><th>Cafetería</th><th>Ubicación</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>{visible.map((cafe) => <tr key={cafe.id} className={selectedIds.includes(cafe.id) ? 'is-selected' : ''}><td>{selectionBox(cafe)}</td><td><button type="button" className="cms-record-link" disabled={locked} onClick={() => onSelect(cafe.id)}>{cafe.nombre}</button></td><td>{cafe.neighborhood || cafe.address || 'Por confirmar'}</td><td><span className={`cms-badge is-${cafe.status}`}>{statusLabel(cafe.status)}</span></td><td><button type="button" disabled={locked} onClick={() => onSelect(cafe.id)}>Editar</button><button type="button" disabled={locked} onClick={() => onDuplicate(cafe)}>Duplicar</button></td></tr>)}</tbody></table></div> : <AdminEmpty text="No encontramos cafeterías con esos filtros." />}
     {filtered.length > limit && <button className="cms-load-more" type="button" onClick={() => setLimit((count) => count + 24)}>Mostrar más cafeterías</button>}
+    {deleting && <ConfirmDialog title={`Eliminar ${deleting.length} ${deleting.length === 1 ? 'cafetería' : 'cafeterías'}`} description={<span>Se retirarán del catálogo y del mapa las cafeterías de esta lista. Confirma que deseas eliminarlas.<span className="cms-cafe-delete-list" role="list" aria-label="Cafeterías por eliminar">{deleting.map((cafe) => <span role="listitem" key={cafe.id}>{cafe.nombre}</span>)}</span></span>} confirmLabel={`Eliminar ${deleting.length} ${deleting.length === 1 ? 'cafetería' : 'cafeterías'}`} busy={locked} error={deleteError} onCancel={() => setDeleting(null)} onConfirm={confirmDelete} />}
   </section>;
 }
 

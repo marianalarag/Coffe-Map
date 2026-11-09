@@ -25,10 +25,11 @@ import { supabase } from '../supabase';
 import { ActivityFeed } from './ActivityPage';
 import CoffeeBeanIcon, { CoffeeBeanRating } from '../components/CoffeeBeanIcon';
 import { formatRating } from '../utils/formatRating';
-import HalfStarRating from '../components/HalfStarRating';
 import ProfileCafeCard from '../components/ProfileCafeCard';
 import ProfileAvatar from '../components/ProfileAvatar';
 import { getPersonalCafeRating } from '../utils/personalRating';
+import CafeVisitHistory from '../components/CafeVisitHistory';
+import { summarizeCafeInteractions } from '../utils/cafeInteractions';
 
 
 const getOptimizedProfileImageUrl = (url) => url;
@@ -224,103 +225,6 @@ function ProfileVisitRanking({ places, textStyle, onSelectCafe }) {
   );
 }
 
-function ProfileCafeVisitHistory({ cafe, visits, onClose, onSaveReview, onDeleteReview, onDeleteVisit }) {
-  const [editingVisitId, setEditingVisitId] = useState(null);
-  const [draftText, setDraftText] = useState('');
-  const [draftRating, setDraftRating] = useState(0);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-
-  const startEditing = (visit) => {
-    setEditingVisitId(visit.id);
-    setDraftText(visit.review_text || '');
-    setDraftRating(Number(visit.rating) || 0);
-    setError('');
-  };
-
-  const saveReview = async (event, visit) => {
-    event.preventDefault();
-    const text = draftText.trim();
-    if (!text && !draftRating) {
-      setError('Escribe tu reseña o agrega una calificación.');
-      return;
-    }
-    setSaving(true);
-    setError('');
-    try {
-      await onSaveReview(visit, { review_text: text, rating: draftRating || null });
-      setEditingVisitId(null);
-    } catch {
-      setError('No pudimos guardar la reseña. Inténtalo de nuevo.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const removeReview = async (visit) => {
-    if (!window.confirm(`¿Borrar la reseña de esta visita a ${cafe.nombre}? La visita se conservará.`)) return;
-    setSaving(true);
-    setError('');
-    try {
-      await onDeleteReview(visit);
-      if (editingVisitId === visit.id) setEditingVisitId(null);
-    } catch {
-      setError('No pudimos borrar la reseña. Inténtalo de nuevo.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const removeVisit = async (visit) => {
-    if (!window.confirm(`¿Eliminar esta visita a ${cafe.nombre}?`)) return;
-    setSaving(true);
-    setError('');
-    try {
-      await onDeleteVisit(visit);
-    } catch {
-      setError('No pudimos eliminar la visita. Inténtalo de nuevo.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="profile-history-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) onClose(); }}>
-      <section className="profile-history-sheet" role="dialog" aria-modal="true" aria-label={`Tus reseñas de ${cafe.nombre}`}>
-        <header className="profile-history-header">
-          <div>{cafe.imageUrl ? <img src={cafe.imageUrl} alt="" /> : <Coffee size={22} />}<span><small>TUS VISITAS Y RESEÑAS</small><h2>Tus reseñas de {cafe.nombre}</h2><p>{visits.length} {visits.length === 1 ? 'visita' : 'visitas'}</p></span></div>
-          <button type="button" onClick={onClose} aria-label="Cerrar historial"><X size={19} /></button>
-        </header>
-        <div className="profile-history-list">
-          {visits.map((visit) => {
-            const hasReview = Boolean(String(visit.review_text || '').trim() || Number(visit.rating) > 0);
-            const dateValue = visit.visited_on || visit.created_at || visit.updated_at;
-            const dateLabel = dateValue ? new Date(`${String(dateValue).slice(0, 10)}T12:00:00`).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Fecha sin registrar';
-            const isEditing = editingVisitId === visit.id;
-            return <article className="profile-history-entry" key={visit.id}>
-              <div className="profile-history-entry-meta"><span>{dateLabel}</span>{hasReview && (Number(visit.rating) > 0 ? <span className="profile-history-rating"><CoffeeBeanRating value={Number(visit.rating)} size={11} /> {formatRating(visit.rating)}</span> : <span className="profile-history-rating">Reseña</span>)}</div>
-              {isEditing ? <form className="profile-history-edit" onSubmit={(event) => saveReview(event, visit)}>
-                <label>Calificación <HalfStarRating value={draftRating} onChange={setDraftRating} size={16} label="Tu calificación" /></label>
-                <label>Tu reseña<textarea value={draftText} onChange={(event) => setDraftText(event.target.value)} maxLength={1000} placeholder="¿Qué te pareció esta visita?" /></label>
-                {error && <p className="profile-history-error" role="alert">{error}</p>}
-                <div className="profile-history-actions"><button type="button" className="is-secondary" onClick={() => setEditingVisitId(null)} disabled={saving}>Cancelar</button><button type="submit" disabled={saving}>{saving ? 'Guardando…' : 'Guardar reseña'}</button></div>
-              </form> : <>
-                {visit.review_text ? <p className="profile-history-review-text">{visit.review_text}</p> : <p className="profile-history-visit-only">Visita registrada sin reseña.</p>}
-                <div className="profile-history-actions">
-                  <button type="button" onClick={() => startEditing(visit)} disabled={saving}>{hasReview ? 'Editar reseña' : 'Añadir reseña'}</button>
-                  {hasReview ? <button type="button" className="is-danger" onClick={() => removeReview(visit)} disabled={saving}>Borrar reseña</button> : <button type="button" className="is-danger" onClick={() => removeVisit(visit)} disabled={saving}>Eliminar visita</button>}
-                </div>
-              </>}
-            </article>;
-          })}
-          {visits.length === 0 && <p className="profile-history-empty">Ya no hay visitas registradas para esta cafetería.</p>}
-          {error && editingVisitId === null && <p className="profile-history-error" role="alert">{error}</p>}
-        </div>
-      </section>
-    </div>
-  );
-}
-
 function ProfilePage() {
   const { user, userProfile, logout, updateCachedProfile } = useAuth();
   const {
@@ -333,7 +237,6 @@ function ProfilePage() {
     interactionsError,
     refreshUserInteractions,
     saveCafeInteraction,
-    deleteCafeInteraction,
   } = useCoffeeData();
   const navigate = useNavigate();
   const location = useLocation();
@@ -343,6 +246,9 @@ function ProfilePage() {
   const [savingColor, setSavingColor] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [historyCafe, setHistoryCafe] = useState(null);
+  const [favoriteBusy, setFavoriteBusy] = useState('');
+  const [favoriteError, setFavoriteError] = useState('');
+  useEffect(() => { setHistoryCafe(null); }, [location.key]);
   const settingsMenuRef = useRef(null);
   const colorSaveTimerRef = useRef(null);
   const [showAvatarViewer, setShowAvatarViewer] = useState(false);
@@ -392,12 +298,13 @@ function ProfilePage() {
 
   useEffect(() => () => window.clearTimeout(colorSaveTimerRef.current), []);
 
+  const cafeSummaries = useMemo(() => [...summarizeCafeInteractions(interactions).values()], [interactions]);
   const stats = useMemo(() => ({
-    visited: interactions.filter((interaction) => interaction.is_visited).length,
-    favorites: interactions.filter((interaction) => interaction.is_favorite).length,
-    waitingList: interactions.filter((interaction) => interaction.in_waitlist).length,
-    rated: interactions.filter((interaction) => interaction.rating && interaction.rating > 0).length,
-  }), [interactions]);
+    visited: cafeSummaries.filter((item) => item.is_visited).length,
+    favorites: cafeSummaries.filter((item) => item.is_favorite).length,
+    waitingList: cafeSummaries.filter((item) => item.in_waitlist).length,
+    rated: cafeSummaries.filter((item) => item.rating > 0).length,
+  }), [cafeSummaries]);
 
   const profile = useMemo(() => {
     const username = userProfile?.username || user?.user_metadata?.username || 'Usuario Coffee';
@@ -440,12 +347,10 @@ function ProfilePage() {
       }));
   }, [cafeById, interactions]);
 
-  const favoritePlaces = useMemo(() => {
-    return interactions
-      .filter((interaction) => interaction.is_favorite)
-      .map((interaction) => cafeById.get(interaction.cafe_id) || interaction.cafe)
-      .filter(Boolean);
-  }, [cafeById, interactions]);
+  const favoritePlaces = useMemo(() => cafeSummaries
+    .filter((item) => item.is_favorite)
+    .map((item) => cafeById.get(item.cafe_id) || item.cafe)
+    .filter((cafe) => cafe && !cafe.deleted_at), [cafeById, cafeSummaries]);
 
   const visitedCafeStats = useMemo(() => {
     const grouped = new Map();
@@ -457,7 +362,7 @@ function ProfilePage() {
       if (String(interaction.review_text || '').trim()) current.reviewCount += 1;
       const visitedAt = interaction.visited_on || interaction.updated_at || '';
       if (visitedAt >= current.lastVisited) {
-        current.rating = Number(interaction.rating || cafe.rating || 0);
+        current.rating = getPersonalCafeRating(interactions, cafe.id);
         current.lastVisited = visitedAt;
         current.latestVisitId = interaction.id;
       }
@@ -468,26 +373,18 @@ function ProfilePage() {
 
   const removeFavorite = async (event, cafe) => {
     event.stopPropagation();
-    await saveCafeInteraction(cafe.id, { is_favorite: false });
+    if (favoriteBusy) return;
+    setFavoriteBusy(cafe.id);
+    setFavoriteError('');
+    try { await saveCafeInteraction(cafe.id, { is_favorite: false }); }
+    catch { setFavoriteError('No pudimos quitar el favorito. Intenta otra vez.'); }
+    finally { setFavoriteBusy(''); }
   };
 
-  const saveVisitReview = (visit, updates) => saveCafeInteraction(visit.cafe_id, {
-    ...updates,
-    is_visited: true,
-    visited_on: visit.visited_on || visit.updated_at?.slice(0, 10) || new Date().toISOString().slice(0, 10),
-  }, { interactionId: visit.id });
-
-  const deleteVisitReview = (visit) => saveCafeInteraction(visit.cafe_id, {
-    review_text: '',
-    rating: null,
-    is_visited: true,
-  }, { interactionId: visit.id });
-
-  const deleteVisit = (visit) => deleteCafeInteraction(visit.id);
-
-  const recentCafes = visitedPlaces.length > 0
-    ? visitedPlaces.filter((visit) => visit.cafe && !visit.cafe.deleted_at).slice(0, 4).map((visit) => ({ ...visit.cafe, rating: getPersonalCafeRating(interactions, visit.cafe.id) }))
-    : [];
+  const recentCafes = cafeSummaries.filter((item) => item.ratedInteraction)
+    .sort((a, b) => String(b.ratedInteraction.rated_at || b.ratedInteraction.visited_on || b.ratedInteraction.updated_at || '').localeCompare(String(a.ratedInteraction.rated_at || a.ratedInteraction.visited_on || a.ratedInteraction.updated_at || '')))
+    .map((item) => ({ ...(cafeById.get(item.cafe_id) || item.cafe), rating: item.rating }))
+    .filter((cafe) => cafe.id && !cafe.deleted_at).slice(0, 4);
 
   const persistProfileUpdates = async (updates) => {
     if (!user?.id) return;
@@ -789,8 +686,8 @@ function ProfilePage() {
         <div className="profile-content-main-column">
         <section className="profile-recent-section">
           <div className="profile-section-heading">
-            <h2 style={textStyle}><Coffee size={24} /> Lugares recientemente visitados</h2>
-            <button type="button" style={textStyle} onClick={() => openProfileTab('visited')}>Ver más</button>
+            <h2 style={textStyle}><Coffee size={24} /> Calificadas recientemente</h2>
+            <button type="button" style={textStyle} onClick={() => navigate('/ratings')}>Ver más</button>
           </div>
 
           <div className="profile-recent-row">
@@ -801,7 +698,7 @@ function ProfilePage() {
             ) : (
               <div className="profile-empty-recent">
                 <Coffee className="opacity-45 mb-2" size={28} />
-                <p className="text-sm opacity-70" style={textStyle}>Marca cafeterías como visitadas para llenar esta sección.</p>
+                <p className="text-sm opacity-70" style={textStyle}>Califica una cafetería para verla aquí.</p>
               </div>
             )}
           </div>
@@ -811,11 +708,11 @@ function ProfilePage() {
         </div>
 
         <div className="profile-content-side-column">
-        <ProfileRatingChart interactions={interactions} textStyle={textStyle} navigate={navigate} />
+        <ProfileRatingChart interactions={cafeSummaries} textStyle={textStyle} navigate={navigate} />
 
-        {favoritePlaces.length > 0 && (
-          <section className="profile-favorites-section">
-            <div className="profile-section-heading"><h2 style={textStyle}><Heart size={24} /> Favoritos recientes</h2><button type="button" onClick={() => navigate('/favorites')}>Ver todos →</button></div>
+        <section className="profile-favorites-section">
+            <div className="profile-section-heading"><h2 style={textStyle}><Heart size={24} /> Tus favoritos</h2><button type="button" onClick={() => navigate('/favorites')}>Ver todos →</button></div>
+            {favoriteError && <p className="cafe-diary-error" role="alert">{favoriteError}</p>}
             <div className="flex gap-3 overflow-x-auto pb-2 hide-scrollbar">
               {favoritePlaces.slice(0, 8).map((cafe) => (
                 <div key={cafe.id} className="profile-favorite-card">
@@ -823,12 +720,12 @@ function ProfilePage() {
                     {cafe.imageUrl ? <img src={cafe.imageUrl} alt={cafe.nombre} /> : <div className="profile-favorite-placeholder"><Coffee className="opacity-40" size={24} /></div>}
                     <div><p>{cafe.nombre}</p></div>
                   </button>
-                  <button type="button" className="profile-favorite-remove" onClick={(event) => removeFavorite(event, cafe)} aria-label={`Quitar ${cafe.nombre} de favoritos`} title="Quitar de favoritos"><X size={13} /></button>
+                  <button type="button" className="profile-favorite-remove" disabled={Boolean(favoriteBusy)} onClick={(event) => removeFavorite(event, cafe)} aria-label={`Quitar ${cafe.nombre} de favoritos`} title="Quitar de favoritos"><X size={13} /></button>
                 </div>
               ))}
+              {favoritePlaces.length === 0 && <p className="profile-favorites-empty">Marca tus cafeterías favoritas con el corazón para guardarlas aquí.</p>}
             </div>
           </section>
-        )}
         </div>
         </div>}
 
@@ -849,16 +746,7 @@ function ProfilePage() {
         {activeTab === 'friends' && <FriendsPanel userId={user.id} />}
       </section>
 
-      {historyCafe && <ProfileCafeVisitHistory
-        cafe={historyCafe}
-        visits={interactions
-          .filter((interaction) => interaction.cafe_id === historyCafe.id && interaction.is_visited)
-          .sort((first, second) => String(second.visited_on || second.updated_at || '').localeCompare(String(first.visited_on || first.updated_at || '')))}
-        onClose={() => setHistoryCafe(null)}
-        onSaveReview={saveVisitReview}
-        onDeleteReview={deleteVisitReview}
-        onDeleteVisit={deleteVisit}
-      />}
+      {historyCafe && <CafeVisitHistory cafe={historyCafe} visits={interactions.filter((item) => item.cafe_id === historyCafe.id && item.is_visited)} onClose={() => setHistoryCafe(null)} />}
 
       {showAvatarViewer && (
         <div className="profile-avatar-viewer" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowAvatarViewer(false); }}>
@@ -932,6 +820,7 @@ function FriendsPanel({ userId }) {
   const [profiles, setProfiles] = useState(new Map());
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
+  const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState('');
 
@@ -948,6 +837,9 @@ function FriendsPanel({ userId }) {
     const { data: people } = ids.length ? await supabase.from('profiles').select('id,username,avatar_url').in('id', ids) : { data: [] };
     setFriendships(rows);
     setProfiles(new Map((people || []).map((person) => [person.id, person])));
+    const { data: candidates } = await supabase.from('profiles').select('id,username,avatar_url').neq('id', userId).order('username').limit(100);
+    const known = new Set(ids);
+    setRecommendations((candidates || []).filter((person) => !known.has(person.id)).slice(0, 6));
     setLoading(false);
   }, [userId]);
 
@@ -1004,13 +896,14 @@ function FriendsPanel({ userId }) {
       {results.length > 0 && <div className="friends-section"><h3>Resultados</h3>{results.map((person) => { const relationship = relationshipFor(person.id); const received = relationship?.status === 'pending' && relationship.addressee_id === userId; return <article key={person.id} className="friends-person-row" onClick={(event) => { if (!event.target.closest('button')) navigate(`/profile/${person.id}`); }}><FriendAvatar person={person} /><div><strong>{person.username || 'Usuario'}</strong><small>{relationship?.status === 'accepted' ? 'Ya son amigos' : relationship ? 'Solicitud pendiente' : 'Coffee lover'}</small></div>{received ? <button onClick={() => acceptRequest(relationship.id)}>Aceptar</button> : <button disabled={Boolean(relationship)} onClick={() => sendRequest(person.id)}><UserPlus size={14} /> {relationship ? 'Enviada' : 'Agregar'}</button>}</article>; })}</div>}
 
       <div className="friends-section"><h3>Mis amigos</h3>{loading && <p className="friends-empty">Cargando…</p>}{!loading && accepted.length === 0 && <div className="friends-empty"><Users size={25} /><p>Busca usuarios para empezar tu círculo cafetero.</p></div>}{accepted.map((row) => { const person = profiles.get(getOtherId(row)); return <article key={row.id} className="friends-person-row" onClick={(event) => { if (!event.target.closest('button') && person?.id) navigate(`/profile/${person.id}`); }}><FriendAvatar person={person} /><div><strong>{person?.username || 'Usuario'}</strong><small>Amigo · Ver perfil</small></div><button className="is-secondary" onClick={() => removeFriendship(row.id)}>Quitar</button></article>; })}</div>
+      <div className="friends-section friends-recommendations"><h3>Personas recomendadas</h3><p className="friends-recommendation-copy">Descubre más perfiles y sus reseñas de cafeterías.</p>{!loading && recommendations.length === 0 && <p className="friends-empty">Por ahora no hay más perfiles para recomendarte. Puedes buscar por nombre de usuario.</p>}{recommendations.map((person) => <article key={person.id} className="friends-person-row"><button type="button" className="friends-recommendation-profile" onClick={() => navigate(`/profile/${person.id}`)}><FriendAvatar person={person} /><span><strong>{person.username || 'Coffee lover'}</strong><small>Ver perfil y reseñas</small></span></button><button type="button" onClick={() => sendRequest(person.id)}><UserPlus size={14} /> Agregar</button></article>)}</div>
     </section>
   );
 }
 
 function FriendAvatar({ person }) {
   const src = person?.avatar_url || `https://api.dicebear.com/7.x/miniavs/svg?seed=${encodeURIComponent(person?.username || 'coffee-friend')}`;
-  return <img src={src} alt="" />;
+  return <img className="friend-avatar" src={src} alt="" width={48} height={48} loading="lazy" decoding="async" />;
 }
 
 export default ProfilePage;

@@ -1,7 +1,8 @@
+import CafeGallery from '../components/CafeGallery';
 import PostImageCarousel from '../components/PostImageCarousel';
 import { useEffect, useState } from 'react';
 import { useLocation, useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, MapPin, Coffee, Heart, CheckCircle2, Clock, Edit3, Instagram, Music2, Plus, MessageCircle, Send, ExternalLink, X } from 'lucide-react';
+import { ArrowLeft, MapPin, Coffee, Heart, CheckCircle2, Clock, Edit3, Globe, Instagram, Music2, Plus, MessageCircle, Send, ExternalLink, X } from 'lucide-react';
 import PageLoading from '../components/PageLoading';
 import { useAuth } from '../context/AuthContext';
 import { useCoffeeData } from '../context/CoffeeDataContext';
@@ -13,6 +14,8 @@ import CafeMapPreview from '../components/CafeMapPreview';
 import TikTokCover from '../components/TikTokCover';
 import ConfirmDialog from '../components/ConfirmDialog';
 import ResponsiveDisclosure from '../components/ResponsiveDisclosure';
+import CafeVisitHistory from '../components/CafeVisitHistory';
+import { formatAverageRating } from '../utils/formatRating';
 
 const MAP_TARGET_STORAGE_KEY = 'coffee-map:focus-cafe';
 const getLocalDate = () => {
@@ -36,11 +39,14 @@ function CafePage({ cafeId }) {
     interactions,
     interactionsByCafeId,
     interactionsLoading,
+    interactionsLoaded,
     saveCafeInteraction,
   } = useCoffeeData();
 
   const cafe = cafeById.get(id) || null;
   const interaction = interactionsByCafeId.get(id);
+  const visits = interactions.filter((item) => item.cafe_id === id && item.is_visited);
+  const visitCount = visits.length;
   const personalReviews = interactions
     .filter((item) => item.cafe_id === id && item.review_text?.trim())
     .sort((first, second) => String(second.visited_on || second.updated_at || '').localeCompare(String(first.visited_on || first.updated_at || '')));
@@ -49,10 +55,12 @@ function CafePage({ cafeId }) {
   const [isFavorite, setIsFavorite] = useState(false);
   const [inWaitlist, setInWaitlist] = useState(false);
   const [rating, setRating] = useState(0);
-  const [reviewText, setReviewText] = useState('');
   const [savingInteraction, setSavingInteraction] = useState(false);
+  const interactionBusy = savingInteraction || Boolean(user && (!interactionsLoaded || interactionsLoading));
   const [showVisitConfirmation, setShowVisitConfirmation] = useState(false);
-  useEffect(() => { setShowVisitConfirmation(false); }, [location.key]);
+  const [showVisitHistory, setShowVisitHistory] = useState(false);
+  const [visitSuccess, setVisitSuccess] = useState('');
+  useEffect(() => { setShowVisitConfirmation(false); setShowVisitHistory(false); setVisitSuccess(''); }, [location.key]);
   const [saveError, setSaveError] = useState('');
   const [communityPhotos, setCommunityPhotos] = useState([]);
   const [communityTiktoks, setCommunityTiktoks] = useState([]);
@@ -165,7 +173,6 @@ function CafePage({ cafeId }) {
     setIsFavorite(interaction?.is_favorite || false);
     setInWaitlist(interaction?.in_waitlist || false);
     setRating(Number(interaction?.rating) || 0);
-    setReviewText(interaction?.review_text || '');
   }, [interaction, id]);
 
   const requireAuth = () => {
@@ -178,18 +185,10 @@ function CafePage({ cafeId }) {
   const saveInteraction = async (updates, options = {}) => {
     if (!requireAuth() || !cafe) return;
 
-    const hasUpdate = (key) => Object.prototype.hasOwnProperty.call(updates, key);
     setSavingInteraction(true);
     setSaveError('');
     try {
-      const savedInteraction = await saveCafeInteraction(cafe.id, {
-        is_visited: hasUpdate('is_visited') ? updates.is_visited : isVisited,
-        is_favorite: hasUpdate('is_favorite') ? updates.is_favorite : isFavorite,
-        in_waitlist: hasUpdate('in_waitlist') ? updates.in_waitlist : inWaitlist,
-        rating: hasUpdate('rating') ? updates.rating : (rating === 0 ? null : rating),
-        review_text: hasUpdate('review_text') ? updates.review_text : reviewText,
-        ...(hasUpdate('visited_on') ? { visited_on: updates.visited_on } : {}),
-      }, options);
+      const savedInteraction = await saveCafeInteraction(cafe.id, updates, options);
       return savedInteraction;
     } catch (error) {
       console.error('Error al guardar interaccion', error);
@@ -202,9 +201,10 @@ function CafePage({ cafeId }) {
 
   const toggleVisited = () => {
     if (!requireAuth()) return;
+    if (isVisited && visitCount > 1) { setShowVisitHistory(true); return; }
     const nextValue = !isVisited;
     setIsVisited(nextValue);
-    saveInteraction({ is_visited: nextValue, ...(nextValue ? { visited_on: getLocalDate() } : {}) });
+    saveInteraction({ is_visited: nextValue });
   };
 
   const toggleFavorite = () => {
@@ -222,7 +222,7 @@ function CafePage({ cafeId }) {
   };
 
   const registerAnotherVisit = async () => {
-    if (!requireAuth() || !cafe || savingInteraction) return;
+    if (!requireAuth() || !cafe || interactionBusy) return;
     const saved = await saveInteraction({
       is_visited: true,
       is_favorite: isFavorite,
@@ -230,12 +230,12 @@ function CafePage({ cafeId }) {
       rating: null,
       review_text: '',
       visited_on: getLocalDate(),
+      is_revisit: visitCount > 0,
     }, { createNewVisit: true });
     if (saved) {
       setShowVisitConfirmation(false);
       setIsVisited(true);
-      setRating(0);
-      setReviewText('');
+      setVisitSuccess(`Visita registrada. Es tu visita número ${visitCount + 1} a ${cafe.nombre}.`);
     }
   };
 
@@ -307,22 +307,24 @@ function CafePage({ cafeId }) {
               <div>
                 <span className="cafe-eyebrow">COFFEE MAP · {cafe.category === 'panaderia' ? 'PANADERÍA' : 'CAFETERÍA'}</span>
                 <h1>{cafe.nombre}</h1>
-                <div className="cafe-profile-meta"><span><MapPin size={15} fill="currentColor" /> {cafe.neighborhood || 'Mérida'}</span>{cafe.instagramUrl && <a href={cafe.instagramUrl} target="_blank" rel="noreferrer" aria-label="Instagram"><Instagram size={18} /></a>}</div>
+                <div className="cafe-profile-meta"><span><MapPin size={15} fill="currentColor" /> {cafe.neighborhood || 'Mérida'}</span>{cafe.websiteUrl && <a href={cafe.websiteUrl} target="_blank" rel="noreferrer" aria-label="Sitio web de la cafetería" title="Sitio web"><Globe size={18} /></a>}{cafe.tiktokUrl && <a href={cafe.tiktokUrl} target="_blank" rel="noreferrer" aria-label="TikTok de la cafetería" title="TikTok"><Music2 size={18} /></a>}{cafe.instagramUrl && <a href={cafe.instagramUrl} target="_blank" rel="noreferrer" aria-label="Instagram"><Instagram size={18} /></a>}</div>
               </div>
-              <div className="cafe-public-rating">{Number(cafe.rating) > 0 ? <CoffeeBeanRating value={Number(cafe.rating)} size={21} /> : <span className="cafe-unrated-beans" aria-label="Sin calificaciones">{Array.from({ length: 5 }, (_, index) => <CoffeeBeanIcon key={index} size={21} filled={false} />)}</span>}<strong>{Number(cafe.rating || 0) ? Number(cafe.rating).toFixed(1) : '—'}</strong><small>{cafe.reviews || 0} reseñas</small></div>
+              <div className="cafe-public-rating" aria-label="Calificación promedio de la app">{Number(cafe.rating) > 0 ? <CoffeeBeanRating value={Number(cafe.rating)} size={21} label="Promedio de la app" /> : <span className="cafe-unrated-beans" aria-label="Sin calificaciones">{Array.from({ length: 5 }, (_, index) => <CoffeeBeanIcon key={index} size={21} filled={false} />)}</span>}<strong>{formatAverageRating(cafe.rating)}</strong><small>{cafe.ratingsCount || 0} {cafe.ratingsCount === 1 ? 'calificación' : 'calificaciones'} en la app</small></div>
             </div>
             <div className="cafe-control-card">
               <div className="cafe-control-grid">
-                <button type="button" onClick={toggleVisited} disabled={savingInteraction} className={isVisited ? 'is-selected' : ''}><CheckCircle2 /><span>Visitada</span></button>
-                <button type="button" onClick={toggleFavorite} disabled={savingInteraction} className={isFavorite ? 'is-selected' : ''}><Heart className={isFavorite ? 'is-filled' : ''} /><span>Favorita</span></button>
-                <button type="button" onClick={toggleWaitlist} disabled={savingInteraction} className={inWaitlist ? 'is-selected' : ''}><Clock /><span>Ir luego</span></button>
+                <button type="button" onClick={toggleVisited} disabled={interactionBusy} className={isVisited ? 'is-selected' : ''}><CheckCircle2 /><span>Visitada</span></button>
+                <button type="button" onClick={toggleFavorite} disabled={interactionBusy} className={isFavorite ? 'is-selected' : ''}><Heart className={isFavorite ? 'is-filled' : ''} /><span>Favorita</span></button>
+                <button type="button" onClick={toggleWaitlist} disabled={interactionBusy} className={inWaitlist ? 'is-selected' : ''}><Clock /><span>Ir luego</span></button>
               </div>
               <div className="cafe-quick-links">
-                <div className="cafe-personal-rating"><span>Calificación</span><strong>{rating > 0 ? <><CoffeeBeanIcon size={23} filled /> {rating}</> : <button type="button" onClick={openReviewComposer}>Calificar</button>}</strong></div>
-                <button type="button" className="cafe-add-visit-button" onClick={() => { if (requireAuth()) { setSaveError(''); setShowVisitConfirmation(true); } }} disabled={savingInteraction}><Plus size={18} /><span>Agregar nueva visita</span></button>
+                <div className="cafe-personal-rating"><span>Tu calificación</span><strong>{rating > 0 ? <><CoffeeBeanIcon size={23} filled /> {rating}</> : <button type="button" onClick={openReviewComposer}>Calificar</button>}</strong></div>
+                <button type="button" className="cafe-add-visit-button" onClick={() => { if (requireAuth()) { setSaveError(''); setShowVisitConfirmation(true); } }} disabled={interactionBusy}><Plus size={18} /><span>Agregar nueva visita</span></button>
               </div>
+              {user && <button type="button" className="cafe-visit-counter" disabled={interactionBusy} onClick={() => setShowVisitHistory(true)}><Coffee size={19} /><strong>{!interactionsLoaded ? 'Cargando visitas…' : <>{visitCount} {visitCount === 1 ? 'visita' : 'visitas'}</>}</strong><span>Ver tu diario →</span></button>}
+              {visitSuccess && <div className="cafe-visit-success" role="status"><CheckCircle2 size={20} /><span>{visitSuccess}</span><button type="button" onClick={() => setVisitSuccess('')} aria-label="Cerrar mensaje"><X size={16} /></button></div>}
               <section className="cafe-my-reviews">
-                <div className="cafe-section-label"><h2>Mis reseñas</h2><button type="button" onClick={openReviewComposer} aria-label="Editar reseña"><Edit3 size={15} /></button></div>
+                <div className="cafe-section-label"><h2>Mis reseñas</h2><button type="button" onClick={() => { if (requireAuth()) setShowVisitHistory(true); }} aria-label="Ver todas mis visitas y reseñas">Ver diario</button><button type="button" onClick={openReviewComposer} aria-label="Editar reseña"><Edit3 size={15} /></button></div>
                 {personalReviews.length ? personalReviews.slice(0, 2).map((review) => <article className="cafe-personal-review" key={review.id}><div className="cafe-personal-review-meta"><CoffeeBeanRating value={Number(review.rating || 0)} size={14} /><span>{review.visited_on ? new Date(`${review.visited_on}T12:00:00`).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Visita reciente'}</span></div><p>“{review.review_text}”</p></article>) : <button type="button" className="cafe-write-review" onClick={openReviewComposer}>Escribir mi primera reseña…</button>}
                 {saveError && <p className="cafe-save-error" role="alert">{saveError}</p>}
               </section>
@@ -368,7 +370,7 @@ function CafePage({ cafeId }) {
 
           <section className="cafe-gallery-section">
             <header><div><span className="cafe-section-kicker">UN VISTAZO AL LUGAR</span><h2>Galería</h2></div>{communityPhotos.length > 0 && <span>{communityPhotos.length} fotos</span>}</header>
-            <div className="cafe-gallery-grid">{communityPhotos.slice(0, 9).map((photo) => <button type="button" className="cafe-photo-open" key={photo.id} onClick={() => setExpandedImage({ src: photo.public_url, alt: cafe.nombre })} aria-label={`Ampliar foto de ${cafe.nombre}`}><img src={photo.public_url} alt={cafe.nombre} loading="lazy" decoding="async" /></button>)}</div>
+            <CafeGallery key={cafe.id} photos={communityPhotos} cafeName={cafe.nombre} onOpen={(photo) => setExpandedImage({ src: photo.public_url, alt: cafe.nombre })} />
             {!communityPhotos.length && <p className="cafe-gallery-empty">Las fotos de esta cafetería aparecerán aquí.</p>}
           </section>
         </div>
@@ -384,6 +386,7 @@ function CafePage({ cafeId }) {
       </section>
       {expandedImage && <div className="cafe-image-viewer" role="dialog" aria-modal="true" aria-label="Foto ampliada" onMouseDown={(event) => { if (event.target === event.currentTarget) setExpandedImage(null); }}><button type="button" className="cafe-image-viewer-close" onClick={() => setExpandedImage(null)} aria-label="Cerrar foto"><X size={22} /></button><img src={expandedImage.src} alt={expandedImage.alt} /></div>}
       {showVisitConfirmation && isCafeRouteActive && <ConfirmDialog title="Agregar nueva visita" description={`¿Registrar una nueva visita a ${cafe.nombre}? Puedes agregar una reseña después si quieres.`} confirmLabel="Registrar visita" busy={savingInteraction} error={saveError} onConfirm={registerAnotherVisit} onCancel={() => setShowVisitConfirmation(false)} />}
+      {showVisitHistory && isCafeRouteActive && <CafeVisitHistory cafe={cafe} visits={visits} onClose={() => setShowVisitHistory(false)} />}
     </main>
   );
 }

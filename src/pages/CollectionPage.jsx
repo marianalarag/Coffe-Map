@@ -8,6 +8,7 @@ import HalfStarRating from '../components/HalfStarRating';
 import ProfileCafeCard from '../components/ProfileCafeCard';
 import CoffeeBeanIcon from '../components/CoffeeBeanIcon';
 import { formatRating } from '../utils/formatRating';
+import { summarizeCafeInteractions } from '../utils/cafeInteractions';
 
 const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=900&q=85';
 
@@ -35,7 +36,7 @@ const COLLECTIONS = {
 };
 
 const getImage = (cafe) => cafe?.imageUrl || FALLBACK_IMAGE;
-const getRating = (interaction, cafe) => Number(interaction?.rating || cafe?.rating || 4.5);
+const getRating = (interaction) => Number(interaction?.rating) || 0;
 
 function CollectionPage({ collection: collectionProp }) {
   const navigate = useNavigate();
@@ -55,7 +56,7 @@ function CollectionPage({ collection: collectionProp }) {
     if (!cafesLoaded) loadCafes().catch(() => {});
   }, [cafesLoaded, loadCafes]);
 
-  const entries = useMemo(() => interactions
+  const entries = useMemo(() => (collection === 'reviews' ? interactions : [...summarizeCafeInteractions(interactions).values()])
     .filter(config.filter)
     .filter((interaction) => ratingFilter === null || Math.round(Number(interaction.rating || 0) * 2) / 2 === ratingFilter)
     .map((interaction) => ({ interaction, cafe: cafeById.get(interaction.cafe_id) }))
@@ -63,9 +64,10 @@ function CollectionPage({ collection: collectionProp }) {
     .sort((a, b) => {
       if (sortMode === 'name') return a.cafe.nombre.localeCompare(b.cafe.nombre, 'es');
       if (sortMode === 'rating') return getRating(b.interaction, b.cafe) - getRating(a.interaction, a.cafe);
-      return (b.interaction.updated_at || '').localeCompare(a.interaction.updated_at || '');
+      const timestamp = (item) => collection === 'ratings' ? item.ratedInteraction?.rated_at || item.ratedInteraction?.visited_on || item.updated_at || '' : item.updated_at || '';
+      return timestamp(b.interaction).localeCompare(timestamp(a.interaction));
     }),
-  [cafeById, config, interactions, ratingFilter, sortMode]);
+  [cafeById, collection, config, interactions, ratingFilter, sortMode]);
 
   if (!cafesLoaded && interactionsLoading) {
     return <PageLoading message="Cargando tu colección..." />;

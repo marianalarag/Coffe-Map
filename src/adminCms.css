@@ -89,6 +89,15 @@
 .cms-batch-bar { display: flex; gap: 13px; align-items: center; flex-wrap: wrap; padding: 12px 0 20px; font-size: 12px; }
 .cms-batch-bar label { display: flex; align-items: center; gap: 7px; }
 .cms-batch-bar input { accent-color: #d8c4a8; width: 16px; height: 16px; }
+.cms-cafe-batch-bar { color: #eadcc4; }
+.cms-cafe-batch-delete { margin-left: auto; }
+.cms-cafe-selection { display: flex; align-items: center; gap: 8px; padding: 12px 16px 0; color: #cabaac; font-size: 12px; cursor: pointer; }
+.cms-cafe-checkbox { width: 18px; height: 18px; margin: 0; accent-color: #d8c4a8; cursor: pointer; }
+.cms-kanban > article.is-selected { border-color: #ead8b7; box-shadow: 0 0 0 1px #ead8b7; }
+.cms-table tr.is-selected { background: #49392b; }
+.cms-cafe-delete-list { display: block; max-height: 220px; overflow-y: auto; margin-top: 14px; padding: 0 12px; text-align: left; }
+.cms-cafe-delete-list > span { display: block; padding: 5px 0; overflow-wrap: anywhere; }
+.cms-catalog-overview button:disabled, .cms-cafe-checkbox:disabled { opacity: .5; cursor: not-allowed; }
 .cms-photo-gallery { display: grid; grid-template-columns: repeat(auto-fill,minmax(200px,1fr)); gap: 18px; }
 .cms-photo-media { position: relative; aspect-ratio: 1.15; overflow: hidden; border-radius: 16px 16px 0 0; background: #34271e; }
 .cms-photo-media img { width: 100%; height: 100%; object-fit: cover; }

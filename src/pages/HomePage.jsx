@@ -18,8 +18,8 @@ const getCafeCategoryLabel = (cafe) => getCafeCategory(cafe) === 'panaderia' ? '
 const getCafeAddress = getCafeFullAddress;
 const getCompactAddress = getCafeNeighborhood;
 
-function CafeCard({ cafe, interaction, onOpen }) {
-  return <ProfileCafeCard cafe={{ ...cafe, rating: Number(interaction?.rating || cafe?.rating || 0) }} onClick={() => onOpen(cafe.id)} />;
+function CafeCard({ cafe, onOpen }) {
+  return <ProfileCafeCard cafe={cafe} ratingKind="public" onClick={() => onOpen(cafe.id)} />;
 }
 
 function HomePage() {
@@ -62,7 +62,7 @@ function HomePage() {
 
   const sortedCafes = useMemo(() => [...cafes].sort((a, b) => {
     const ratingDifference = Number(b.rating || 0) - Number(a.rating || 0);
-    return ratingDifference || (Number(b.reviews || 0) - Number(a.reviews || 0));
+    return ratingDifference || (Number(b.ratingsCount || 0) - Number(a.ratingsCount || 0));
   }), [cafes]);
 
   const featuredCafe = cafeById.get(featuredId) || null;
@@ -179,14 +179,12 @@ function HomePage() {
         <CafeRow
           title="Las más visitadas"
           cafes={popularCafes}
-          interactionsByCafeId={interactionsByCafeId}
           onOpen={(id) => navigate(`/cafe/${id}`)}
           onMore={() => navigate('/map')}
         />
         <CafeRow
           title="En tu lista"
           cafes={displaySavedCafes}
-          interactionsByCafeId={interactionsByCafeId}
           onOpen={(id) => navigate(`/cafe/${id}`)}
           onMore={() => navigate('/list')}
         />
@@ -203,7 +201,7 @@ function HomePage() {
   );
 }
 
-function CafeRow({ title, cafes, interactionsByCafeId, onOpen, onMore }) {
+function CafeRow({ title, cafes, onOpen, onMore }) {
   if (!cafes.length) return null;
 
   return (
@@ -214,7 +212,7 @@ function CafeRow({ title, cafes, interactionsByCafeId, onOpen, onMore }) {
       </div>
       <div className="home-cafe-row">
         {cafes.map((cafe) => (
-          <CafeCard key={cafe.id} cafe={cafe} interaction={interactionsByCafeId.get(cafe.id)} onOpen={onOpen} />
+          <CafeCard key={cafe.id} cafe={cafe} onOpen={onOpen} />
         ))}
       </div>
     </section>

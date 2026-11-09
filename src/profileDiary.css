@@ -1,0 +1,114 @@
+.profile-favorites-empty { padding: 20px 0; color: #c8b79f; font-size: 13px; line-height: 1.6; }
+.profile-favorites-section .profile-favorite-card { flex: 0 0 180px; width: 180px; min-width: 180px; min-height: 200px; height: 200px; }
+.profile-favorites-section .profile-favorite-open { position: relative; overflow: hidden; }
+.profile-favorites-section .profile-favorite-open > img, .profile-favorites-section .profile-favorite-placeholder { position: absolute; inset: 0; width: 100%; height: 100%; }
+.profile-favorites-section .profile-favorite-open p { display: -webkit-box; overflow: hidden; white-space: normal; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-height: 1.3; }
+@media (min-width: 900px) {
+  .profile-content-grid { grid-template-areas: "recent ratings" "visits favorites"; align-items: stretch; }
+  .profile-content-grid .profile-content-main-column, .profile-content-grid .profile-content-side-column { display: contents; }
+  .profile-content-grid .profile-recent-section { grid-area: recent; }
+  .profile-content-grid .profile-rating-chart { grid-area: ratings; align-self: stretch; display: flex; flex-direction: column; }
+  .profile-content-grid .profile-rating-rows { flex: 1; grid-template-rows: repeat(5, minmax(28px, 1fr)); align-items: center; }
+  .profile-content-grid .profile-visit-ranking { grid-area: visits; }
+  .profile-content-grid .profile-favorites-section { grid-area: favorites; display: flex; flex-direction: column; }
+  .profile-content-grid .profile-favorites-section > .flex { flex: 1; align-items: stretch; }
+  .profile-content-grid .profile-favorite-card { flex-basis: clamp(180px, 14vw, 240px); width: clamp(180px, 14vw, 240px); height: 220px; }
+}
+.cafe-visit-counter { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 46px; margin: 12px 0; padding: 12px 14px; color: #eadcc4; background: #30271f; border: 0; border-radius: 14px; cursor: pointer; }
+.cafe-visit-counter strong { font-size: 14px; }
+.cafe-visit-counter > span { margin-left: auto; font-size: 12px; color: #bca88e; }
+.cafe-visit-success { display: flex; align-items: center; gap: 9px; margin: 12px 0; padding: 14px; color: #dce9ca; background: #34432c; border-radius: 14px; font-size: 13px; line-height: 1.5; }
+.cafe-visit-success > svg { flex-shrink: 0; }
+.cafe-visit-success > button { display: grid; place-items: center; margin-left: auto; min-width: 34px; height: 34px; padding: 0; color: inherit; background: none; border: 0; cursor: pointer; }
+.cafe-diary-dialog { position: fixed; inset: 0; width: min(1100px, calc(100% - 48px)); max-width: none; max-height: 90dvh; margin: auto; padding: 0; overflow-y: auto; color: #eee5d2; background: #211c17; border: 1px solid #493c30; border-radius: 22px; box-shadow: 0 24px 80px #0008; font-family: Inter, system-ui, sans-serif; }
+.cafe-diary-dialog::backdrop { background: #100d0bda; backdrop-filter: blur(8px); }
+.cafe-diary-header { position: sticky; z-index: 2; top: 0; display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 25px 30px; background: #211c17; border-bottom: 1px solid #493c30; }
+.cafe-diary-header small { display: block; margin-bottom: 7px; color: #bfae94; font-size: 10px; letter-spacing: .12em; }
+.cafe-diary-header h2 { margin: 0; color: #eee5d2; font-size: clamp(20px, 2.4vw, 29px); font-weight: 500; line-height: 1.25; }
+.cafe-diary-header > button { display: grid; place-items: center; flex: 0 0 42px; height: 42px; padding: 0; color: #eee5d2; background: #372d24; border: 0; border-radius: 50%; cursor: pointer; }
+.cafe-diary-layout { display: grid; grid-template-columns: minmax(0, 1fr) 230px; gap: 40px; padding: 24px 30px 32px; }
+.cafe-diary-main { min-width: 0; }
+.cafe-diary-tabs { display: flex; align-items: center; flex-wrap: wrap; gap: 18px; border-bottom: 1px solid #493c30; }
+.cafe-diary-tabs > button { position: relative; min-height: 43px; padding: 0; color: #c0af98; background: none; border: 0; font-size: 13px; cursor: pointer; }
+.cafe-diary-tabs > button.is-active { color: #e9d3aa; box-shadow: 0 2px #e9d3aa; }
+.cafe-diary-tabs b { margin-left: 4px; font-size: 11px; }
+.cafe-diary-tabs select { min-height: 40px; max-width: 150px; margin-left: auto; padding: 6px; color: #c0af98; background: #211c17; border: 0; font-size: 11px; }
+.cafe-diary-entry { display: flex; align-items: flex-start; gap: 15px; padding: 27px 0; border-bottom: 1px solid #493c30; }
+.cafe-diary-avatar { width: 42px; height: 42px; flex: 0 0 42px; object-fit: cover; border-radius: 50%; }
+.cafe-diary-entry-body { min-width: 0; flex: 1; }
+.cafe-diary-entry-rating { display: flex; align-items: center; gap: 8px; min-height: 22px; color: #ead5b1; }
+.cafe-diary-entry-rating > strong { font-size: 13px; }
+.cafe-diary-entry-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; margin: 5px 0 13px; color: #b5a590; font-size: 12px; line-height: 1.6; }
+.cafe-diary-entry-meta b { color: #ded0b8; font-weight: 500; }
+.cafe-diary-entry-meta time { color: #958773; }
+.cafe-diary-review { margin: 0 0 20px; color: #ddcfb8; font-family: Georgia, serif; font-size: 20px; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
+.cafe-diary-unreviewed { margin: 8px 0 18px; color: #ad9d86; font-size: 13px; line-height: 1.6; }
+.cafe-diary-entry-actions { display: flex; flex-wrap: wrap; gap: 5px 16px; }
+.cafe-diary-entry-actions button { min-height: 35px; padding: 5px 0; color: #c6b496; background: none; border: 0; cursor: pointer; font-size: 11px; text-decoration: underline; text-underline-offset: 4px; }
+.cafe-diary-entry-actions button:hover { color: #fff0d2; }
+.cafe-diary-edit { display: grid; gap: 14px; }
+.cafe-diary-edit label { display: grid; gap: 8px; font-size: 12px; color: #d8c8ae; }
+.cafe-diary-edit textarea { width: 100%; min-height: 130px; resize: vertical; padding: 13px; color: #eee5d2; background: #2d251e; border: 1px solid #65513d; border-radius: 10px; font: 16px/1.5 Georgia, serif; }
+.cafe-diary-edit button[type=submit] { font-weight: 700; }
+.cafe-diary-poster { position: sticky; top: 120px; align-self: start; display: flex; flex-direction: column; gap: 12px; color: #d8c8ae; }
+.cafe-diary-poster > img, .cafe-diary-poster > div:first-child { width: 100%; aspect-ratio: 3/4; object-fit: cover; background: #352b22; border: 1px solid #65513d; border-radius: 12px; box-shadow: 0 8px 24px #0004; }
+.cafe-diary-poster > div:first-child { display: grid; place-items: center; }
+.cafe-diary-poster > strong { font-size: 16px; line-height: 1.4; }
+.cafe-diary-poster > span { font-size: 12px; color: #b5a590; }
+.cafe-diary-personal-rating { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 13px; }
+.cafe-diary-personal-rating small { width: 100%; color: #b5a590; font-size: 11px; }
+.cafe-diary-empty { padding: 35px 0; color: #b5a590; font-size: 14px; line-height: 1.6; }
+.cafe-diary-error { padding: 15px 0; color: #f3ada0; font-size: 13px; }
+.cafe-diary-dialog button:disabled { opacity: .5; cursor: not-allowed; }
+.friends-recommendation-copy { margin: -5px 0 15px; color: #b5a590; font-size: 13px; }
+.friends-person-row .friends-recommendation-profile { min-width: 0; flex: 1; display: flex; align-items: center; gap: 13px; padding: 0; color: inherit; text-align: left; background: none; border: 0; }
+.friends-panel .friend-avatar { display: block; width: 48px; height: 48px; min-width: 48px; max-width: 48px; flex: 0 0 48px; aspect-ratio: 1; object-fit: cover; border-radius: 50%; }
+.friends-recommendations .friends-person-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 14px; min-height: 82px; padding: 14px; }
+.friends-recommendations .friends-recommendation-profile { width: 100%; overflow: hidden; }
+.friends-recommendation-profile > span { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 5px; }
+.friends-recommendations .friends-person-row > button:last-child { flex-shrink: 0; min-width: 88px; min-height: 40px; padding: 8px 12px; font-size: 12px; cursor: pointer; }
+.friends-recommendation-profile strong, .friends-recommendation-profile small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.friends-recommendation-profile strong { font-size: 13px; }
+.friends-recommendation-profile small { color: #b5a590; font-size: 11px; }
+@media (max-width: 700px) {
+  .cafe-diary-dialog { width: 100%; max-height: 95dvh; margin-bottom: 0; border-radius: 22px 22px 0 0; }
+  .cafe-diary-header { padding: 18px; }
+  .cafe-diary-layout { grid-template-columns: minmax(0, 1fr); gap: 20px; padding: 18px; }
+  .cafe-diary-poster { position: static; order: -1; display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 6px 14px; align-items: center; }
+  .cafe-diary-poster > img, .cafe-diary-poster > div:first-child { grid-row: 1/4; width: 72px; }
+  .cafe-diary-poster > strong, .cafe-diary-poster > span, .cafe-diary-personal-rating { grid-column: 2; }
+  .cafe-diary-personal-rating small { width: auto; }
+  .cafe-diary-entry { gap: 10px; padding: 22px 0; }
+  .cafe-diary-avatar { width: 32px; height: 32px; flex-basis: 32px; }
+  .cafe-diary-review { font-size: 17px; }
+  .cafe-diary-tabs { gap: 13px; }
+  .cafe-diary-tabs select { max-width: 120px; }
+  .cafe-diary-layout { padding-bottom: max(24px, env(safe-area-inset-bottom, 0px)); }
+}
+.activity-date-field { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.coffee-date-picker { width: 100%; }
+.coffee-date-trigger { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 48px; padding: 12px 16px; border: 1px solid #e8ddc529; border-radius: 12px; background: #211a15; color: #e8ddc5; text-align: left; cursor: pointer; }
+.coffee-calendar { width: min(100%, 360px); margin-top: 10px; padding: 16px; border: 1px solid #e8ddc529; border-radius: 18px; background: #30251e; box-shadow: 0 10px 24px #0003; }
+.coffee-calendar header, .coffee-calendar footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.coffee-calendar header strong { text-transform: capitalize; font-size: 15px; color: #e8ddc5; }
+.coffee-calendar button, .coffee-gallery-controls button { display: inline-flex; align-items: center; justify-content: center; min-width: 36px; min-height: 36px; border: 0; border-radius: 10px; background: transparent; color: #e8ddc5; cursor: pointer; }
+.coffee-calendar-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; margin: 12px 0; text-align: center; }
+.coffee-calendar-days > span { color: #bda98d; font-size: 12px; padding: 5px 0; }
+.coffee-calendar-days button { min-width: 0; aspect-ratio: 1; }
+.coffee-calendar button:hover:not(:disabled), .coffee-gallery-controls button:hover:not(:disabled) { background: #e8ddc51a; }
+.coffee-calendar-days button[aria-current="date"] { box-shadow: inset 0 0 0 1px #c4a77b; }
+.coffee-calendar-days button[aria-pressed="true"] { background: #e8ddc5; color: #30251e; font-weight: 700; }
+.coffee-calendar button:disabled, .coffee-gallery-controls button:disabled { opacity: .3; cursor: default; }
+.coffee-calendar footer { border-top: 1px solid #e8ddc51a; padding-top: 8px; }
+.coffee-calendar footer button { padding-inline: 12px; }
+.coffee-gallery { min-width: 0; }
+.coffee-gallery-controls { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-bottom: 10px; }
+.coffee-gallery-controls span { margin-right: auto; color: #bda98d; font-size: 13px; }
+.coffee-gallery-controls button { background: #30251e; border-radius: 50%; width: 40px; height: 40px; }
+.coffee-gallery-track { position: relative; display: flex; flex-wrap: nowrap; gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: thin; scrollbar-color: #70533d transparent; padding: 4px 2px 12px; }
+.coffee-gallery-track > button { flex: 0 0 calc((100% - 28px) / 3); min-width: 0; padding: 0; border: 2px solid transparent; border-radius: 12px; overflow: hidden; background: #30251e; opacity: .42; transition: opacity .2s, border-color .2s; scroll-snap-align: start; cursor: pointer; }
+.coffee-gallery-track > button.is-selected { opacity: 1; border-color: #e8ddc5; }
+.coffee-gallery-track > button:hover { opacity: .85; }
+.coffee-gallery-track > button.is-selected:hover { opacity: 1; }
+.coffee-gallery-track img { display: block; width: 100%; height: clamp(180px, 25vw, 340px); object-fit: cover; }
+@media (max-width: 600px) { .coffee-gallery-track > button { flex-basis: 76%; } .coffee-gallery-track img { height: 260px; } }

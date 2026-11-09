@@ -4,15 +4,16 @@ import { supabase } from '../supabase';
 import { useAuth } from './AuthContext';
 import { deduplicateCafes, repairCafeText } from '../utils/cafeDeduplication';
 import { getCafeCoordinates } from '../utils/cafeLocation';
+import { summarizeCafeInteractions } from '../utils/cafeInteractions';
 
 const CoffeeDataContext = createContext(null);
 
-const CAFES_CACHE_KEY = 'coffee-map:cafes:v20';
+const CAFES_CACHE_KEY = 'coffee-map:cafes:v22';
 const CAFES_CACHE_TTL_MS = 15 * 60 * 1000;
 const CAFE_REQUEST_TIMEOUT_MS = 8 * 1000;
 const INTERACTION_REQUEST_TIMEOUT_MS = 12 * 1000;
-const CAFE_COLUMNS = 'id,nombre,lat,lng,rating,reviews,link,address,neighborhood,category,image_url,image_source_url,image_attribution,image_license,instagram_url,tiktok_url,menu_url,opening_hours,opening_hours_source,opening_hours_source_url,opening_hours_verified_at,source,source_id,source_url,status,deleted_at,created_at';
-const INTERACTION_COLUMNS = 'id,user_id,cafe_id,is_visited,is_favorite,in_waitlist,rating,review_text,visited_on,is_revisit,updated_at';
+const CAFE_COLUMNS = 'id,nombre,lat,lng,rating,reviews,link,address,neighborhood,category,image_url,image_source_url,image_attribution,image_license,instagram_url,website_url,tiktok_url,menu_url,opening_hours,opening_hours_source,opening_hours_source_url,opening_hours_verified_at,source,source_id,source_url,status,deleted_at,created_at';
+const INTERACTION_COLUMNS = 'id,user_id,cafe_id,is_visited,is_favorite,in_waitlist,rating,rated_at,review_text,visited_on,is_revisit,updated_at';
 const INTERACTION_WITH_CAFE_COLUMNS = `${INTERACTION_COLUMNS},cafe:cafes(${CAFE_COLUMNS})`;
 const isUuid = (value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ''));
 const parseCafeMenuImages = (value) => {
@@ -48,6 +49,7 @@ const normalizeCafe = (cafe) => {
     imageAttribution: cafe.image_attribution !== undefined ? cafe.image_attribution : cafe.imageAttribution || null,
     imageLicense: cafe.image_license !== undefined ? cafe.image_license : cafe.imageLicense || null,
     instagramUrl: cafe.instagram_url !== undefined ? cafe.instagram_url : cafe.instagramUrl || null,
+    websiteUrl: cafe.website_url !== undefined ? cafe.website_url : cafe.websiteUrl || null,
     tiktokUrl: cafe.tiktok_url !== undefined ? cafe.tiktok_url : cafe.tiktokUrl || null,
     menuImages: parseCafeMenuImages(cafe.menu_url !== undefined ? cafe.menu_url : cafe.menuImages),
     openingHours: cafe.opening_hours !== undefined ? cafe.opening_hours : cafe.openingHours || null,
@@ -135,20 +137,25 @@ export function CoffeeDataProvider({ children }) {
       setCafesLoading(true);
 
       try {
-        const { data, error } = await withRequestTimeout(
-          supabase
+        const [catalog, ratings] = await withRequestTimeout(
+          Promise.all([supabase
             .from('cafes')
             .select(CAFE_COLUMNS)
             .eq('status', 'active')
-            .order('nombre', { ascending: true }),
+            .order('nombre', { ascending: true }), supabase.rpc('get_cafe_app_ratings')]),
           CAFE_REQUEST_TIMEOUT_MS,
           'La carga de cafeterías tardó demasiado.',
         );
 
-        if (error) throw error;
+        if (catalog.error) throw catalog.error;
+        if (ratings.error) throw ratings.error;
 
         if (version !== cafeVersionRef.current) return cafesRef.current;
-        const normalizedCafes = deduplicateCafes((data || []).map(normalizeCafe));
+        const ratingsByCafe = new Map((ratings.data || []).map((row) => [row.cafe_id, row]));
+        const normalizedCafes = deduplicateCafes((catalog.data || []).map((row) => normalizeCafe({
+          ...row, rating: Number(ratingsByCafe.get(row.id)?.rating) || 0,
+          ratingsCount: Number(ratingsByCafe.get(row.id)?.rating_count) || 0, ratingSource: 'app',
+        })));
         cafesRef.current = normalizedCafes;
         cafesLoadedRef.current = true;
         setCafesState({
@@ -175,7 +182,7 @@ export function CoffeeDataProvider({ children }) {
     cafeRequestRef.current = null;
     setCafesLoading(false);
     setCafesState((current) => {
-      const incoming = newCafes.map(normalizeCafe).filter((cafe) => cafe.status === 'active' && !cafe.deleted_at);
+      const incoming = newCafes.map((row) => normalizeCafe({ ...row, rating: 0, ratingsCount: 0, ratingSource: 'app' })).filter((cafe) => cafe.status === 'active' && !cafe.deleted_at);
       const knownIds = new Set(current.cafes.map((cafe) => cafe.id));
       const merged = deduplicateCafes([
         ...current.cafes,
@@ -201,7 +208,7 @@ export function CoffeeDataProvider({ children }) {
     setCafesLoading(false);
     const current = cafesRef.current;
     const existing = current.find((cafe) => cafe.id === row.id);
-    const updated = normalizeCafe({ ...existing, ...row });
+    const updated = normalizeCafe({ ...existing, ...row, rating: existing?.rating || 0, ratingsCount: existing?.ratingsCount || 0, ratingSource: 'app' });
     setInteractions((items) => items.map((item) => item.cafe_id === row.id ? { ...item, cafe: updated } : item));
     const next = updated.status !== 'active' || updated.deleted_at
       ? current.filter((cafe) => cafe.id !== row.id)
@@ -244,6 +251,7 @@ export function CoffeeDataProvider({ children }) {
       setInteractionsLoaded(true);
       setInteractionsError('');
       interactionsUserIdRef.current = targetUserId;
+      loadCafes({ force: true }).catch(() => {});
       return nextInteractions;
     } catch (error) {
       setInteractionsError(error.message || 'No se pudieron cargar tus datos de perfil.');
@@ -253,7 +261,7 @@ export function CoffeeDataProvider({ children }) {
     } finally {
       setInteractionsLoading(false);
     }
-  }, [userId]);
+  }, [loadCafes, userId]);
 
   const preloadInitialData = useCallback((targetUserId) => {
     return Promise.allSettled([
@@ -278,9 +286,28 @@ export function CoffeeDataProvider({ children }) {
         .filter((key) => Object.prototype.hasOwnProperty.call(updates, key) && updates[key] !== undefined)
         .map((key) => [key, updates[key]]),
     );
+    const preferences = summarizeCafeInteractions(interactions).get(cafeId);
+    const preferenceKeys = ['is_favorite', 'in_waitlist'];
+    if (!createNewVisit && !options.interactionId && persistedInteraction && Object.keys(patch).length > 0 && Object.keys(patch).every((key) => preferenceKeys.includes(key))) {
+      const previous = interactions.filter((item) => item.cafe_id === cafeId);
+      setInteractions((current) => current.map((item) => item.cafe_id === cafeId ? { ...item, ...patch } : item));
+      try {
+        const { data, error } = await supabase.from('user_cafes').update({ ...patch, updated_at: new Date().toISOString() }).eq('user_id', userId).eq('id', persistedInteraction.id).select(INTERACTION_WITH_CAFE_COLUMNS).single();
+        if (error) throw error;
+        if (!data?.id) throw new Error('No se pudo confirmar el cambio en tus preferencias.');
+        const row = { ...data, cafe: data.cafe ? normalizeCafe(data.cafe) : null };
+        setInteractions((current) => current.map((item) => item.id === row.id ? row : item.cafe_id === cafeId ? { ...item, is_favorite: row.is_favorite, in_waitlist: row.in_waitlist } : item));
+        return row;
+      } catch (error) {
+        setInteractions((current) => [...previous, ...current.filter((item) => item.cafe_id !== cafeId)]);
+        throw error;
+      }
+    }
     const payload = {
       user_id: userId,
       cafe_id: cafeId,
+      is_favorite: Boolean(preferences?.is_favorite),
+      in_waitlist: Boolean(preferences?.in_waitlist),
       ...patch,
       updated_at: new Date().toISOString(),
     };
@@ -308,9 +335,9 @@ export function CoffeeDataProvider({ children }) {
     const interactionRequest = createNewVisit || !persistedInteraction?.id
       ? supabase.from('user_cafes').insert([payload])
       : supabase.from('user_cafes').update(payload).eq('id', persistedInteraction.id);
-    const { data, error } = await interactionRequest
+    const { data, error } = await Promise.resolve(interactionRequest
       .select(INTERACTION_WITH_CAFE_COLUMNS)
-      .single();
+      .single()).catch((error) => ({ data: null, error }));
     if (error) {
       setInteractions((current) => {
         if (createNewVisit || !persistedInteraction?.id) return current.filter((item) => item.id !== optimisticInteraction.id);
@@ -325,14 +352,15 @@ export function CoffeeDataProvider({ children }) {
     };
 
     setInteractions((current) => {
-      const exists = current.some((interaction) => interaction.id === normalizedInteraction.id);
-      if (exists) return current.map((interaction) => (interaction.id === normalizedInteraction.id ? normalizedInteraction : interaction));
-      return [normalizedInteraction, ...current.filter((interaction) => interaction.id !== optimisticInteraction.id)];
+      const remaining = current.filter((item) => item.id !== optimisticInteraction.id && item.id !== normalizedInteraction.id)
+        .map((item) => item.cafe_id === cafeId ? { ...item, is_favorite: normalizedInteraction.is_favorite, in_waitlist: normalizedInteraction.in_waitlist } : item);
+      return [normalizedInteraction, ...remaining];
     });
     setInteractionsLoaded(true);
+    if (Object.hasOwn(patch, 'rating')) loadCafes({ force: true }).catch(() => {});
 
     return normalizedInteraction;
-  }, [interactions, userId]);
+  }, [interactions, loadCafes, userId]);
 
   const deleteCafeInteraction = useCallback(async (interactionId) => {
     if (!userId || !isUuid(interactionId)) return null;
@@ -352,8 +380,9 @@ export function CoffeeDataProvider({ children }) {
       throw error;
     }
 
+    if (Number(removedInteraction.rating) > 0) loadCafes({ force: true }).catch(() => {});
     return removedInteraction;
-  }, [interactions, userId]);
+  }, [interactions, loadCafes, userId]);
 
   useEffect(() => {
     if (!userId) {
@@ -378,11 +407,7 @@ export function CoffeeDataProvider({ children }) {
   }, [cafesState.cafes]);
 
   const interactionsByCafeId = useMemo(() => {
-    const latestByCafe = new Map();
-    interactions.forEach((interaction) => {
-      if (!latestByCafe.has(interaction.cafe_id)) latestByCafe.set(interaction.cafe_id, interaction);
-    });
-    return latestByCafe;
+    return summarizeCafeInteractions(interactions);
   }, [interactions]);
 
   const value = useMemo(() => ({

@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   Search,
-  ScanSearch,
+  ArrowLeft,
+  Store,
   LocateFixed,
   AlertCircle,
   CheckCircle2,
@@ -11,6 +12,7 @@ import {
   Coffee,
   X,
   Clock3,
+  CheckCircle2 as VisitedIcon,
   List,
   Map as MapIcon,
 } from 'lucide-react'
@@ -18,6 +20,10 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import BottomNav from './components/BottomNav'
+import MapResultsPanel from './components/MapResultsPanel'
+import { CAFE_CHAINS, isCafeVisibleWithChains } from './utils/cafeChains'
+import { filterCafeVisitStatus } from './utils/cafeInteractions'
+import { formatAverageRating } from './utils/formatRating'
 import { useAuth } from './context/AuthContext'
 import { useCoffeeData } from './context/CoffeeDataContext'
 import { normalizeCafeName } from './utils/cafeDeduplication'
@@ -190,20 +196,16 @@ const getMarkerGroups = (map, cafes) => {
 function App() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { logout } = useAuth();
-  const { cafes, cafesLoading, cafesLoaded, cafesError, loadCafes, interactions } = useCoffeeData();
+  const { logout, user } = useAuth();
+  const { cafes, cafesLoading, cafesLoaded, cafesError, loadCafes, interactions, interactionsByCafeId, interactionsLoaded, interactionsLoading } = useCoffeeData();
   const mapRef = useRef(null)
   const markerLayerRef = useRef(null)
   const cafeMarkerEntriesRef = useRef(new Map())
   const markerRenderFrameRef = useRef(null)
   const userMarkerRef = useRef(null)
-  const scanTimerRef = useRef(null)
   const programmaticMoveUntilRef = useRef(0)
-  const resultsPanelDragRef = useRef(null)
   const [map, setMap] = useState(null)
   const [mapLoading, setMapLoading] = useState(true)
-  const [scanning, setScanning] = useState(false)
-  const [scanResultCount, setScanResultCount] = useState(null)
   const [notifications, setNotifications] = useState([])
   const [loggingOut, setLoggingOut] = useState(false)
   const [userLocation, setUserLocation] = useState(null)
@@ -215,10 +217,25 @@ function App() {
   const [selectedRating, setSelectedRating] = useState(0)
   const [showRatingMenu, setShowRatingMenu] = useState(false)
   const [showFilterPanel, setShowFilterPanel] = useState(false)
+  const [showChainPanel, setShowChainPanel] = useState(false)
+  const [showVisitMenu, setShowVisitMenu] = useState(false)
+  const [visitFilter, setVisitFilter] = useState('all')
   const [areaSearchBounds, setAreaSearchBounds] = useState(null)
   const [areaSearchPending, setAreaSearchPending] = useState(false)
   const [resultsPanelOpen, setResultsPanelOpen] = useState(false)
-  const [resultsPanelOffset, setResultsPanelOffset] = useState(0)
+  const [hiddenChains, setHiddenChains] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('coffee-map:hidden-chains') || '[]');
+      // Preserve "Locales" when upgrading the previous complete franchise selection.
+      const previousIds = CAFE_CHAINS.map((chain) => chain.id === 't-bar' ? 'cielito-querido' : chain.id);
+      if (Array.isArray(saved) && previousIds.every((id) => saved.includes(id))) return CAFE_CHAINS.map((chain) => chain.id);
+      return Array.isArray(saved) ? saved.filter((id) => CAFE_CHAINS.some((chain) => chain.id === id)) : [];
+    } catch { return []; }
+  })
+  const allChainsHidden = hiddenChains.length === CAFE_CHAINS.length;
+  useEffect(() => {
+    try { localStorage.setItem('coffee-map:hidden-chains', JSON.stringify(hiddenChains)); } catch { /* Keep the current filter in memory. */ }
+  }, [hiddenChains]);
   const isTouchDevice = useMemo(() => (
     window.matchMedia?.('(hover: none), (pointer: coarse)').matches ?? false
   ), [])
@@ -227,39 +244,14 @@ function App() {
     if (!cafesLoaded) loadCafes().catch(() => {});
   }, [cafesLoaded, loadCafes]);
 
-  const handleResultsPanelPointerDown = useCallback((event) => {
-    if (event.target.closest('button, a, input, select')) return;
-    if (event.pointerType === 'mouse' && event.button !== 0) return;
-    resultsPanelDragRef.current = { pointerId: event.pointerId, startY: event.clientY };
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-  }, [])
-
-  const handleResultsPanelPointerMove = useCallback((event) => {
-    const drag = resultsPanelDragRef.current;
-    if (!drag || drag.pointerId !== event.pointerId) return;
-    const offset = Math.max(0, event.clientY - drag.startY);
-    if (offset > 0) {
-      event.preventDefault();
-      setResultsPanelOffset(offset);
-    }
-  }, [])
-
-  const handleResultsPanelPointerUp = useCallback((event) => {
-    const drag = resultsPanelDragRef.current;
-    if (!drag || drag.pointerId !== event.pointerId) return;
-    resultsPanelDragRef.current = null;
-    if (resultsPanelOffset > 80) setResultsPanelOpen(false);
-    setResultsPanelOffset(0);
-  }, [resultsPanelOffset])
-
   const filteredCafes = useMemo(() => (
     cafes.filter((cafe) => {
       const matchesDay = isCafeOpenOnDay(cafe.openingHours, selectedDay);
       const matchesRating = Number(cafe.rating || 0) >= selectedRating;
       const matchesOpenNow = !openNowOnly || getCafeStatus(cafe).state === 'open';
-      return matchesDay && matchesRating && matchesOpenNow;
+      return matchesDay && matchesRating && matchesOpenNow && isCafeVisibleWithChains(cafe, hiddenChains) && filterCafeVisitStatus(cafe, user ? visitFilter : 'all', interactionsByCafeId);
     })
-  ), [cafes, openNowOnly, selectedDay, selectedRating])
+  ), [cafes, hiddenChains, openNowOnly, selectedDay, selectedRating, user, visitFilter, interactionsByCafeId])
 
   const displayedCafes = useMemo(() => {
     const source = areaSearchBounds
@@ -272,7 +264,6 @@ function App() {
     ));
   }, [areaSearchBounds, filteredCafes])
 
-  const activeFilterCount = (selectedDay !== 'any' ? 1 : 0) + (selectedRating > 0 ? 1 : 0) + (openNowOnly ? 1 : 0);
   const scheduleFilterCount = (selectedDay !== 'any' ? 1 : 0) + (openNowOnly ? 1 : 0);
 
   const markerCafes = useMemo(() => {
@@ -368,42 +359,6 @@ function App() {
       showToast('Tu navegador no soporta geolocalizacion', 'error');
     }
   };
-
-  const scanCurrentView = () => {
-    if (!map || scanning || cafesLoading) return;
-
-    setScanning(true);
-    setScanResultCount(null);
-
-    scanTimerRef.current = window.setTimeout(() => {
-      const bounds = map.getBounds();
-      const visibleCafes = cafes.filter((cafe) => (
-        Number.isFinite(Number(cafe.lat))
-        && Number.isFinite(Number(cafe.lng))
-        && bounds.contains([Number(cafe.lat), Number(cafe.lng)])
-      ));
-
-      setScanResultCount(visibleCafes.length);
-      setScanning(false);
-      scanTimerRef.current = null;
-
-      if (visibleCafes.length === 0) {
-        showToast('No encontramos cafeterías en esta zona. Aleja el mapa e intenta otra vez.', 'location');
-        return;
-      }
-
-      showToast(
-        `${visibleCafes.length} ${visibleCafes.length === 1 ? 'cafetería encontrada' : 'cafeterías encontradas'} en esta zona.`,
-        'new',
-      );
-    }, 2400);
-  };
-
-  useEffect(() => () => {
-    if (scanTimerRef.current) {
-      window.clearTimeout(scanTimerRef.current);
-    }
-  }, []);
 
   useEffect(() => {
     let isCancelled = false;
@@ -607,34 +562,7 @@ function App() {
 
   useEffect(() => {
     setSelectedPreviewCafeId(null);
-  }, [selectedDay, selectedRating, openNowOnly]);
-
-  useEffect(() => {
-    const scanTargets = [];
-
-    cafeMarkerEntriesRef.current.forEach(({ marker }) => {
-      const element = marker.getElement();
-      const target = element?.querySelector('.coffee-map-leaflet-shell, .coffee-map-leaflet-cluster');
-      target?.classList.remove('coffee-map-leaflet-shell--scan-target', 'coffee-map-leaflet-cluster--scan-target');
-      target?.style.removeProperty('--scan-delay');
-
-      if (!scanning || !map?.getBounds().contains(marker.getLatLng()) || !target) return;
-
-      const targetClass = target.classList.contains('coffee-map-leaflet-cluster')
-        ? 'coffee-map-leaflet-cluster--scan-target'
-        : 'coffee-map-leaflet-shell--scan-target';
-      target.classList.add(targetClass);
-      target.style.setProperty('--scan-delay', `${Math.min(scanTargets.length * 95, 1850)}ms`);
-      scanTargets.push(target);
-    });
-
-    return () => {
-      scanTargets.forEach((target) => {
-        target.classList.remove('coffee-map-leaflet-shell--scan-target', 'coffee-map-leaflet-cluster--scan-target');
-        target.style.removeProperty('--scan-delay');
-      });
-    };
-  }, [map, scanning]);
+  }, [selectedDay, selectedRating, openNowOnly, hiddenChains]);
 
   useEffect(() => {
     if (!map || !userLocation) return;
@@ -695,7 +623,7 @@ function App() {
   }, [cafes, location.pathname, map, showToast]);
 
   return (
-    <main className={`isolate h-full w-full relative overflow-hidden bg-gray-100 ${scanning ? 'map-scan-active' : ''}`}>
+    <main className={`map-screen isolate h-full w-full relative overflow-hidden bg-gray-100 ${resultsPanelOpen ? 'has-results' : ''}`}>
       <style>{`
         @keyframes slideIn {
           0% { transform: translateX(120%); opacity: 0; }
@@ -851,101 +779,6 @@ function App() {
           backdrop-filter: blur(8px);
         }
         .leaflet-control-attribution a { color: inherit !important; }
-        .map-scan-overlay {
-          position: absolute;
-          inset: 0;
-          z-index: 800;
-          overflow: hidden;
-          pointer-events: none;
-          background: radial-gradient(circle at center, rgba(230, 218, 193, .08), rgba(39, 32, 26, .42));
-        }
-        .map-scan-overlay::before {
-          content: '';
-          position: absolute;
-          inset: 0;
-          opacity: .38;
-          background-image: linear-gradient(rgba(55, 40, 33, .12) 1px, transparent 1px), linear-gradient(90deg, rgba(55, 40, 33, .12) 1px, transparent 1px);
-          background-size: 38px 38px;
-          animation: mapScanGrid 2.4s ease-out both;
-        }
-        .map-scan-lens {
-          position: absolute;
-          left: 0;
-          top: 0;
-          width: 112px;
-          height: 112px;
-          display: grid;
-          place-items: center;
-          color: #fff8e9;
-          background: rgba(39, 32, 26, .2);
-          border: 4px solid rgba(255, 248, 233, .98);
-          border-radius: 50%;
-          box-shadow: 0 0 0 999px rgba(55, 40, 33, .08), inset 0 0 26px rgba(255,255,255,.22), 0 12px 34px rgba(0,0,0,.28);
-          backdrop-filter: saturate(1.25) contrast(1.08);
-          animation: mapScanLens 2.4s cubic-bezier(.45,.05,.3,1) both;
-        }
-        .map-scan-lens::after {
-          content: '';
-          position: absolute;
-          right: -23px;
-          bottom: -13px;
-          width: 32px;
-          height: 8px;
-          background: #fff8e9;
-          border-radius: 999px;
-          transform: rotate(45deg);
-          transform-origin: left center;
-          box-shadow: 0 3px 9px rgba(0,0,0,.22);
-        }
-        .map-scan-copy {
-          position: absolute;
-          left: 50%;
-          bottom: calc(94px + env(safe-area-inset-bottom, 0px));
-          display: flex;
-          align-items: center;
-          gap: 7px;
-          padding: 8px 13px;
-          color: #fff8e9;
-          background: rgba(55, 40, 33, .88);
-          border: 1px solid rgba(255,255,255,.16);
-          border-radius: 999px;
-          font-size: 11px;
-          font-weight: 700;
-          transform: translateX(-50%);
-          box-shadow: 0 8px 22px rgba(0,0,0,.24);
-          backdrop-filter: blur(10px);
-        }
-        .map-scan-copy span {
-          width: 6px;
-          height: 6px;
-          background: #e6dac1;
-          border-radius: 50%;
-          animation: mapScanDot .7s ease-in-out infinite alternate;
-        }
-        .map-scan-active .coffee-map-leaflet-pin {
-          animation: mapScanMarker 900ms ease-in-out infinite alternate;
-        }
-        .map-scan-active .coffee-map-leaflet-shell--scan-target,
-        .map-scan-active .coffee-map-leaflet-cluster--scan-target {
-          opacity: 0;
-          animation: mapScanPinReveal 480ms cubic-bezier(.2,.9,.28,1.25) var(--scan-delay) both;
-        }
-        @keyframes mapScanLens {
-          0% { transform: translate(-20px, max(30px, env(safe-area-inset-top, 0px))) scale(.78); opacity: 0; }
-          12% { opacity: 1; }
-          27% { transform: translate(calc(100vw - 126px), 18vh) scale(1); }
-          52% { transform: translate(10vw, calc(100dvh - 310px)) scale(.94); }
-          76% { transform: translate(calc(100vw - 132px), 54vh) scale(1.08); }
-          100% { transform: translate(42vw, 34vh) scale(.9); opacity: 0; }
-        }
-        @keyframes mapScanGrid { from { opacity: 0; transform: scale(1.08); } to { opacity: .38; transform: scale(1); } }
-        @keyframes mapScanMarker { to { filter: drop-shadow(0 0 9px rgba(255,248,233,.95)); transform: rotate(-45deg) translate(3px, -3px) scale(1.08); } }
-        @keyframes mapScanPinReveal { 0% { opacity: 0; transform: translateY(22px) scale(.45); } 70% { opacity: 1; transform: translateY(-4px) scale(1.12); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
-        @keyframes mapScanDot { to { opacity: .25; transform: scale(.72); } }
-        @media (prefers-reduced-motion: reduce) {
-          .map-scan-lens, .map-scan-overlay::before, .map-scan-active .coffee-map-leaflet-pin, .map-scan-active .coffee-map-leaflet-shell--scan-target, .map-scan-active .coffee-map-leaflet-cluster--scan-target, .map-scan-copy span { animation: none; opacity: 1; }
-          .map-scan-lens { left: 50%; top: 42%; opacity: 1; transform: translate(-50%, -50%); }
-        }
       `}</style>
 
       <div className="map-toast-stack absolute right-6 z-[1100] flex flex-col gap-3 pointer-events-none">
@@ -958,22 +791,25 @@ function App() {
       </div>
 
       {/* Barra de bÃºsqueda estilo input en la parte superior central */}
-      <div 
+      <button type="button" className="map-mobile-home" aria-label="Volver al inicio" onClick={() => navigate('/')}><ArrowLeft size={20} /></button>
+      <button type="button" aria-label="Buscar cafeterías"
         onClick={() => navigate('/search')}
         className="map-search-control absolute left-1/2 -translate-x-1/2 z-[1000] w-[85%] max-w-md h-11 rounded-full bg-[#27201A]/95 flex items-center px-5 cursor-pointer transition-all active:scale-[0.98] shadow-[0_8px_24px_rgba(0,0,0,0.22)]"
       >
         <Search className="text-white mr-3" size={22} />
         <span className="text-white/75 text-[12px] font-semibold">Buscar cafeterías</span>
-      </div>
+      </button>
 
       <div className="map-filter-controls absolute left-1/2 -translate-x-1/2 z-[1000]" role="toolbar" aria-label="Filtros del mapa">
-        <button type="button" className={`map-filter-chip map-filter-icon-only ${selectedRating ? 'has-filter' : ''}`} onClick={() => setShowRatingMenu((current) => !current)} aria-label="Filtrar por calificación" title={selectedRating ? `Calificación mínima ${formatRating(selectedRating)}` : 'Filtrar por calificación'}>
+        <button type="button" className={`map-filter-chip map-filter-icon-only ${selectedRating ? 'has-filter' : ''}`} onClick={() => { setShowRatingMenu((current) => !current); setShowFilterPanel(false); setShowChainPanel(false); setShowVisitMenu(false); }} aria-expanded={showRatingMenu} aria-label="Filtrar por calificación" title={selectedRating ? `Calificación mínima ${formatRating(selectedRating)}` : 'Filtrar por calificación'}>
           <CoffeeBeanIcon size={16} filled={Boolean(selectedRating)} />
         </button>
-        <button type="button" className={`map-filter-chip map-filter-icon-only ${(selectedDay !== 'any' || openNowOnly) ? 'has-filter' : ''}`} onClick={() => setShowFilterPanel((current) => !current)} aria-label="Filtrar por horario" title="Filtrar por horario">
+        <button type="button" className={`map-filter-chip map-filter-icon-only ${scheduleFilterCount ? 'has-filter' : ''}`} onClick={() => { setShowFilterPanel((current) => !current); setShowRatingMenu(false); setShowChainPanel(false); setShowVisitMenu(false); }} aria-expanded={showFilterPanel} aria-label="Filtrar por horario" title="Filtrar por horario">
           <Clock3 size={16} />
           {scheduleFilterCount > 0 && <b>{scheduleFilterCount}</b>}
         </button>
+        <button type="button" className={`map-filter-chip map-filter-icon-only ${hiddenChains.length ? 'has-filter' : ''}`} aria-label="Ocultar franquicias" aria-expanded={showChainPanel} title="Ocultar franquicias" onClick={() => { setShowChainPanel((current) => !current); setShowRatingMenu(false); setShowFilterPanel(false); setShowVisitMenu(false); }}><Store size={16} />{hiddenChains.length > 0 && <b>{hiddenChains.length}</b>}</button>
+        <button type="button" className={`map-filter-chip map-filter-icon-only ${user && visitFilter !== 'all' ? 'has-filter' : ''}`} aria-label="Filtrar visitadas y no visitadas" aria-expanded={showVisitMenu} title="Visitadas y no visitadas" onClick={() => { setShowVisitMenu((current) => !current); setShowRatingMenu(false); setShowFilterPanel(false); setShowChainPanel(false); }}><VisitedIcon size={16} /></button>
         <button type="button" className="map-filter-chip map-filter-icon-only" onClick={() => setResultsPanelOpen((current) => !current)} aria-label={resultsPanelOpen ? 'Mostrar mapa' : 'Mostrar lista'} title={resultsPanelOpen ? 'Mostrar mapa' : 'Mostrar lista'}>
           {resultsPanelOpen ? <MapIcon size={16} /> : <List size={16} />}
         </button>
@@ -992,7 +828,7 @@ function App() {
       {showFilterPanel && (
         <section className="map-filter-panel absolute left-1/2 z-[1050]" aria-label="Filtros avanzados">
           <div className="map-filter-panel-header">
-            <div><strong>Filtros</strong><small>{filteredCafes.length} cafeterías coinciden</small></div>
+            <div><strong>Horarios</strong><small>{filteredCafes.length} cafeterías coinciden</small></div>
             <button type="button" onClick={() => setShowFilterPanel(false)} aria-label="Cerrar filtros"><X size={18} /></button>
           </div>
           <div className="map-filter-section">
@@ -1008,59 +844,31 @@ function App() {
               ))}
             </div>
           </div>
-          {(activeFilterCount > 0) && (
-            <button type="button" className="map-filter-clear" onClick={() => { setSelectedDay('any'); setSelectedRating(0); setOpenNowOnly(false); }}>
-              Limpiar filtros
+          {scheduleFilterCount > 0 && (
+            <button type="button" className="map-filter-clear" onClick={() => { setSelectedDay('any'); setOpenNowOnly(false); }}>
+              Limpiar horarios
             </button>
           )}
         </section>
       )}
 
-      {areaSearchPending && (
-        <button type="button" className="map-area-search absolute left-1/2 z-[1040]" onClick={searchThisArea}>
-          <Search size={17} /> Buscar en esta área
-        </button>
-      )}
+      {showChainPanel && <section className="map-filter-panel absolute left-1/2 z-[1050]" aria-label="Ocultar franquicias"><div className="map-filter-panel-header"><strong>Ocultar franquicias</strong><button type="button" onClick={() => setShowChainPanel(false)} aria-label="Cerrar franquicias"><X size={18} /></button></div><div className="map-filter-section map-chain-options"><p>Marca una franquicia para ocultar todas sus sucursales del mapa y de la lista.</p>{CAFE_CHAINS.map((chain) => <label key={chain.id}><input type="checkbox" checked={hiddenChains.includes(chain.id)} onChange={(event) => setHiddenChains((current) => event.target.checked ? [...new Set([...current, chain.id])] : current.filter((id) => id !== chain.id))} />{chain.label}</label>)}</div><button type="button" className="map-filter-clear" onClick={() => setHiddenChains(allChainsHidden ? [] : CAFE_CHAINS.map((chain) => chain.id))}>{allChainsHidden ? 'Mostrar todas las franquicias' : 'Ocultar todas las franquicias de la lista'}</button></section>}
+      {showVisitMenu && <section className="map-filter-panel absolute left-1/2 z-[1050]" aria-label="Filtrar por visitas"><div className="map-filter-panel-header"><strong>Tus visitas</strong><button type="button" onClick={() => setShowVisitMenu(false)} aria-label="Cerrar visitas"><X size={18} /></button></div>{!user ? <div className="map-filter-section"><p>Inicia sesión para filtrar según tus visitas.</p><button type="button" className="map-filter-clear" onClick={() => navigate('/login?redirectTo=%2Fmap')}>Iniciar sesión</button></div> : <div className="map-filter-section map-day-options">{[['all', 'Todas'], ['visited', 'Visitadas'], ['unvisited', 'No visitadas']].map(([value, label]) => <button type="button" key={value} className={visitFilter === value ? 'is-selected' : ''} aria-pressed={visitFilter === value} disabled={!interactionsLoaded || interactionsLoading} onClick={() => { setVisitFilter(value); setShowVisitMenu(false); }}>{label}</button>)}{(!interactionsLoaded || interactionsLoading) && <span>Cargando tus visitas…</span>}</div>}</section>}
 
-      {/* BotÃ³n de geolocalizaciÃ³n ajustado un poco mÃ¡s arriba para no chocar con la barra inferior */}
-      <button 
-        onClick={locateUser}
-        disabled={locating || !map}
-        className="map-locate-control absolute right-6 z-[1000] w-11 h-11 rounded-full bg-white hover:bg-gray-50 shadow-[0_4px_12px_rgba(0,0,0,0.2)] border border-gray-200 transition-all active:scale-95 flex items-center justify-center disabled:opacity-60"
-      >
-        {locating ? (
-          <div className="w-6 h-6 border-3 border-[#372821] border-t-transparent rounded-full animate-spin"></div>
-        ) : (
-          <LocateFixed className="text-[#372821]" size={28} />
-        )}
-      </button>
-
-      {/* Nueva Barra de navegaciÃ³n Inferior */}
-      <button
-        type="button"
-        onClick={scanCurrentView}
-        disabled={scanning || !map || cafesLoading}
-        aria-label="Escanear cafeterías en la zona visible"
-        className="map-scan-control absolute left-6 z-[1000] h-11 max-w-[calc(100%_-_7rem)] rounded-full bg-[#27201A]/95 text-[#FFF8E9] shadow-[0_4px_14px_rgba(0,0,0,0.28)] border border-white/15 transition-all active:scale-95 flex items-center justify-center gap-2 px-4 disabled:opacity-60"
-      >
-        <ScanSearch size={19} className={scanning ? 'animate-pulse' : ''} />
-        <span className="text-[11px] font-bold whitespace-nowrap">
-          {scanning ? 'Escaneando…' : scanResultCount === null ? 'Escanear zona' : `${scanResultCount} ${scanResultCount === 1 ? 'encontrada' : 'encontradas'}`}
-        </span>
-      </button>
+      <div className="map-bottom-actions">
+        <button type="button" className={`map-area-search ${areaSearchPending ? 'has-pending' : ''}`} disabled={!map || cafesLoading} onClick={searchThisArea}><Search size={17} /> Buscar en esta área</button>
+        <button type="button" className="map-locate-control" aria-label="Mi ubicación" disabled={locating || !map} onClick={locateUser}><LocateFixed size={23} className={locating ? 'animate-pulse' : ''} /></button>
+      </div>
 
       {resultsPanelOpen && (
-        <aside className={`map-results-panel absolute left-0 z-[980] ${resultsPanelOffset ? 'is-dragging' : ''}`} style={{ transform: `translateY(${resultsPanelOffset}px)` }} aria-label="Cafeterías en esta zona">
-          <div className="map-results-header" onPointerDown={handleResultsPanelPointerDown} onPointerMove={handleResultsPanelPointerMove} onPointerUp={handleResultsPanelPointerUp} onPointerCancel={handleResultsPanelPointerUp}>
-            <div>
-              <strong>{displayedCafes.length} cafeterías</strong>
-              <span>En Mérida</span>
-            </div>
-            <button type="button" onClick={() => setResultsPanelOpen(false)} aria-label="Ocultar lista"><X size={18} /></button>
-          </div>
-          {areaSearchBounds && <p className="map-results-context">Resultados dentro del área visible</p>}
-          <div className="map-results-list">
-            {displayedCafes.slice(0, 60).map((cafe) => {
+        <MapResultsPanel count={displayedCafes.length} onClose={() => setResultsPanelOpen(false)}
+          actions={<>
+            <button type="button" disabled={!map || cafesLoading} onClick={searchThisArea}><Search size={16} /> Buscar en esta área</button>
+            <button type="button" aria-label="Mi ubicación" disabled={locating || !map} onClick={locateUser}><LocateFixed size={20} /></button>
+          </>}
+          context={areaSearchBounds && <p className="map-results-context">Resultados del área elegida <button type="button" onClick={() => { setAreaSearchBounds(null); setAreaSearchPending(false); }}>Ver todo Mérida</button></p>}
+        >
+            {displayedCafes.map((cafe) => {
               const status = getCafeStatus(cafe);
               return (
                 <button type="button" className="map-result-card" key={cafe.id} onClick={() => navigate(`/cafe/${cafe.id}`)}>
@@ -1069,7 +877,7 @@ function App() {
                   </div>
                   <div className="map-result-copy">
                     <strong>{cafe.nombre}</strong>
-                    <span className="map-result-meta"><CoffeeBeanIcon size={12} filled /> {formatRating(cafe.rating || 0)}</span>
+                    <span className="map-result-meta" title="Promedio de la app"><CoffeeBeanIcon size={12} filled /> {formatAverageRating(cafe.rating)}</span>
                     <span className={`map-result-status ${status.state === 'open' ? 'is-open' : ''}`}>
                       {status.state === 'open' ? status.label : status.state === 'closed' ? 'Cerrado ahora' : 'Horario por confirmar'}
                     </span>
@@ -1078,8 +886,7 @@ function App() {
               );
             })}
             {!displayedCafes.length && <div className="map-results-empty"><Search size={24} /><strong>No hay cafeterías con estos filtros</strong><span>Prueba otro día o mueve el mapa.</span></div>}
-          </div>
-        </aside>
+        </MapResultsPanel>
       )}
 
       <BottomNav />
@@ -1119,13 +926,6 @@ function App() {
           style={{ zIndex: 1, mixBlendMode: 'sepia' }} 
         />
       </div>
-
-      {scanning && (
-        <div className="map-scan-overlay" role="status" aria-live="polite" aria-label="Escaneando cafeterías en el mapa">
-          <div className="map-scan-lens"><Search size={34} strokeWidth={2.2} /></div>
-          <div className="map-scan-copy"><span /> Explorando esta zona</div>
-        </div>
-      )}
 
       {showInitialLoading && (
         <div className="absolute inset-0 z-20 bg-[#1D1A15] flex flex-col items-center justify-center">
