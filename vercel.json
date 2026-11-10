@@ -13,6 +13,11 @@
       }
     ]
   },
+  "functions": {
+    "api/enrich-cafes.js": {
+      "maxDuration": 60
+    }
+  },
   "rewrites": [
     { "source": "/(.*)", "destination": "/" }
   ]

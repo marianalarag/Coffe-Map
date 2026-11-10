@@ -208,3 +208,27 @@
   .cms-record-editor .admin-hours-time-select { font-size: 16px !important; }
   .cms-drawer-content { padding: 20px; }
 }
+.cms-cafe-heading-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; }
+.cafe-enrichment-trigger { display: inline-flex; align-items: center; gap: 8px; min-height: 42px; }
+.cafe-enrichment-backdrop { position: fixed; z-index: 1200; inset: 0; display: grid; place-items: center; padding: 20px; background: #100d0bd9; backdrop-filter: blur(8px); }
+.cafe-enrichment-dialog { display: flex; flex-direction: column; gap: 14px; width: min(760px, 100%); max-height: min(82vh, 820px); padding: 22px; color: #e8ddc5; background: #241c17; border: 1px solid #e8ddc526; border-radius: 22px; box-shadow: 0 24px 80px #0008; }
+.cafe-enrichment-dialog > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.cafe-enrichment-dialog > header small { color: #c7a477; font-size: 10px; letter-spacing: .13em; }
+.cafe-enrichment-dialog > header h2 { margin: 5px 0 0; font-size: clamp(20px, 4vw, 27px); }
+.cafe-enrichment-dialog > header button { display: grid; place-items: center; width: 38px; height: 38px; flex: 0 0 auto; color: inherit; background: #ffffff0d; border: 0; border-radius: 50%; cursor: pointer; }
+.cafe-enrichment-description, .cafe-enrichment-feedback { margin: 0; color: #c4b6a3; line-height: 1.55; }
+.cafe-enrichment-feedback { padding: 12px 14px; background: #ffffff0a; border-radius: 12px; }
+.cafe-enrichment-status { display: flex; align-items: center; gap: 10px; color: #e8ddc5; }
+.cafe-enrichment-results { display: grid; gap: 10px; min-height: 0; overflow-y: auto; padding-right: 4px; }
+.cafe-enrichment-results article { display: grid; gap: 8px; padding: 13px; background: #ffffff08; border: 1px solid #ffffff12; border-radius: 14px; }
+.cafe-enrichment-cafe { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.cafe-enrichment-cafe > strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cafe-enrichment-cafe > a, .cafe-enrichment-field > a { display: inline-flex; align-items: center; gap: 5px; color: #c7a477; text-decoration: none; }
+.cafe-enrichment-field { display: grid; grid-template-columns: 18px 18px 90px minmax(0, 1fr); align-items: center; gap: 8px; min-width: 0; font-size: 13px; }
+.cafe-enrichment-field > input { accent-color: #d9c59d; }
+.cafe-enrichment-field > a { min-width: 0; overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.cafe-enrichment-attribution { color: #a9957c; font-size: 11px; }
+.cafe-enrichment-dialog > footer { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; padding-top: 12px; border-top: 1px solid #ffffff18; }
+.cafe-enrichment-dialog > footer button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 42px; padding: 9px 14px; color: #e8ddc5; background: #ffffff0b; border: 0; border-radius: 12px; cursor: pointer; }
+.cafe-enrichment-dialog > footer button:disabled { opacity: .5; cursor: default; }
+@media (max-width: 650px) { .cms-cafe-heading-actions { justify-content: flex-start; width: 100%; } .cafe-enrichment-dialog { max-height: 90dvh; padding: 17px; } .cafe-enrichment-field { grid-template-columns: 18px 18px minmax(65px, auto) minmax(0, 1fr); gap: 6px; } .cafe-enrichment-dialog > footer { justify-content: stretch; } .cafe-enrichment-dialog > footer > button { flex: 1; } }

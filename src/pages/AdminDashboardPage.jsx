@@ -16,6 +16,7 @@ import { readAdminDraft, writeAdminDraft } from '../utils/adminDraft';
 import CafeMapPreview from '../components/AdminMapPreview';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { softDeleteCafes } from '../utils/deleteCafes';
+import CafeCatalogEnrichment from '../components/CafeCatalogEnrichment';
 
 const MERIDA_BBOX = { south: 20.86, west: -89.75, north: 21.08, east: -89.52 };
 const OVERPASS_URLS = [
@@ -1525,6 +1526,30 @@ function AdminDashboardPage() {
     return result;
   };
 
+  const applyCafeEnrichment = (suggestions) => runAction('cafes:enrichment', async () => {
+    let updated = 0;
+    const failures = [];
+    for (let start = 0; start < suggestions.length; start += 8) {
+      const batch = suggestions.slice(start, start + 8);
+      const results = await Promise.all(batch.map(async ({ id, fields }) => {
+        const patch = Object.fromEntries(Object.entries(fields).filter(([key, value]) => ['website_url', 'instagram_url', 'tiktok_url'].includes(key) && value));
+        if (!Object.keys(patch).length) return null;
+        patch.updated_at = new Date().toISOString();
+        let query = supabase.from('cafes').update(patch).eq('id', id).eq('source', 'osm').is('deleted_at', null);
+        Object.keys(patch).filter((key) => key !== 'updated_at').forEach((key) => { query = query.is(key, null); });
+        const { data, error } = await query.select('id').maybeSingle();
+        if (error) throw error;
+        return data?.id || null;
+      }).map((promise) => promise.catch((error) => ({ error }))));
+      results.forEach((result) => {
+        if (result?.error) failures.push(result.error.message || 'Error al guardar un resultado.');
+        else if (result) updated += 1;
+      });
+    }
+    if (failures.length) throw new Error(`${updated} cafeterías actualizadas; ${failures.length} fallaron. ${failures[0]}`);
+    return `${updated} cafeterías actualizadas. Los enlaces se guardaron solo donde el campo seguía vacío.`;
+  }, 'Datos de cafeterías actualizados.');
+
   const duplicateCafe = (cafe) => runAction(`duplicate:${cafe.id}`, async () => {
     const copy = { id: `manual:${crypto.randomUUID()}`, nombre: `${cafe.nombre} (copia)`, address: cafe.address, link: cafe.link, lat: cafe.lat, lng: cafe.lng, neighborhood: cafe.neighborhood, category: cafe.category, image_url: cafe.image_url, image_source_url: cafe.image_source_url, image_attribution: cafe.image_attribution, image_license: cafe.image_license, instagram_url: cafe.instagram_url, website_url: cafe.website_url, tiktok_url: cafe.tiktok_url, menu_url: cafe.menu_url, opening_hours: cafe.opening_hours, opening_hours_source: cafe.opening_hours_source, source: 'manual', status: 'needs_review', submitted_by: user.id };
     const { data, error } = await supabase.from('cafes').insert(copy).select('*').single();
@@ -1585,7 +1610,7 @@ function AdminDashboardPage() {
               <small className="admin-manual-location-note">La ubicación se obtiene primero del enlace de Google Maps y después de la dirección.</small>
               <button type="submit" disabled={Boolean(actionLoading)}>Guardar cafetería</button>
             </form></>}
-            {!catalogEditing && <AdminCafeOverview cafes={cafes} onSelect={selectCafe} onNew={() => setShowAddCafe(true)} onDuplicate={duplicateCafe} onDeleteMany={deleteSelectedCafes} busy={Boolean(actionLoading)} />}
+            {!catalogEditing && <AdminCafeOverview cafes={cafes} onSelect={selectCafe} onNew={() => setShowAddCafe(true)} onDuplicate={duplicateCafe} onDeleteMany={deleteSelectedCafes} onEnrich={applyCafeEnrichment} busy={Boolean(actionLoading)} />}
             <div className="admin-catalog-editor">{cafes.filter((cafe) => cafe.id === selectedCafe?.id || openedCafeIds.includes(cafe.id)).map((cafe) => <div key={cafe.id} hidden={!catalogEditing || cafe.id !== selectedCafe?.id}><AdminCafeCard busy={Boolean(actionLoading)} cafe={cafe} tiktoks={cafeTiktoksByCafeId.get(cafe.id) || []} saving={actionLoading === `cafe-save:${cafe.id}`} menuSaving={actionLoading === `menu:${cafe.id}` || actionLoading === `menu-delete:${cafe.id}` || actionLoading === `menu-order:${cafe.id}`} onBack={() => setCatalogEditing(false)} onDuplicate={duplicateCafe} gallery={postPhotos.filter((photo) => postMap.get(photo.post_id)?.cafe_id === cafe.id)} onGalleryAction={moderatePostPhoto} onMoveTikTok={moveCafeTikTok} onSave={saveCafe} onUpload={uploadCafeCover} onDeleteCover={deleteCafeCover} onMenuUpload={uploadCafeMenuImages} onDeleteMenuImage={deleteCafeMenuImage} onMoveMenuImage={moveCafeMenuImage} onFindImage={findOpenImages} onAddTikTok={addCafeTikTok} onDeleteTikTok={deleteCafeTikTok} onDelete={deleteCafe} /></div>)}{!selectedCafe && <div className="admin-panel admin-catalog-empty"><Coffee size={40} /><p>Selecciona o agrega una cafetería para comenzar.</p></div>}</div>
             <details className="admin-catalog-import"><summary>Importar cafeterías de fuentes abiertas</summary>            <article className="admin-panel admin-scan-panel">
               <div><ScanSearch size={24} /><h2>Escáner abierto de Mérida</h2><p>Recorre 16 zonas de OpenStreetMap, obtiene fotos reutilizables de Wikimedia Commons, evita duplicados contra toda la base y permite sumar datos abiertos de Overture.</p></div>

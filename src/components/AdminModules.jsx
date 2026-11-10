@@ -3,6 +3,7 @@ import { BarChart3, Camera, Coffee, Download, ExternalLink, Image, LayoutGrid, L
 import CafeMapPreview from './AdminMapPreview';
 import ConfirmDialog from './ConfirmDialog';
 import { adminDate, statusLabel } from '../utils/adminFormatting';
+import CafeCatalogEnrichment from './CafeCatalogEnrichment';
 
 const includes = (value, term) => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().includes(term.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase());
 export function AdminEmpty({ text }) { return <div className="cms-empty"><Coffee size={28} /><p>{text}</p></div>; }
@@ -23,7 +24,7 @@ export function AdminOverview({ metrics, cafes, photos, posts, profiles, onModul
   </section>;
 }
 
-export function AdminCafeOverview({ cafes, onSelect, onNew, onDuplicate, onDeleteMany, busy }) {
+export function AdminCafeOverview({ cafes, onSelect, onNew, onDuplicate, onDeleteMany, onEnrich, busy }) {
   const [search, setSearch] = useState(''); const [status, setStatus] = useState('all'); const [view, setView] = useState('kanban'); const [limit, setLimit] = useState(24);
   const [selectedIds, setSelectedIds] = useState([]);
   const [deleting, setDeleting] = useState(null);
@@ -59,7 +60,7 @@ export function AdminCafeOverview({ cafes, onSelect, onNew, onDuplicate, onDelet
   };
   const selectionBox = (cafe) => <input type="checkbox" className="cms-cafe-checkbox" aria-label={`Seleccionar ${cafe.nombre}`} checked={selectedIds.includes(cafe.id)} disabled={locked} onChange={(event) => toggleCafe(cafe.id, event.target.checked)} />;
 
-  return <section className="cms-catalog-overview"><header className="cms-module-heading"><div><h2>Cafeterías <small>({filtered.length})</small></h2><p>Abre una cafetería para editarla o marca varias para eliminarlas.</p></div><button className="cms-primary" type="button" disabled={locked} onClick={onNew}><Plus size={17} /> Nueva cafetería</button></header>
+  return <section className="cms-catalog-overview"><header className="cms-module-heading"><div><h2>Cafeterías <small>({filtered.length})</small></h2><p>Abre una cafetería para editarla o marca varias para eliminarlas.</p></div><div className="cms-cafe-heading-actions"><CafeCatalogEnrichment cafes={cafes} onApply={onEnrich} /><button className="cms-primary" type="button" disabled={locked} onClick={onNew}><Plus size={17} /> Nueva cafetería</button></div></header>
     <div className="cms-toolbar"><AdminSearch value={search} onChange={(value) => { setSearch(value); setLimit(24); setSelectedIds([]); }} placeholder="Buscar cafeterías" /><select value={status} onChange={(event) => { setStatus(event.target.value); setLimit(24); setSelectedIds([]); }} aria-label="Filtrar estado de cafeterías"><option value="all">Todos los estados</option><option value="active">Activas</option><option value="closed">Inactivas</option><option value="needs_review">Pendientes</option></select><div className="cms-view-toggle"><button type="button" aria-label="Vista de tarjetas" aria-pressed={view === 'kanban'} onClick={() => setView('kanban')}><LayoutGrid size={18} /></button><button type="button" aria-label="Vista de lista" aria-pressed={view === 'list'} onClick={() => setView('list')}><List size={18} /></button></div></div>
     <div className="cms-batch-bar cms-cafe-batch-bar">
       <label><input type="checkbox" checked={visible.length > 0 && visibleSelected === visible.length} ref={(node) => { if (node) node.indeterminate = visibleSelected > 0 && visibleSelected < visible.length; }} disabled={locked || !visible.length} onChange={(event) => toggleVisible(event.target.checked)} /> Seleccionar visibles ({visible.length})</label>
