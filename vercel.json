@@ -14,7 +14,7 @@
     ]
   },
   "functions": {
-    "api/enrich-cafes.js": {
+    "api/research-cafe.js": {
       "maxDuration": 60
     }
   },

@@ -2,7 +2,7 @@ import CafeGallery from '../components/CafeGallery';
 import PostImageCarousel from '../components/PostImageCarousel';
 import { useEffect, useState } from 'react';
 import { useLocation, useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, MapPin, Coffee, Heart, CheckCircle2, Clock, Edit3, Globe, Instagram, Music2, Plus, MessageCircle, Send, ExternalLink, X } from 'lucide-react';
+import { ArrowLeft, MapPin, Coffee, Heart, CheckCircle2, Clock, Edit3, Globe, Instagram, Music2, Plus, MessageCircle, Send, ExternalLink, X, BookOpen } from 'lucide-react';
 import PageLoading from '../components/PageLoading';
 import { useAuth } from '../context/AuthContext';
 import { useCoffeeData } from '../context/CoffeeDataContext';
@@ -307,7 +307,7 @@ function CafePage({ cafeId }) {
               <div>
                 <span className="cafe-eyebrow">COFFEE MAP · {cafe.category === 'panaderia' ? 'PANADERÍA' : 'CAFETERÍA'}</span>
                 <h1>{cafe.nombre}</h1>
-                <div className="cafe-profile-meta"><span><MapPin size={15} fill="currentColor" /> {cafe.neighborhood || 'Mérida'}</span>{cafe.websiteUrl && <a href={cafe.websiteUrl} target="_blank" rel="noreferrer" aria-label="Sitio web de la cafetería" title="Sitio web"><Globe size={18} /></a>}{cafe.tiktokUrl && <a href={cafe.tiktokUrl} target="_blank" rel="noreferrer" aria-label="TikTok de la cafetería" title="TikTok"><Music2 size={18} /></a>}{cafe.instagramUrl && <a href={cafe.instagramUrl} target="_blank" rel="noreferrer" aria-label="Instagram"><Instagram size={18} /></a>}</div>
+                <div className="cafe-profile-meta"><span><MapPin size={15} fill="currentColor" /> {cafe.neighborhood || 'Mérida'}</span>{cafe.websiteUrl && <a href={cafe.websiteUrl} target="_blank" rel="noreferrer" aria-label="Sitio web de la cafetería" title="Sitio web"><Globe size={18} /></a>}{cafe.menuPageUrl && <a href={cafe.menuPageUrl} target="_blank" rel="noreferrer" aria-label="Ver menú" title="Ver menú"><BookOpen size={18} /></a>}{cafe.tiktokUrl && <a href={cafe.tiktokUrl} target="_blank" rel="noreferrer" aria-label="TikTok de la cafetería" title="TikTok"><Music2 size={18} /></a>}{cafe.instagramUrl && <a href={cafe.instagramUrl} target="_blank" rel="noreferrer" aria-label="Instagram"><Instagram size={18} /></a>}</div>
               </div>
               <div className="cafe-public-rating" aria-label="Calificación promedio de la app">{Number(cafe.rating) > 0 ? <CoffeeBeanRating value={Number(cafe.rating)} size={21} label="Promedio de la app" /> : <span className="cafe-unrated-beans" aria-label="Sin calificaciones">{Array.from({ length: 5 }, (_, index) => <CoffeeBeanIcon key={index} size={21} filled={false} />)}</span>}<strong>{formatAverageRating(cafe.rating)}</strong><small>{cafe.ratingsCount || 0} {cafe.ratingsCount === 1 ? 'calificación' : 'calificaciones'} en la app</small></div>
             </div>

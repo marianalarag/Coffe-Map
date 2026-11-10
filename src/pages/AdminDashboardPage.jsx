@@ -16,7 +16,6 @@ import { readAdminDraft, writeAdminDraft } from '../utils/adminDraft';
 import CafeMapPreview from '../components/AdminMapPreview';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { softDeleteCafes } from '../utils/deleteCafes';
-import CafeCatalogEnrichment from '../components/CafeCatalogEnrichment';
 
 const MERIDA_BBOX = { south: 20.86, west: -89.75, north: 21.08, east: -89.52 };
 const OVERPASS_URLS = [
@@ -576,6 +575,7 @@ function AdminCafeCard({ cafe, tiktoks = [], busy = false, saving = false, menuS
     image_url: cafe.image_url || '',
     instagram_url: cafe.instagram_url || '',
     website_url: cafe.website_url || '',
+    menu_page_url: cafe.menu_page_url || '',
     tiktok_url: cafe.tiktok_url || '',
     status: cafe.status,
     ...recoveredDraft?.draft,
@@ -741,7 +741,7 @@ function AdminCafeCard({ cafe, tiktoks = [], busy = false, saving = false, menuS
           <small className="admin-cafe-menu-note">Usa las flechas para ordenar las páginas. El orden se guarda automáticamente. Hasta 8 MB por imagen.</small>
         </div>
         </div></section>
-        <section className="admin-editor-section cms-tab-section" data-editor-section="social"><h3><Instagram size={18} /> Sitio web y redes sociales</h3><div className="admin-editor-section-content"><label>Sitio web de esta cafetería<input type="url" value={fieldValue('website_url')} placeholder="https://www.tucafeteria.com" onChange={(event) => changeField('website_url', event.target.value)} /></label><label>TikTok de esta cafetería<input type="url" value={fieldValue('tiktok_url')} placeholder="https://www.tiktok.com/@tucafeteria" onChange={(event) => changeField('tiktok_url', event.target.value)} /></label><label>Instagram<input value={fieldValue('instagram_url')} placeholder="Instagram" onChange={(event) => changeField('instagram_url', event.target.value)} /></label></div></section>
+        <section className="admin-editor-section cms-tab-section" data-editor-section="social"><h3><Instagram size={18} /> Sitio web y redes sociales</h3><div className="admin-editor-section-content"><label>Sitio web de esta cafetería<input type="url" value={fieldValue('website_url')} placeholder="https://www.tucafeteria.com" onChange={(event) => changeField('website_url', event.target.value)} /></label><label>TikTok de esta cafetería<input type="url" value={fieldValue('tiktok_url')} placeholder="https://www.tiktok.com/@tucafeteria" onChange={(event) => changeField('tiktok_url', event.target.value)} /></label><label>Instagram<input value={fieldValue('instagram_url')} placeholder="Instagram" onChange={(event) => changeField('instagram_url', event.target.value)} /></label><label>Página o PDF del menú<input type="url" value={fieldValue('menu_page_url')} placeholder="https://www.tucafeteria.com/menu" onChange={(event) => changeField('menu_page_url', event.target.value)} /></label></div></section>
         <section className="admin-editor-section cms-tab-section" data-editor-section="tiktoks"><h3><Music2 size={18} /> TikToks relacionados</h3><div className="admin-editor-section-content">
         <div className="admin-cafe-tiktoks">
           <div className="admin-cafe-tiktoks-heading"><span><Music2 size={14} /> TikToks relacionados</span><small>{tiktoks.length}</small></div>
@@ -995,7 +995,7 @@ function AdminDashboardPage() {
         supabase.from('posts').select('id', { count: 'exact', head: true }),
         supabase.from('cafe_photos').select('id', { count: 'exact', head: true }),
         supabase.from('user_cafes').select('id', { count: 'exact', head: true }).not('review_text', 'eq', ''),
-        supabase.from('cafes').select('id,nombre,lat,lng,address,link,source_url,neighborhood,category,image_url,image_source_url,image_attribution,image_license,instagram_url,website_url,tiktok_url,menu_url,opening_hours,opening_hours_source,opening_hours_source_url,opening_hours_verified_at,source,source_id,status,submitted_by,created_at,last_verified_at').is('deleted_at', null).order('nombre').limit(1000),
+        supabase.from('cafes').select('id,nombre,lat,lng,address,link,source_url,neighborhood,category,image_url,image_source_url,image_attribution,image_license,instagram_url,website_url,tiktok_url,menu_url,menu_page_url,opening_hours,opening_hours_source,opening_hours_source_url,opening_hours_verified_at,source,source_id,status,submitted_by,created_at,last_verified_at').is('deleted_at', null).order('nombre').limit(1000),
         supabase.from('cafe_tiktoks').select('id,cafe_id,url,thumbnail_url,title,position,created_at').order('position').order('created_at'),
         supabase.from('cafe_photos').select('id,cafe_id,user_id,post_id,storage_path,public_url,status,is_cover,rights_confirmed,rights_basis,rights_note,created_at').order('created_at', { ascending: false }).limit(2000),
         supabase.from('posts').select('id,user_id,cafe_id,content,image_url,status,created_at').order('created_at', { ascending: false }).limit(1000),
@@ -1434,6 +1434,7 @@ function AdminDashboardPage() {
       opening_hours_verified_at: options.opening_hours ? timestamp : null,
       image_url: String(cafe.image_url || '').trim() || null,
       instagram_url: String(cafe.instagram_url || '').trim() || null,
+      menu_page_url: String(cafe.menu_page_url || '').trim() || null,
       website_url: String(cafe.website_url || '').trim() || null,
       tiktok_url: String(cafe.tiktok_url || '').trim() || null,
       updated_at: timestamp,
@@ -1441,7 +1442,7 @@ function AdminDashboardPage() {
     const edited = new Set(options.dirtyFields || Object.keys(fields));
     const patch = Object.fromEntries(Object.entries(fields).filter(([key]) => edited.has(key)));
     patch.updated_at = timestamp;
-    for (const [field, label] of [['website_url', 'sitio web'], ['tiktok_url', 'TikTok']]) {
+    for (const [field, label] of [['website_url', 'sitio web'], ['tiktok_url', 'TikTok'], ['menu_page_url', 'menú']]) {
       if (!patch[field]) continue;
       let url;
       try { url = new URL(/^https?:\/\//i.test(patch[field]) ? patch[field] : `https://${patch[field]}`); } catch { throw new Error(`Agrega un enlace válido de ${label}.`); }
@@ -1532,10 +1533,10 @@ function AdminDashboardPage() {
     for (let start = 0; start < suggestions.length; start += 8) {
       const batch = suggestions.slice(start, start + 8);
       const results = await Promise.all(batch.map(async ({ id, fields }) => {
-        const patch = Object.fromEntries(Object.entries(fields).filter(([key, value]) => ['website_url', 'instagram_url', 'tiktok_url'].includes(key) && value));
+        const patch = Object.fromEntries(Object.entries(fields).filter(([key, value]) => ['website_url', 'instagram_url', 'tiktok_url', 'menu_page_url'].includes(key) && value));
         if (!Object.keys(patch).length) return null;
         patch.updated_at = new Date().toISOString();
-        let query = supabase.from('cafes').update(patch).eq('id', id).eq('source', 'osm').is('deleted_at', null);
+        let query = supabase.from('cafes').update(patch).eq('id', id).is('deleted_at', null);
         Object.keys(patch).filter((key) => key !== 'updated_at').forEach((key) => { query = query.is(key, null); });
         const { data, error } = await query.select('id').maybeSingle();
         if (error) throw error;
@@ -1551,7 +1552,7 @@ function AdminDashboardPage() {
   }, 'Datos de cafeterías actualizados.');
 
   const duplicateCafe = (cafe) => runAction(`duplicate:${cafe.id}`, async () => {
-    const copy = { id: `manual:${crypto.randomUUID()}`, nombre: `${cafe.nombre} (copia)`, address: cafe.address, link: cafe.link, lat: cafe.lat, lng: cafe.lng, neighborhood: cafe.neighborhood, category: cafe.category, image_url: cafe.image_url, image_source_url: cafe.image_source_url, image_attribution: cafe.image_attribution, image_license: cafe.image_license, instagram_url: cafe.instagram_url, website_url: cafe.website_url, tiktok_url: cafe.tiktok_url, menu_url: cafe.menu_url, opening_hours: cafe.opening_hours, opening_hours_source: cafe.opening_hours_source, source: 'manual', status: 'needs_review', submitted_by: user.id };
+    const copy = { id: `manual:${crypto.randomUUID()}`, nombre: `${cafe.nombre} (copia)`, address: cafe.address, link: cafe.link, lat: cafe.lat, lng: cafe.lng, neighborhood: cafe.neighborhood, category: cafe.category, image_url: cafe.image_url, image_source_url: cafe.image_source_url, image_attribution: cafe.image_attribution, image_license: cafe.image_license, instagram_url: cafe.instagram_url, website_url: cafe.website_url, tiktok_url: cafe.tiktok_url, menu_url: cafe.menu_url, menu_page_url: cafe.menu_page_url, opening_hours: cafe.opening_hours, opening_hours_source: cafe.opening_hours_source, source: 'manual', status: 'needs_review', submitted_by: user.id };
     const { data, error } = await supabase.from('cafes').insert(copy).select('*').single();
     if (error) throw error;
     setCafes((items) => [...items, data]); selectCafe(data.id);

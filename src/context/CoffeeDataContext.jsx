@@ -8,11 +8,11 @@ import { summarizeCafeInteractions } from '../utils/cafeInteractions';
 
 const CoffeeDataContext = createContext(null);
 
-const CAFES_CACHE_KEY = 'coffee-map:cafes:v22';
+const CAFES_CACHE_KEY = 'coffee-map:cafes:v23';
 const CAFES_CACHE_TTL_MS = 15 * 60 * 1000;
 const CAFE_REQUEST_TIMEOUT_MS = 8 * 1000;
 const INTERACTION_REQUEST_TIMEOUT_MS = 12 * 1000;
-const CAFE_COLUMNS = 'id,nombre,lat,lng,rating,reviews,link,address,neighborhood,category,image_url,image_source_url,image_attribution,image_license,instagram_url,website_url,tiktok_url,menu_url,opening_hours,opening_hours_source,opening_hours_source_url,opening_hours_verified_at,source,source_id,source_url,status,deleted_at,created_at';
+const CAFE_COLUMNS = 'id,nombre,lat,lng,rating,reviews,link,address,neighborhood,category,image_url,image_source_url,image_attribution,image_license,instagram_url,website_url,tiktok_url,menu_url,menu_page_url,opening_hours,opening_hours_source,opening_hours_source_url,opening_hours_verified_at,source,source_id,source_url,status,deleted_at,created_at';
 const INTERACTION_COLUMNS = 'id,user_id,cafe_id,is_visited,is_favorite,in_waitlist,rating,rated_at,review_text,visited_on,is_revisit,updated_at';
 const INTERACTION_WITH_CAFE_COLUMNS = `${INTERACTION_COLUMNS},cafe:cafes(${CAFE_COLUMNS})`;
 const isUuid = (value) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ''));
@@ -51,6 +51,7 @@ const normalizeCafe = (cafe) => {
     instagramUrl: cafe.instagram_url !== undefined ? cafe.instagram_url : cafe.instagramUrl || null,
     websiteUrl: cafe.website_url !== undefined ? cafe.website_url : cafe.websiteUrl || null,
     tiktokUrl: cafe.tiktok_url !== undefined ? cafe.tiktok_url : cafe.tiktokUrl || null,
+    menuPageUrl: cafe.menu_page_url !== undefined ? cafe.menu_page_url : cafe.menuPageUrl || null,
     menuImages: parseCafeMenuImages(cafe.menu_url !== undefined ? cafe.menu_url : cafe.menuImages),
     openingHours: cafe.opening_hours !== undefined ? cafe.opening_hours : cafe.openingHours || null,
     openingHoursSource: cafe.opening_hours_source !== undefined ? cafe.opening_hours_source : cafe.openingHoursSource || null,
