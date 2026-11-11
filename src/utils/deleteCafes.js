@@ -26,9 +26,9 @@ export async function softDeleteCafes(client, cafeIds) {
 
 // DELETE is guarded by the database admin policy. A zero-row response is not success.
 export async function permanentlyDeleteCafe(client, cafeId) {
-  if (!cafeId) throw new Error('Falta la cafeter?a que quieres eliminar.');
+  if (!cafeId) throw new Error('Falta la cafetería que quieres eliminar.');
   const { data, error } = await client.from('cafes').delete().eq('id', cafeId).select('id').single();
   if (error) throw error;
-  if (data?.id !== cafeId) throw new Error('No se pudo confirmar la eliminaci?n. Revisa tus permisos e intenta nuevamente.');
+  if (data?.id !== cafeId) throw new Error('No se pudo confirmar la eliminación. Revisa tus permisos e intenta nuevamente.');
   return data.id;
 }
