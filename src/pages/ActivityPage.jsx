@@ -374,8 +374,8 @@ export function ActivityFeed({ userIdFilter = null, userIdsFilter = null, kindFi
           <span><strong>{name}</strong><small>{post.user_id === user.id ? 'agregaste' : 'agregó'} <b>{post.cafe.nombre}</b> a {post.user_id === user.id ? 'tu' : 'su'} lista para ir después</small></span>
         </button>
         <button type="button" className="activity-list-event-cafe" onClick={() => navigate(`/cafe/${post.cafe_id}`)} aria-label={`Ver ${post.cafe.nombre}`}>
-          {post.cafe.image_url ? <img src={post.cafe.image_url} alt="" loading="lazy" decoding="async" /> : <Coffee size={19} />}
-          <MapPin size={15} />
+          {post.cafe.image_url && <img src={post.cafe.image_url} alt="" loading="lazy" decoding="async" />}
+          <MapPin size={post.cafe.image_url ? 15 : 20} />
         </button>
       </article>;
     }
