@@ -127,8 +127,8 @@ const getCafeMarkerHtml = ({ cafe, markerColor, showPreview, previewOpen }) => {
   `;
 };
 
-const getClusterMarkerHtml = (count) => `
-  <span class="coffee-map-leaflet-cluster" aria-label="${count} cafeterías cercanas">
+const getClusterMarkerHtml = (count, markerColor) => `
+  <span class="coffee-map-leaflet-cluster" style="background: ${markerColor}" aria-label="${count} cafeterías cercanas">
     <span>${count}</span>
   </span>
 `;
@@ -171,16 +171,15 @@ const getMarkerGroups = (map, cafes) => {
     cellSize = Math.ceil(cellSize * 1.3);
   } while (groups.length > MAX_RENDERED_MARKERS && cellSize < 180);
 
-  return groups.map((group) => {
-    if (group.cafes.length === 1) {
-      const cafe = group.cafes[0];
-      return {
+  return groups.flatMap((group) => {
+    if (group.cafes.length <= 2) {
+      return group.cafes.map((cafe) => ({
         key: `cafe:${cafe.id}`,
         type: 'cafe',
         cafe,
         lat: Number(cafe.lat),
         lng: Number(cafe.lng),
-      };
+      }));
     }
 
     return {
@@ -439,6 +438,23 @@ function App() {
     };
   }, [showToast]);
 
+  // Keep the original area as the baseline and allow every catalog pin to be reached.
+  // Use the full catalog so changing filters does not pull the map back into town.
+  useEffect(() => {
+    if (!map) return;
+    const bounds = L.latLngBounds(MERIDA_BOUNDS);
+    [...cafes, ...(mapTarget ? [mapTarget] : [])].forEach((cafe) => {
+      if (cafe.lat == null || cafe.lng == null || cafe.lat === '' || cafe.lng === '') return;
+      const lat = Number(cafe.lat);
+      const lng = Number(cafe.lng);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return;
+      // Leave room around boundary pins, including on narrow mobile screens.
+      bounds.extend([lat - 0.02, lng - 0.02]);
+      bounds.extend([lat + 0.02, lng + 0.02]);
+    });
+    map.setMaxBounds(bounds);
+  }, [cafes, map, mapTarget]);
+
   const showInitialLoading = mapLoading;
 
   const renderVisibleMarkers = useCallback(() => {
@@ -456,10 +472,11 @@ function App() {
 
     markerGroups.forEach((group) => {
       const isCafe = group.type === 'cafe';
-      const markerColor = isCafe && visitedCafeIds.has(group.cafe.id) ? '#B39978' : '#4B2C20';
+      const allVisited = isCafe ? visitedCafeIds.has(group.cafe.id) : group.cafes.every((cafe) => visitedCafeIds.has(cafe.id));
+      const markerColor = allVisited ? '#B39978' : '#4B2C20';
       const signature = isCafe
         ? `${markerColor}|${group.cafe.nombre}|${group.cafe.imageUrl || ''}|${selectedPreviewCafeId === group.cafe.id}`
-        : group.cafes.map((cafe) => cafe.id).join('|');
+        : `${markerColor}|${group.cafes.map((cafe) => cafe.id).join('|')}`;
       const existingEntry = cafeMarkerEntriesRef.current.get(group.key);
 
       if (existingEntry?.signature === signature) return;
@@ -480,7 +497,7 @@ function App() {
           iconAnchor: [21, 49],
         } : {
           className: 'coffee-map-leaflet-marker coffee-map-leaflet-cluster-icon',
-          html: getClusterMarkerHtml(group.cafes.length),
+          html: getClusterMarkerHtml(group.cafes.length, markerColor),
           iconSize: [42, 42],
           iconAnchor: [21, 21],
         }),
