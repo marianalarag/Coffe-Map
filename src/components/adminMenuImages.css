@@ -1,0 +1,26 @@
+.cms-record-editor.admin-cafe-detail .admin-cafe-menu-images { padding: clamp(16px, 3vw, 24px); gap: 20px; margin-top: 28px; border: 1px solid rgba(238,229,210,.14); border-radius: 18px; background: #1c1814; }
+.admin-cafe-detail .admin-cafe-menu-images-heading { gap: 16px; font-size: 15px; }
+.admin-cafe-detail .admin-cafe-menu-images-heading > span { gap: 10px; }
+.admin-cafe-detail .admin-cafe-menu-images-heading small { padding: 5px 9px; font-size: 12px; }
+.admin-cafe-menu-images-grid.menu-sort-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 18px; }
+.menu-sort-grid > .menu-sort-card { aspect-ratio: auto; min-width: 0; padding: 8px; overflow: visible; border: 2px solid transparent; border-radius: 14px; transition: border-color .15s, opacity .15s; }
+.menu-sort-grid > .is-dragging { opacity: .45; }
+.menu-sort-grid > .is-drop-target { border-color: #e6dac1; box-shadow: 0 0 0 3px rgba(230,218,193,.18); }
+.menu-sort-preview { position: relative; height: 180px; overflow: hidden; border-radius: 9px; background: #211b16; }
+.menu-sort-grid .menu-sort-preview img { object-fit: contain; }
+.menu-sort-grid .admin-menu-delete { width: 34px; height: 34px; top: 7px; right: 7px; cursor: pointer; }
+.menu-sort-grid .admin-menu-page-number { top: 7px; left: 7px; padding: 5px 7px; font-size: 12px; }
+.menu-sort-caption { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 0 4px; }
+.menu-sort-caption strong { font-size: 12px; color: #eee5d2; }
+.menu-sort-handle { display: grid; place-items: center; min-width: 40px; min-height: 40px; padding: 5px; color: #e6dac1; background: #48392c; border: 0; border-radius: 8px; cursor: grab; touch-action: none; user-select: none; }
+.menu-sort-handle:active { cursor: grabbing; }
+.menu-sort-grid .admin-menu-order-controls { position: static; padding: 4px 0 0; gap: 10px; background: none; }
+.menu-sort-grid .admin-menu-order-controls button { width: 40px; height: 36px; }
+.menu-sort-grid button:disabled { cursor: default; opacity: .35; }
+.menu-sort-grid button:focus-visible { outline: 2px solid #e6dac1; outline-offset: 3px; }
+.admin-cafe-detail .admin-cafe-menu-upload { min-height: 44px; padding: 11px 16px; gap: 10px; cursor: pointer; }
+.admin-cafe-detail .admin-cafe-menu-note { display: block; line-height: 1.65; }
+@media (max-width: 480px) {
+  .admin-cafe-menu-images-grid.menu-sort-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .menu-sort-preview { height: 150px; }
+}
