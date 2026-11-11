@@ -2,7 +2,7 @@ import CafeGallery from '../components/CafeGallery';
 import PostImageCarousel from '../components/PostImageCarousel';
 import { useEffect, useState } from 'react';
 import { useLocation, useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, MapPin, Coffee, Heart, CheckCircle2, Clock, Edit3, Globe, Instagram, Music2, Plus, MessageCircle, Send, ExternalLink, X, BookOpen } from 'lucide-react';
+import { ArrowLeft, ChevronRight, MapPin, Coffee, Heart, CheckCircle2, Clock, Edit3, Globe, Instagram, Music2, Plus, MessageCircle, Send, ExternalLink, X, BookOpen } from 'lucide-react';
 import PageLoading from '../components/PageLoading';
 import { useAuth } from '../context/AuthContext';
 import { useCoffeeData } from '../context/CoffeeDataContext';
@@ -321,10 +321,10 @@ function CafePage({ cafeId }) {
                 <div className="cafe-personal-rating"><span>Tu calificación</span><strong>{rating > 0 ? <><CoffeeBeanIcon size={23} filled /> {rating}</> : <button type="button" onClick={openReviewComposer}>Calificar</button>}</strong></div>
                 <button type="button" className="cafe-add-visit-button" onClick={() => { if (requireAuth()) { setSaveError(''); setShowVisitConfirmation(true); } }} disabled={interactionBusy}><Plus size={18} /><span>Agregar nueva visita</span></button>
               </div>
-              {user && <button type="button" className="cafe-visit-counter" disabled={interactionBusy} onClick={() => setShowVisitHistory(true)}><Coffee size={19} /><strong>{!interactionsLoaded ? 'Cargando visitas…' : <>{visitCount} {visitCount === 1 ? 'visita' : 'visitas'}</>}</strong><span>Ver tu diario →</span></button>}
+              {user && <button type="button" className="cafe-visit-counter" disabled={interactionBusy} onClick={() => setShowVisitHistory(true)}><Coffee size={19} /><strong>{!interactionsLoaded ? 'Cargando visitas…' : <>{visitCount} {visitCount === 1 ? 'visita' : 'visitas'}</>}</strong><span>Historial de visitas <ChevronRight size={15} /></span></button>}
               {visitSuccess && <div className="cafe-visit-success" role="status"><CheckCircle2 size={20} /><span>{visitSuccess}</span><button type="button" onClick={() => setVisitSuccess('')} aria-label="Cerrar mensaje"><X size={16} /></button></div>}
               <section className="cafe-my-reviews">
-                <div className="cafe-section-label"><h2>Mis reseñas</h2><button type="button" onClick={() => { if (requireAuth()) setShowVisitHistory(true); }} aria-label="Ver todas mis visitas y reseñas">Ver diario</button><button type="button" onClick={openReviewComposer} aria-label="Editar reseña"><Edit3 size={15} /></button></div>
+                <div className="cafe-section-label"><h2>Mis reseñas</h2><button type="button" onClick={openReviewComposer} aria-label="Editar reseña"><Edit3 size={15} /></button></div>
                 {personalReviews.length ? personalReviews.slice(0, 2).map((review) => <article className="cafe-personal-review" key={review.id}><div className="cafe-personal-review-meta"><CoffeeBeanRating value={Number(review.rating || 0)} size={14} /><span>{review.visited_on ? new Date(`${review.visited_on}T12:00:00`).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Visita reciente'}</span></div><p>“{review.review_text}”</p></article>) : <button type="button" className="cafe-write-review" onClick={openReviewComposer}>Escribir mi primera reseña…</button>}
                 {saveError && <p className="cafe-save-error" role="alert">{saveError}</p>}
               </section>
@@ -350,8 +350,8 @@ function CafePage({ cafeId }) {
             {scheduleRows.length > 0 && cafe.openingHoursSource === 'web' && <small className="cafe-hours-source">Horario verificado en una fuente pública{cafe.openingHoursSourceUrl ? <> · <a href={cafe.openingHoursSourceUrl} target="_blank" rel="noreferrer">ver fuente</a></> : null}.</small>}
             {scheduleRows.length > 0 && cafe.openingHoursSource === 'admin' && <small className="cafe-hours-source">Horario verificado por Coffee Map.</small>}
           </ResponsiveDisclosure>
-          <button type="button" className="cafe-map-card" onClick={showInAppMap} aria-label={`Ver ${cafe.nombre} en el mapa de Coffee Map`}><CafeMapPreview lat={mapCoordinates?.lat} lng={mapCoordinates?.lng} /><span><MapPin size={17} /> {cafe.address || cafe.neighborhood || 'Ver ubicación'}</span></button>
-          <details className="cafe-map-credits"><summary>Créditos del mapa</summary><p><a href="https://openfreemap.org" target="_blank" rel="noreferrer">OpenFreeMap</a> · © OpenMapTiles · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap</a></p></details>
+          <div className="cafe-map-container"><button type="button" className="cafe-map-card" onClick={showInAppMap} aria-label={`Ver ${cafe.nombre} en el mapa de Coffee Map`}><CafeMapPreview lat={mapCoordinates?.lat} lng={mapCoordinates?.lng} /><span><MapPin size={17} /> {cafe.address || cafe.neighborhood || 'Ver ubicación'}</span></button>
+          <p className="cafe-map-attribution"><a href="https://openfreemap.org" target="_blank" rel="noreferrer">OpenFreeMap</a> · © OpenMapTiles · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap</a></p></div>
         </aside>
 
         <div className="cafe-main-column">

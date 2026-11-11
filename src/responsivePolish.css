@@ -156,7 +156,8 @@ html.is-app-mode .map-screen .map-locate-control, .map-screen .map-locate-contro
 .map-screen button:disabled { opacity: .55; cursor: not-allowed; }
 
 @media (max-width: 767px) {
-  .map-screen .bottom-nav { display: none; }
+  .map-screen .bottom-nav { display: flex; }
+  .map-screen.has-results .bottom-nav { display: none; }
   .map-screen .map-mobile-home { position: absolute; z-index: 1001; display: grid; place-items: center; left: 12px; top: max(16px, calc(env(safe-area-inset-top, 0px) + 9px)); width: 44px; height: 44px; color: #eee5d2; background: #27201a; border: 0; border-radius: 50%; cursor: pointer; }
   .map-screen .map-search-control { left: auto; right: 12px; width: calc(100% - 78px); max-width: none; transform: none; translate: none; }
   .map-screen .map-results-panel { top: auto; right: 0; left: 0; bottom: 0; width: 100%; height: min(55dvh, 510px); max-height: calc(100% - 116px - env(safe-area-inset-top, 0px)); border-radius: 22px 22px 0 0; border-bottom: 0; transform: translateY(var(--panel-swipe, 0px)); }
@@ -164,7 +165,28 @@ html.is-app-mode .map-screen .map-locate-control, .map-screen .map-locate-contro
   .map-screen .map-results-header { padding: 22px 16px 10px; }
   .map-screen .map-results-header::before { background: #a58c6e; }
   .map-screen .map-results-header button { min-width: 44px; min-height: 44px; }
-  .map-screen .map-bottom-actions { bottom: max(16px, env(safe-area-inset-bottom, 0px)); left: 14px; right: 14px; }
+  .map-screen .map-bottom-actions { bottom: calc(88px + env(safe-area-inset-bottom, 0px)); left: 14px; right: 14px; }
   .map-screen .map-filter-panel { max-height: calc(100dvh - 120px - env(safe-area-inset-top, 0px)); }
   body:has(.app-viewport-section:not([inert]) .map-screen) .pwa-install-card { display: none; }
+}
+
+/* Let the written review determine the media height instead of a fixed slide. */
+.activity-post-body { position: relative; min-height: 180px; }
+.activity-post-body > .activity-image-carousel { position: relative; align-self: stretch; min-height: 180px; }
+.activity-post-body > .activity-image-carousel .activity-image-track { position: absolute; inset: 0; height: 100%; }
+.activity-post-body > .activity-image-carousel .activity-image-slide { height: 100%; }
+.activity-post-body > .activity-post-copy { margin: 0; min-height: 0; overflow-wrap: anywhere; text-align: left; }
+.activity-post-body:not(:has(.activity-image-carousel)) { min-height: 0; }
+.cafe-section-label { justify-content: flex-start; gap: 10px; }
+.cafe-section-label > button { margin-left: auto; }
+.cafe-visit-counter > span { display: inline-flex; align-items: center; gap: 6px; }
+.cafe-map-container { position: relative; }
+.cafe-map-container .cafe-map-card { display: block; }
+.cafe-map-container .cafe-map-card > span { bottom: 26px; }
+.cafe-map-attribution { position: absolute; z-index: 1; bottom: 5px; right: 8px; margin: 0; padding: 2px 4px; border-radius: 3px; color: #4c463d; background: #fffdf0dd; font-size: 8px; line-height: 1.2; }
+.cafe-map-attribution a { color: inherit; text-decoration: none; }
+@media (max-width: 480px) {
+  .activity-post-body { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .activity-post-body > .activity-image-carousel { min-height: 0; aspect-ratio: 4 / 3; }
+  .activity-post-body > .activity-post-copy { font-size: 13px; line-height: 1.5; }
 }
