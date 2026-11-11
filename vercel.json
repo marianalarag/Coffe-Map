@@ -14,7 +14,7 @@
     ]
   },
   "functions": {
-    "api/research-cafe.js": {
+    "api/search-cafe.js": {
       "maxDuration": 60
     }
   },

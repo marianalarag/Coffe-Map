@@ -243,6 +243,13 @@
 .cafe-enrichment-status { display: flex; align-items: center; gap: 10px; color: #e8ddc5; }
 .cafe-enrichment-results { display: grid; gap: 10px; min-height: 0; overflow-y: auto; padding-right: 4px; }
 .cafe-enrichment-results article { display: grid; gap: 8px; padding: 13px; background: #ffffff08; border: 1px solid #ffffff12; border-radius: 14px; }
+.cafe-search-result { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; padding: 10px; background: #17120f80; border-radius: 10px; }
+.cafe-search-result-title { display: inline-flex; align-items: center; gap: 5px; color: #e8ddc5; font-size: 13px; font-weight: 650; text-decoration: none; }
+.cafe-search-result > div:first-child > small { display: block; margin-top: 3px; color: #a9957c; font-size: 10px; }
+.cafe-search-result > div:first-child > p { margin: 6px 0 0; color: #c4b6a3; font-size: 11px; line-height: 1.45; }
+.cafe-search-result-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-content: center; gap: 5px; max-width: 280px; }
+.cafe-search-result-actions button { padding: 6px 8px; color: #e8ddc5; background: #ffffff0b; border: 1px solid #ffffff18; border-radius: 8px; font-size: 10px; cursor: pointer; }
+.cafe-search-result-actions button.is-assigned { color: #17120f; background: #d9c59d; }
 .cafe-enrichment-cafe { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .cafe-enrichment-cafe > strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cafe-enrichment-cafe > a, .cafe-enrichment-field > a { display: inline-flex; align-items: center; gap: 5px; color: #c7a477; text-decoration: none; }
@@ -253,4 +260,4 @@
 .cafe-enrichment-dialog > footer { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; padding-top: 12px; border-top: 1px solid #ffffff18; }
 .cafe-enrichment-dialog > footer button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 42px; padding: 9px 14px; color: #e8ddc5; background: #ffffff0b; border: 0; border-radius: 12px; cursor: pointer; }
 .cafe-enrichment-dialog > footer button:disabled { opacity: .5; cursor: default; }
-@media (max-width: 650px) { .cms-cafe-heading-actions { justify-content: flex-start; width: 100%; } .cafe-enrichment-dialog { max-height: 90dvh; padding: 17px; } .cafe-enrichment-field { grid-template-columns: 18px 18px minmax(65px, auto) minmax(0, 1fr); gap: 6px; } .cafe-enrichment-field > small { grid-column: 3 / 5; } .cafe-enrichment-picker > label { grid-template-columns: 18px minmax(0, 1fr) minmax(65px, .7fr); } .cafe-enrichment-dialog > footer { justify-content: stretch; } .cafe-enrichment-dialog > footer > button { flex: 1; } }
+@media (max-width: 650px) { .cms-cafe-heading-actions { justify-content: flex-start; width: 100%; } .cafe-enrichment-dialog { max-height: 90dvh; padding: 17px; } .cafe-enrichment-field { grid-template-columns: 18px 18px minmax(65px, auto) minmax(0, 1fr); gap: 6px; } .cafe-enrichment-field > small { grid-column: 3 / 5; } .cafe-enrichment-picker > label { grid-template-columns: 18px minmax(0, 1fr) minmax(65px, .7fr); } .cafe-search-result { grid-template-columns: minmax(0, 1fr); } .cafe-search-result-actions { justify-content: flex-start; max-width: none; } .cafe-enrichment-dialog > footer { justify-content: stretch; } .cafe-enrichment-dialog > footer > button { flex: 1; } }
