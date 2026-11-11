@@ -102,7 +102,7 @@ export function CafeInlineConfirmation({ editor, cafeName }) {
   if (!editor.confirmation) return null;
   const { type } = editor.confirmation;
   const [title, description, label] = {
-    cafe: ['Eliminar cafetería', `¿Eliminar ${cafeName} del catálogo y del mapa? Se conservará el historial de visitas.`, 'Eliminar cafetería'],
+    cafe: ['Eliminar cafetería', `¿Eliminar ${cafeName} permanentemente del mapa y de la base de datos? También se eliminarán sus visitas, favoritos, fotos de galería y TikToks asociados. Esta acción no se puede deshacer.`, 'Eliminar cafetería'],
     photo: ['Quitar foto de la galería', 'La foto dejará de aparecer en esta galería. La publicación original de su autor se conservará.', 'Quitar foto'],
     tiktok: ['Quitar TikTok', 'Este video dejará de aparecer en la ficha de la cafetería.', 'Quitar TikTok'],
     discard: ['Descartar cambios', 'Se descartarán los cambios pendientes de datos, portada y menú. Las fotos y videos que ya publicaste se conservarán.', 'Descartar cambios'],
