@@ -10,16 +10,15 @@ export default function CafeGallery({ photos, cafeName, onOpen }) {
   const show = (index) => {
     const next = Math.max(0, Math.min(photos.length - 1, index));
     const element = track.current?.children[next];
-    if (element) track.current.scrollTo({ left: element.offsetLeft + element.offsetWidth / 2 - track.current.clientWidth / 2, behavior: 'smooth' });
+    if (element) track.current.scrollTo({ left: element.offsetLeft, behavior: 'smooth' });
     setActive(next);
   };
   const updateActive = () => {
     const element = track.current;
-    const center = element.scrollLeft + element.clientWidth / 2;
     let nearest = 0;
     let distance = Infinity;
     [...element.children].forEach((child, index) => {
-      const delta = Math.abs(child.offsetLeft + child.offsetWidth / 2 - center);
+      const delta = Math.abs(child.offsetLeft - element.scrollLeft);
       if (delta < distance) { distance = delta; nearest = index; }
     });
     setActive(nearest);

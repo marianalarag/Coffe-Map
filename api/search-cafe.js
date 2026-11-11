@@ -32,12 +32,12 @@ const mcpPost = async (body, sessionId) => {
     body: JSON.stringify(body), signal: AbortSignal.timeout(25000),
   });
   if (!result.ok) throw new Error(result.status === 429 ? 'El buscador gratuito alcanzó su límite temporal. Espera un poco e intenta de nuevo.' : 'El buscador web no respondió. Intenta otra vez más tarde.');
-  const body = await result.text();
+  const responseBody = await result.text();
   let data = null;
-  if (body.trim()) {
-    try { data = JSON.parse(body); }
+  if (responseBody.trim()) {
+    try { data = JSON.parse(responseBody); }
     catch {
-      const eventData = body.split(/\r?\n/).find((line) => line.startsWith('data:'))?.slice(5).trim();
+      const eventData = responseBody.split(/\r?\n/).find((line) => line.startsWith('data:'))?.slice(5).trim();
       if (eventData) data = JSON.parse(eventData);
     }
   }

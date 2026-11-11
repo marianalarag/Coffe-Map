@@ -3,7 +3,6 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   BarChart3,
-  ChevronDown,
   Camera,
   Coffee,
   Heart,
@@ -191,26 +190,15 @@ function ProfileRatingChart({ interactions, textStyle, navigate }) {
 }
 
 function ProfileVisitRanking({ places, textStyle, onSelectCafe }) {
-  const listRef = useRef(null);
-  const [canScrollDown, setCanScrollDown] = useState(false);
-  useEffect(() => {
-    const list = listRef.current;
-    if (!list) return;
-    const update = () => setCanScrollDown(list.scrollHeight - list.clientHeight - list.scrollTop > 3);
-    update();
-    const observer = new ResizeObserver(update);
-    observer.observe(list);
-    list.addEventListener('scroll', update, { passive: true });
-    return () => { observer.disconnect(); list.removeEventListener('scroll', update); };
-  }, [places]);
   return (
     <section className="profile-visit-ranking">
       <div className="profile-rating-heading"><BarChart3 size={23} /><h2 style={textStyle}>Cafés más visitados</h2></div>
+      <p className="profile-ranking-caption">Top 5 · A partir de 2 visitas</p>
       {places.length > 0 ? (
-        <div className="profile-ranking-scroll-region">
-        <div ref={listRef} className="profile-visit-ranking-list">
-          {places.slice(0, 6).map(({ cafe, count }) => (
+        <div className="profile-visit-ranking-list">
+          {places.map(({ cafe, count }, index) => (
             <article className="profile-visit-ranking-card" key={cafe.id}>
+              <span className="profile-visit-position" aria-label={`Posición ${index + 1}`}>{index + 1}</span>
               <button type="button" className="profile-visit-ranking-main" onClick={() => onSelectCafe(cafe)} aria-label={`Abrir tus ${count === 1 ? 'visita' : 'visitas'} a ${cafe.nombre}`}>
                 {cafe.imageUrl ? <img src={cafe.imageUrl} alt={cafe.nombre} /> : <span className="profile-cafe-placeholder"><Coffee size={20} /></span>}
                 <strong>{cafe.nombre}</strong><small>{count} {count === 1 ? 'visita' : 'visitas'}</small>
@@ -218,9 +206,7 @@ function ProfileVisitRanking({ places, textStyle, onSelectCafe }) {
             </article>
           ))}
         </div>
-        {canScrollDown && <button type="button" className="profile-ranking-more" onClick={() => listRef.current?.scrollBy({ top: listRef.current.clientHeight * .75, behavior: 'smooth' })}><span>Más cafeterías</span><ChevronDown size={15} /></button>}
-        </div>
-      ) : <p className="profile-ranking-empty">Marca una cafetería como visitada para comenzar tu historial.</p>}
+      ) : <p className="profile-ranking-empty">Visita una misma cafetería al menos dos veces para comenzar tu ranking.</p>}
     </section>
   );
 }
@@ -368,7 +354,7 @@ function ProfilePage() {
       }
       grouped.set(cafe.id, current);
     });
-    return [...grouped.values()].sort((first, second) => second.count - first.count || second.lastVisited.localeCompare(first.lastVisited));
+    return [...grouped.values()].filter(({ cafe, count }) => count >= 2 && !cafe.deleted_at).sort((first, second) => second.count - first.count || second.lastVisited.localeCompare(first.lastVisited)).slice(0, 5);
   }, [cafeById, interactions]);
 
   const removeFavorite = async (event, cafe) => {

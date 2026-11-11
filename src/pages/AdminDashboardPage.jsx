@@ -16,6 +16,7 @@ import { readAdminDraft, writeAdminDraft } from '../utils/adminDraft';
 import CafeMapPreview from '../components/AdminMapPreview';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { softDeleteCafes } from '../utils/deleteCafes';
+import { processCafeRequestBatch } from '../utils/cafeRequestBatch';
 
 const MERIDA_BBOX = { south: 20.86, west: -89.75, north: 21.08, east: -89.52 };
 const OVERPASS_URLS = [
@@ -924,6 +925,8 @@ function AdminDashboardPage() {
   });
   const [loading, setLoading] = useState(true);
   const dashboardVersionRef = useRef(0);
+  const adminPageRef = useRef(null);
+  useEffect(() => { adminPageRef.current?.scrollTo({ top: 0 }); }, [tab]);
   const [actionLoading, setActionLoading] = useState('');
   const [notice, setNotice] = useState('');
   const [metrics, setMetrics] = useState({});
@@ -1157,27 +1160,43 @@ function AdminDashboardPage() {
     }, 'Cafetería agregada.');
   };
 
-  const moderateCafeRequest = (cafe, nextStatus) => runAction(`request:${cafe.id}:${nextStatus}`, async () => {
+  const persistCafeRequest = async (cafe, nextStatus) => {
     if (nextStatus === 'active') {
       const accepted = await sendCafeSubmission({ id: cafe.id }, 'PATCH');
       setCafes((current) => current.map((item) => item.id === cafe.id ? { ...item, ...accepted } : item));
-      await refreshCafes();
-      return;
+      updateCafe({ ...cafe, ...accepted });
+      return accepted;
     }
     const update = {
       status: nextStatus,
       last_verified_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('cafes')
       .update(update)
       .eq('id', cafe.id)
       .eq('source', 'community')
-      .eq('status', 'needs_review');
+      .eq('status', 'needs_review')
+      .select('*').single();
     if (error) throw error;
-    setCafes((current) => current.map((item) => item.id === cafe.id ? { ...item, ...update } : item));
-  }, nextStatus === 'active' ? `Solicitud aceptada: ${cafe.nombre}.` : `Solicitud rechazada: ${cafe.nombre}.`);
+    if (!data?.id) throw new Error('No se pudo confirmar el cambio de la solicitud.');
+    setCafes((current) => current.map((item) => item.id === cafe.id ? data : item));
+    return data;
+  };
+  const moderateCafeRequest = (cafe, nextStatus) => runAction(`request:${cafe.id}:${nextStatus}`, () => persistCafeRequest(cafe, nextStatus).then(() => undefined), nextStatus === 'active' ? `Solicitud aceptada: ${cafe.nombre}.` : `Solicitud rechazada: ${cafe.nombre}.`);
+  const moderateCafeRequests = async (requests, nextStatus) => {
+    dashboardVersionRef.current += 1;
+    setActionLoading('requests:batch');
+    try {
+      const result = await processCafeRequestBatch(requests, nextStatus, persistCafeRequest, ({ completed, total }) => setNotice(`Procesando solicitudes: ${completed} de ${total}…`));
+      await loadDashboard();
+      const count = result.processedIds.length;
+      const action = nextStatus === 'active' ? count === 1 ? 'aceptada' : 'aceptadas' : count === 1 ? 'rechazada' : 'rechazadas';
+      setNotice(`${count} ${count === 1 ? 'solicitud' : 'solicitudes'} ${action}.${result.failed.length ? ` ${result.failed.length} no se completaron y siguen seleccionadas.` : ''}`);
+      return result;
+    } finally { setActionLoading(''); }
+  };
 
   const saveCafeCover = (cafe, file) => runAction(`cover:${cafe.id}`, async () => {
     if (!file?.type.startsWith('image/') || file.size > 8 * 1024 * 1024) throw new Error('La foto debe pesar máximo 8 MB.');
@@ -1581,7 +1600,7 @@ function AdminDashboardPage() {
   }, 'Rol actualizado.');
 
   return (
-    <main className="admin-page" style={{ '--admin-page-bg': adminTheme.background, '--admin-panel-bg': adminTheme.panel, '--admin-accent': adminTheme.accent }}>
+    <main ref={adminPageRef} className="admin-page" style={{ '--admin-page-bg': adminTheme.background, '--admin-panel-bg': adminTheme.panel, '--admin-accent': adminTheme.accent }}>
       <div className="admin-topbar">
       <header className="admin-header">
         <button type="button" onClick={() => navigate('/')} aria-label="Volver"><ArrowLeft size={22} /></button>
@@ -1626,7 +1645,7 @@ function AdminDashboardPage() {
           </section>
         )}
 
-        {tab === 'requests' && <AdminRequests cafes={cafes} profiles={profileMap} busy={Boolean(actionLoading)} onModerate={moderateCafeRequest} notice={notice} />}
+        {tab === 'requests' && <AdminRequests cafes={cafes} profiles={profileMap} busy={Boolean(actionLoading)} onModerate={moderateCafeRequest} onModerateMany={moderateCafeRequests} notice={notice} />}
         {tab === 'photos' && <AdminPhotos photos={photos} postPhotos={postPhotos} posts={postMap} cafes={cafeMap} profiles={profileMap} busy={Boolean(actionLoading)} onPhotoAction={moderatePhoto} onPostAction={moderatePostPhoto} />}
         {tab === 'posts' && <AdminPosts posts={posts} profiles={profileMap} cafes={cafeMap} busy={Boolean(actionLoading)} onStatus={updatePost} onDelete={deletePost} onNew={() => navigate('/new-post')} />}
         {tab === 'users' && <AdminUsers profiles={users} currentUserId={user.id} onRole={updateRole} busy={Boolean(actionLoading)} />}

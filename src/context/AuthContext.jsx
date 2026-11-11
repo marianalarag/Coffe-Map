@@ -56,7 +56,7 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(true);
   const [authError, setAuthError] = useState('');
   const profileRequestRef = useRef(null);
   const hasResolvedSessionRef = useRef(false);
@@ -64,6 +64,7 @@ export function AuthProvider({ children }) {
   const fetchProfile = useCallback(async (userId, { force = false } = {}) => {
     if (!userId) {
       setUserProfile(null);
+      setProfileLoading(false);
       return null;
     }
 
@@ -71,6 +72,7 @@ export function AuthProvider({ children }) {
       const cachedProfile = readCachedProfile(userId);
       if (cachedProfile) {
         setUserProfile(cachedProfile);
+        setProfileLoading(false);
         return cachedProfile;
       }
     }
@@ -119,6 +121,7 @@ export function AuthProvider({ children }) {
   const syncSession = useCallback((session) => {
     const currentUser = session?.user ?? null;
     setUser(currentUser);
+    setProfileLoading(Boolean(currentUser));
     setAuthError('');
 
     if (!currentUser) {

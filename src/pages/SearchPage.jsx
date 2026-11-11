@@ -65,6 +65,7 @@ function SearchPage() {
   const [loadError, setLoadError] = useState('');
   const [showAddCafe, setShowAddCafe] = useState(false);
   const addCafeBackdropRef = useRef(null);
+  const addCafeSearchRef = useRef(null);
   const [addingCafe, setAddingCafe] = useState(false);
   const [addCafeFeedback, setAddCafeFeedback] = useState('');
   const [newCafe, setNewCafe] = useState({ nombre: '', address: '', link: '' });
@@ -77,20 +78,35 @@ function SearchPage() {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     const viewport = window.visualViewport;
+    let frame;
     const fitViewport = () => {
       const backdrop = addCafeBackdropRef.current;
       if (backdrop) {
         backdrop.style.height = `${viewport?.height || window.innerHeight}px`;
         backdrop.style.top = `${viewport?.offsetTop || 0}px`;
+        backdrop.classList.toggle('has-keyboard', (viewport?.height || window.innerHeight) < document.documentElement.clientHeight - 120);
+        cancelAnimationFrame(frame);
+        frame = requestAnimationFrame(() => {
+          const form = backdrop.querySelector('form');
+          const field = document.activeElement;
+          if (!form?.contains(field)) return;
+          const bounds = form.getBoundingClientRect();
+          const input = field.getBoundingClientRect();
+          if (input.bottom > bounds.bottom - 16) form.scrollTop += input.bottom - bounds.bottom + 16;
+          else if (input.top < bounds.top + 16) form.scrollTop -= bounds.top - input.top + 16;
+        });
       }
     };
     fitViewport();
     viewport?.addEventListener('resize', fitViewport);
     viewport?.addEventListener('scroll', fitViewport);
+    window.addEventListener('resize', fitViewport);
     return () => {
       document.body.style.overflow = previousOverflow;
       viewport?.removeEventListener('resize', fitViewport);
       viewport?.removeEventListener('scroll', fitViewport);
+      window.removeEventListener('resize', fitViewport);
+      cancelAnimationFrame(frame);
     };
   }, [showAddCafe]);
 
@@ -146,10 +162,10 @@ function SearchPage() {
 
   const openAddCafe = () => {
     setAddCafeFeedback('');
-    setNewCafe((current) => ({
-      ...current,
-      nombre: current.nombre || searchQuery.trim(),
-    }));
+    const query = searchQuery.trim();
+    const sameSearch = addCafeSearchRef.current === query;
+    setNewCafe((current) => sameSearch ? { ...current, nombre: current.nombre || query } : { nombre: query, address: '', link: '' });
+    addCafeSearchRef.current = query;
     setShowAddCafe(true);
   };
 
@@ -300,15 +316,15 @@ function SearchPage() {
               <button type="button" onClick={() => setShowAddCafe(false)} disabled={addingCafe} aria-label="Cerrar"><X size={18} /></button>
             </header>
 
-            <form onSubmit={submitMissingCafe}>
+            <form id="missing-cafe-form" onSubmit={submitMissingCafe}>
               <label>Nombre<input value={newCafe.nombre} onChange={(event) => setNewCafe({ ...newCafe, nombre: event.target.value })} maxLength={100} required /></label>
               <label>Dirección<input value={newCafe.address} onChange={(event) => setNewCafe({ ...newCafe, address: event.target.value })} placeholder="Calle, número y colonia" maxLength={220} /></label>
               <label>Enlace de Maps<input type="url" value={newCafe.link} onChange={(event) => setNewCafe({ ...newCafe, link: event.target.value })} placeholder="https://maps.app.goo.gl/..." /></label>
 
               <p className="missing-cafe-feedback">Verificaremos la ubicación de Google Maps antes de publicar la cafetería.</p>
               {addCafeFeedback && <p className="missing-cafe-feedback" role="status">{addCafeFeedback}</p>}
-              <button className="missing-cafe-submit" type="submit" disabled={addingCafe}>{addingCafe ? 'Enviando...' : 'Enviar cafetería'}</button>
             </form>
+            <footer><button className="missing-cafe-submit" type="submit" form="missing-cafe-form" disabled={addingCafe}>{addingCafe ? 'Enviando...' : 'Enviar cafetería'}</button></footer>
           </section>
         </div>, document.body
       )}

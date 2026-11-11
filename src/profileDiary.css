@@ -105,17 +105,17 @@
 .coffee-gallery-controls { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-bottom: 10px; }
 .coffee-gallery-controls span { margin-right: auto; color: #bda98d; font-size: 13px; }
 .coffee-gallery-controls button { background: #30251e; border-radius: 50%; width: 40px; height: 40px; }
-.coffee-gallery-track { position: relative; display: flex; flex-wrap: nowrap; gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; padding: 20px 0; touch-action: pan-x pan-y; cursor: grab; }
-.coffee-gallery-track > button { flex: 0 0 calc((100% - 28px) / 3); min-width: 0; padding: 0; border: 0; border-radius: 7px; overflow: hidden; background: #30251e; opacity: .45; transform: scale(.90); transition: opacity .25s, transform .25s; scroll-snap-align: center; cursor: inherit; }
+.coffee-gallery-track { --gallery-item-size: calc((100% - 28px) / 3); position: relative; display: flex; flex-wrap: nowrap; justify-content: flex-start; gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; padding: 20px 0; touch-action: pan-x pan-y; cursor: grab; }
+.coffee-gallery-track > button { flex: 0 0 var(--gallery-item-size); min-width: 0; padding: 0; border: 0; border-radius: 7px; overflow: hidden; background: #30251e; opacity: .45; transform: scale(.90); transition: opacity .25s, transform .25s; scroll-snap-align: start; cursor: inherit; }
 .coffee-gallery-track > button.is-selected { opacity: 1; transform: scale(1); }
 .coffee-gallery-track > button:hover { opacity: .85; }
 .coffee-gallery-track > button.is-selected:hover { opacity: 1; }
 .coffee-gallery-track img { display: block; width: 100%; height: clamp(180px, 25vw, 340px); object-fit: cover; }
-@media (max-width: 600px) { .coffee-gallery-track > button { flex-basis: 76%; } .coffee-gallery-track img { height: 260px; } }
+@media (max-width: 600px) { .coffee-gallery-track { --gallery-item-size: 76%; } .coffee-gallery-track img { height: 260px; } }
 
 .coffee-gallery-track::-webkit-scrollbar { display: none; width: 0; height: 0; }
 .coffee-gallery-track.is-dragging { scroll-snap-type: none; cursor: grabbing; user-select: none; }
 .coffee-gallery-track > button:focus-visible { outline: 2px solid #e8ddc5; outline-offset: 3px; }
 
-.coffee-gallery-track::before, .coffee-gallery-track::after { content: ""; flex: 0 0 calc((100% - (100% - 28px) / 3) / 2 - 14px); }
-@media (max-width: 600px) { .coffee-gallery-track::before, .coffee-gallery-track::after { flex-basis: calc(12% - 14px); } }
+.coffee-gallery-track::after { content: ""; flex: 0 0 calc(100% - var(--gallery-item-size) - 14px); }
+.coffee-gallery-track:has(> button:only-of-type)::after { content: none; }

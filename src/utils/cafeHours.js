@@ -21,7 +21,7 @@ const expandDays = (value) => {
   return days;
 };
 
-const parseHours = (expression) => {
+export const parseCafeHours = (expression) => {
   if (!expression) return null;
   if (expression.trim() === '24/7') return Object.fromEntries(DAY_KEYS.map((day) => [day, ['00:00-24:00']]));
   const schedule = Object.fromEntries(DAY_KEYS.map((day) => [day, []]));
@@ -42,7 +42,7 @@ const minutes = (time) => {
 };
 
 export const getCafeOpenDays = (expression) => {
-  const schedule = parseHours(expression);
+  const schedule = parseCafeHours(expression);
   if (!schedule) return [];
   return DAY_KEYS.filter((day) => schedule[day]?.length > 0);
 };
@@ -61,7 +61,7 @@ export const isCafeOpenOnDay = (expression, day) => {
 
 export const getCafeOpenStatus = (expression, date = new Date()) => {
   if (!expression) return { state: 'unknown', label: 'Horario por confirmar' };
-  const schedule = parseHours(expression);
+  const schedule = parseCafeHours(expression);
   if (!schedule) return { state: 'known', label: 'Consultar horario' };
   if (expression.trim() === '24/7') return { state: 'open', label: 'Abierto 24 horas' };
   const parts = new Intl.DateTimeFormat('en-US', {
@@ -79,7 +79,7 @@ export const getCafeOpenStatus = (expression, date = new Date()) => {
 };
 
 export const getCafeScheduleRows = (expression) => {
-  const schedule = parseHours(expression);
+  const schedule = parseCafeHours(expression);
   if (!schedule) return [];
   return ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map((day) => ({
     day: DAY_LABELS[day],

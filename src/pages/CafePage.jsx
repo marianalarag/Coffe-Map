@@ -16,6 +16,9 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import ResponsiveDisclosure from '../components/ResponsiveDisclosure';
 import CafeVisitHistory from '../components/CafeVisitHistory';
 import { formatAverageRating } from '../utils/formatRating';
+import useCafeInlineEditor from '../components/useCafeInlineEditor';
+import { CafeInlineToolbar, CafeInlineField, CafeInlineCover, CafeInlineHours, CafeInlineMenu, CafeInlineGallery, CafeInlineTikToks, CafeInlineConfirmation } from '../components/CafeInlineEditor';
+import ImageLightbox from '../components/ImageLightbox';
 
 const MAP_TARGET_STORAGE_KEY = 'coffee-map:focus-cafe';
 const getLocalDate = () => {
@@ -70,6 +73,12 @@ function CafePage({ cafeId }) {
   const [expandedImage, setExpandedImage] = useState(null);
   const [friendVisitors, setFriendVisitors] = useState([]);
   const [friendVisitorsStatus, setFriendVisitorsStatus] = useState('loading');
+  const editor = useCafeInlineEditor({
+    cafe, active: isCafeRouteActive,
+    onMediaChange: () => setMediaReload((value) => value + 1),
+    onDeleted: () => navigate('/map', { replace: true }),
+  });
+  const coverUrl = editor.editing ? editor.draft.image_url : cafe?.imageUrl;
 
   useEffect(() => {
     let cancelled = false;
@@ -107,7 +116,6 @@ function CafePage({ cafeId }) {
           .select('id,public_url,is_cover,created_at')
           .eq('cafe_id', id)
           .eq('status', 'approved')
-          .not('post_id', 'is', null)
           .order('is_cover', { ascending: false })
           .order('created_at', { ascending: false })
           .limit(12),
@@ -265,17 +273,6 @@ function CafePage({ cafeId }) {
   const scheduleRows = getCafeScheduleRows(cafe?.openingHours);
   const mapCoordinates = getCafeCoordinates(cafe);
 
-  useEffect(() => {
-    if (!expandedImage) return undefined;
-    const closeOnEscape = (event) => { if (event.key === 'Escape') setExpandedImage(null); };
-    document.addEventListener('keydown', closeOnEscape);
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.removeEventListener('keydown', closeOnEscape);
-      document.body.style.overflow = '';
-    };
-  }, [expandedImage]);
-
   if ((cafesLoading && !cafesLoaded) || (interactionsLoading && !interaction)) {
     return <PageLoading message="Cargando cafeteria..." />;
   }
@@ -292,25 +289,27 @@ function CafePage({ cafeId }) {
   }
 
   return (
-    <main className="cafe-page">
+    <main className={`cafe-page${editor.editing ? ' cafe-page-is-editing' : ''}`}>
+      <CafeInlineToolbar editor={editor} />
       <button onClick={() => navigate(-1)} className="cafe-back-button" aria-label="Volver"><ArrowLeft size={22} /></button>
       <section className="cafe-hero">
-        {cafe.imageUrl && <img className="cafe-hero-backdrop" src={cafe.imageUrl} alt="" aria-hidden="true" />}
+        {coverUrl && <img className="cafe-hero-backdrop" src={coverUrl} alt="" aria-hidden="true" />}
         <div className="cafe-hero-shade" />
         <div className="cafe-hero-inner">
           <div className="cafe-cover-frame">
-            {cafe.imageUrl ? <button type="button" className="cafe-photo-open cafe-cover-open" onClick={() => setExpandedImage({ src: cafe.imageUrl, alt: cafe.nombre })} aria-label={`Ampliar foto de ${cafe.nombre}`}><img src={cafe.imageUrl} alt={cafe.nombre} className="cafe-cover-image" fetchPriority="high" decoding="async" /></button> : <Coffee size={76} />}
-            {cafe.imageSourceUrl && <a href={cafe.imageSourceUrl} target="_blank" rel="noreferrer" className="cafe-image-credit">Foto: {cafe.imageAttribution || 'Wikimedia Commons'}{cafe.imageLicense ? ` · ${cafe.imageLicense}` : ''}</a>}
+            {coverUrl ? <button type="button" className="cafe-photo-open cafe-cover-open" onClick={() => setExpandedImage({ src: coverUrl, alt: cafe.nombre })} aria-label={`Ampliar foto de ${cafe.nombre}`}><img src={coverUrl} alt={cafe.nombre} className="cafe-cover-image" fetchPriority="high" decoding="async" /></button> : <Coffee size={76} />}
+            {editor.editing ? <CafeInlineCover editor={editor} /> : cafe.imageSourceUrl && <a href={cafe.imageSourceUrl} target="_blank" rel="noreferrer" className="cafe-image-credit">Foto: {cafe.imageAttribution || 'Wikimedia Commons'}{cafe.imageLicense ? ` · ${cafe.imageLicense}` : ''}</a>}
           </div>
           <div className="cafe-profile-column">
             <div className="cafe-profile-heading">
               <div>
-                <span className="cafe-eyebrow">COFFEE MAP · {cafe.category === 'panaderia' ? 'PANADERÍA' : 'CAFETERÍA'}</span>
-                <h1>{cafe.nombre}</h1>
-                <div className="cafe-profile-meta"><span><MapPin size={15} fill="currentColor" /> {cafe.neighborhood || 'Mérida'}</span>{cafe.websiteUrl && <a href={cafe.websiteUrl} target="_blank" rel="noreferrer" aria-label="Sitio web de la cafetería" title="Sitio web"><Globe size={18} /></a>}{cafe.menuPageUrl && <a href={cafe.menuPageUrl} target="_blank" rel="noreferrer" aria-label="Ver menú" title="Ver menú"><BookOpen size={18} /></a>}{cafe.tiktokUrl && <a href={cafe.tiktokUrl} target="_blank" rel="noreferrer" aria-label="TikTok de la cafetería" title="TikTok"><Music2 size={18} /></a>}{cafe.instagramUrl && <a href={cafe.instagramUrl} target="_blank" rel="noreferrer" aria-label="Instagram"><Instagram size={18} /></a>}</div>
+                <span className="cafe-eyebrow">COFFEE MAP · {editor.editing ? <select className="cafe-inline-category" aria-label="Tipo de lugar" value={editor.draft.category} disabled={editor.busy} onChange={(event) => editor.change('category', event.target.value)}><option value="cafeteria">Cafetería</option><option value="panaderia">Panadería</option></select> : cafe.category === 'panaderia' ? 'PANADERÍA' : 'CAFETERÍA'}</span>
+                <h1>{editor.editing ? <CafeInlineField editor={editor} field="nombre" label="Nombre de la cafetería" className="cafe-inline-name" /> : cafe.nombre}</h1>
+                <div className="cafe-profile-meta">{editor.editing ? <CafeInlineField editor={editor} field="neighborhood" label="Zona o colonia" /> : <span><MapPin size={15} fill="currentColor" /> {cafe.neighborhood || 'Mérida'}</span>}{cafe.websiteUrl && <a href={cafe.websiteUrl} target="_blank" rel="noreferrer" aria-label="Sitio web de la cafetería" title="Sitio web"><Globe size={18} /></a>}{cafe.menuPageUrl && <a href={cafe.menuPageUrl} target="_blank" rel="noreferrer" aria-label="Ver menú" title="Ver menú"><BookOpen size={18} /></a>}{cafe.tiktokUrl && <a href={cafe.tiktokUrl} target="_blank" rel="noreferrer" aria-label="TikTok de la cafetería" title="TikTok"><Music2 size={18} /></a>}{cafe.instagramUrl && <a href={cafe.instagramUrl} target="_blank" rel="noreferrer" aria-label="Instagram"><Instagram size={18} /></a>}</div>
               </div>
               <div className="cafe-public-rating" aria-label="Calificación promedio de la app">{Number(cafe.rating) > 0 ? <CoffeeBeanRating value={Number(cafe.rating)} size={21} label="Promedio de la app" /> : <span className="cafe-unrated-beans" aria-label="Sin calificaciones">{Array.from({ length: 5 }, (_, index) => <CoffeeBeanIcon key={index} size={21} filled={false} />)}</span>}<strong>{formatAverageRating(cafe.rating)}</strong><small>{cafe.ratingsCount || 0} {cafe.ratingsCount === 1 ? 'calificación' : 'calificaciones'} en la app</small></div>
             </div>
+            {editor.editing && <section className="cafe-inline-panel cafe-inline-links" aria-label="Editar sitio web y redes sociales"><h2>Sitio web y redes</h2><CafeInlineField editor={editor} field="website_url" label="Sitio web" /><CafeInlineField editor={editor} field="instagram_url" label="Instagram" /><CafeInlineField editor={editor} field="tiktok_url" label="Perfil de TikTok" /></section>}
             <div className="cafe-control-card">
               <div className="cafe-control-grid">
                 <button type="button" onClick={toggleVisited} disabled={interactionBusy} className={isVisited ? 'is-selected' : ''}><CheckCircle2 /><span>Visitada</span></button>
@@ -344,19 +343,19 @@ function CafePage({ cafeId }) {
             <span>{!user ? 'Inicia sesión para ver las visitas de tus amigos' : friendVisitorsStatus === 'loading' ? 'Cargando visitas de amigos…' : friendVisitorsStatus === 'error' ? 'No se pudieron cargar las visitas de tus amigos' : friendVisitors.length ? 'Amigos que lo han visitado' : 'Tus amigos aún no lo han visitado'}</span>
             {user && friendVisitorsStatus === 'ready' && <strong>{friendVisitors.length}</strong>}
           </div>
-          <ResponsiveDisclosure className="cafe-hours-card" summary={<div className="cafe-hours-heading"><span className="cafe-section-kicker">HORARIOS</span><div className="cafe-hours-status-row"><h2>{openStatus.label}</h2><i className={`cafe-hours-status is-${openStatus.state}`} /></div></div>}>
+          {editor.editing ? <CafeInlineHours editor={editor} /> : <ResponsiveDisclosure className="cafe-hours-card" summary={<div className="cafe-hours-heading"><span className="cafe-section-kicker">HORARIOS</span><div className="cafe-hours-status-row"><h2>{openStatus.label}</h2><i className={`cafe-hours-status is-${openStatus.state}`} /></div></div>}>
             {scheduleRows.length > 0 ? <div className="cafe-hours-list">{scheduleRows.map((row) => <p key={row.day}><span>{row.day}</span><strong>{row.hours}</strong></p>)}</div> : <p className="cafe-hours-pending">Aún no tenemos un horario verificado para esta cafetería.</p>}
             {scheduleRows.length > 0 && cafe.openingHoursSource === 'osm' && <small className="cafe-hours-source">Horario de OpenStreetMap; puede cambiar.</small>}
             {scheduleRows.length > 0 && cafe.openingHoursSource === 'web' && <small className="cafe-hours-source">Horario verificado en una fuente pública{cafe.openingHoursSourceUrl ? <> · <a href={cafe.openingHoursSourceUrl} target="_blank" rel="noreferrer">ver fuente</a></> : null}.</small>}
             {scheduleRows.length > 0 && cafe.openingHoursSource === 'admin' && <small className="cafe-hours-source">Horario verificado por Coffee Map.</small>}
-          </ResponsiveDisclosure>
+          </ResponsiveDisclosure>}
           <div className="cafe-map-container"><button type="button" className="cafe-map-card" onClick={showInAppMap} aria-label={`Ver ${cafe.nombre} en el mapa de Coffee Map`}><CafeMapPreview lat={mapCoordinates?.lat} lng={mapCoordinates?.lng} /><span><MapPin size={17} /> {cafe.address || cafe.neighborhood || 'Ver ubicación'}</span></button>
-          <p className="cafe-map-attribution"><a href="https://openfreemap.org" target="_blank" rel="noreferrer">OpenFreeMap</a> · © OpenMapTiles · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap</a></p></div>
+          <p className="cafe-map-attribution"><a href="https://openfreemap.org" target="_blank" rel="noreferrer">OpenFreeMap</a> · © OpenMapTiles · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap</a></p>{editor.editing && <section className="cafe-inline-panel"><h2>Ubicación</h2><CafeInlineField editor={editor} field="address" label="Dirección" multiline /><CafeInlineField editor={editor} field="link" label="Enlace de Google Maps" /><p className="cafe-inline-help">Al guardar se verifica la ubicación. Si cambias solo la dirección, se recalcula el punto del mapa y se retira el enlace anterior.</p></section>}</div>
         </aside>
 
         <div className="cafe-main-column">
-          {cafe.menuImages?.length > 0 && <ResponsiveDisclosure className="cafe-menu-gallery" summary={<div className="cafe-menu-heading"><div><span className="cafe-section-kicker">CONSULTA AQUÍ</span><h2>Menú</h2></div><span>{cafe.menuImages.length} imágenes</span></div>}>
-            <div className="cafe-menu-gallery-grid">{cafe.menuImages.map((url, index) => <button type="button" key={`${url}-${index}`} onClick={() => setExpandedImage({ src: url, alt: `Menú ${index + 1} de ${cafe.nombre}` })} aria-label={`Ampliar imagen ${index + 1} del menú de ${cafe.nombre}`}><img src={url} alt={`Menú ${index + 1} de ${cafe.nombre}`} loading="lazy" decoding="async" /></button>)}</div>
+          {editor.editing ? <CafeInlineMenu editor={editor} /> : cafe.menuImages?.length > 0 && <ResponsiveDisclosure className="cafe-menu-gallery" summary={<div className="cafe-menu-heading"><div><span className="cafe-section-kicker">CONSULTA AQUÍ</span><h2>Menú</h2></div><span>{cafe.menuImages.length} imágenes</span></div>}>
+            <div className="cafe-menu-gallery-grid">{cafe.menuImages.map((url, index) => <button type="button" key={`${url}-${index}`} onClick={() => setExpandedImage({ images: cafe.menuImages.map((src, page) => ({ src, alt: `Menú ${page + 1} de ${cafe.nombre}` })), index })} aria-label={`Ampliar imagen ${index + 1} del menú de ${cafe.nombre}`}><img src={url} alt={`Menú ${index + 1} de ${cafe.nombre}`} loading="lazy" decoding="async" /></button>)}</div>
           </ResponsiveDisclosure>}
 
           <section className="cafe-reviews-section">
@@ -370,8 +369,8 @@ function CafePage({ cafeId }) {
 
           <section className="cafe-gallery-section">
             <header><div><span className="cafe-section-kicker">UN VISTAZO AL LUGAR</span><h2>Galería</h2></div>{communityPhotos.length > 0 && <span>{communityPhotos.length} fotos</span>}</header>
-            <CafeGallery key={cafe.id} photos={communityPhotos} cafeName={cafe.nombre} onOpen={(photo) => setExpandedImage({ src: photo.public_url, alt: cafe.nombre })} />
-            {!communityPhotos.length && <p className="cafe-gallery-empty">Las fotos de esta cafetería aparecerán aquí.</p>}
+            {editor.editing ? <CafeInlineGallery editor={editor} photos={communityPhotos} /> : <><CafeGallery key={cafe.id} photos={communityPhotos} cafeName={cafe.nombre} onOpen={(photo) => setExpandedImage({ images: communityPhotos.map((item, index) => ({ src: item.public_url, alt: `${cafe.nombre}, foto ${index + 1}` })), index: communityPhotos.findIndex((item) => item.id === photo.id) })} />
+            {!communityPhotos.length && <p className="cafe-gallery-empty">Las fotos de esta cafetería aparecerán aquí.</p>}</>}
           </section>
         </div>
       </div>
@@ -379,14 +378,15 @@ function CafePage({ cafeId }) {
       <section className="cafe-tiktok-section">
         <header><div><span className="cafe-section-kicker">DESCÚBRELO EN VIDEO</span><h2><Music2 size={22} /> TikTok</h2></div><span>{tiktoksStatus === 'loading' ? 'Cargando…' : tiktoksStatus === 'error' ? 'No disponible' : `${communityTiktoks.length} videos`}</span></header>
         {tiktoksStatus === 'error' && <div className="cafe-tiktok-empty" role="status"><p>No pudimos cargar los TikToks. Intenta otra vez.</p><button type="button" onClick={() => setMediaReload((value) => value + 1)}>Reintentar</button></div>}
-        {communityTiktoks.length ? <div className="cafe-tiktok-grid">{communityTiktoks.map((tiktok) => <a key={tiktok.id} href={tiktok.url} target="_blank" rel="noreferrer" className="cafe-tiktok-card">
+        {editor.editing ? <CafeInlineTikToks editor={editor} tiktoks={communityTiktoks} ready={tiktoksStatus === 'ready'} /> : communityTiktoks.length ? <div className="cafe-tiktok-grid">{communityTiktoks.map((tiktok) => <a key={tiktok.id} href={tiktok.url} target="_blank" rel="noreferrer" className="cafe-tiktok-card">
           <div className="cafe-tiktok-cover"><TikTokCover key={tiktok.url} tiktok={tiktok} cafeName={cafe.nombre} /><span className="cafe-tiktok-play"><Music2 size={14} /> Ver en TikTok <ExternalLink size={12} /></span></div>
           <strong>{tiktok.title || 'Publicación de la comunidad'}</strong><small>TikTok</small>
         </a>)}</div> : tiktoksStatus === 'ready' ? <div className="cafe-tiktok-empty"><Music2 size={24} /><p>Aquí aparecerán los TikToks de esta cafetería.</p></div> : null}
       </section>
-      {expandedImage && <div className="cafe-image-viewer" role="dialog" aria-modal="true" aria-label="Foto ampliada" onMouseDown={(event) => { if (event.target === event.currentTarget) setExpandedImage(null); }}><button type="button" className="cafe-image-viewer-close" onClick={() => setExpandedImage(null)} aria-label="Cerrar foto"><X size={22} /></button><img src={expandedImage.src} alt={expandedImage.alt} /></div>}
+      {expandedImage && isCafeRouteActive && <ImageLightbox images={expandedImage.images || [{ src: expandedImage.src, alt: expandedImage.alt }]} index={expandedImage.index || 0} onIndexChange={(index) => setExpandedImage((current) => ({ ...current, index }))} onClose={() => setExpandedImage(null)} label="Fotos de la cafetería" />}
       {showVisitConfirmation && isCafeRouteActive && <ConfirmDialog title="Agregar nueva visita" description={`¿Registrar una nueva visita a ${cafe.nombre}? Puedes agregar una reseña después si quieres.`} confirmLabel="Registrar visita" busy={savingInteraction} error={saveError} onConfirm={registerAnotherVisit} onCancel={() => setShowVisitConfirmation(false)} />}
       {showVisitHistory && isCafeRouteActive && <CafeVisitHistory cafe={cafe} visits={visits} onClose={() => setShowVisitHistory(false)} />}
+      {editor.editing && isCafeRouteActive && <CafeInlineConfirmation editor={editor} cafeName={cafe.nombre} />}
     </main>
   );
 }

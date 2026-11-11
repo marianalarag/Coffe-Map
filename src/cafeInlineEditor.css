@@ -1,0 +1,84 @@
+.cafe-inline-toolbar { position: absolute; top: max(20px, env(safe-area-inset-top)); right: max(20px, env(safe-area-inset-right)); z-index: 25; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; max-width: calc(100% - 88px); }
+.cafe-inline-toolbar.is-editing { position: sticky; top: 0; right: auto; width: 100%; max-width: none; align-items: center; justify-content: space-between; padding: max(12px, env(safe-area-inset-top)) clamp(14px, 3vw, 40px) 12px; color: #e8ddc5; background: #241e18f5; border-bottom: 1px solid #c8a77970; box-shadow: 0 8px 30px #0003; backdrop-filter: blur(12px); }
+.cafe-inline-toolbar button, .cafe-inline-panel button, .cafe-inline-cover-tools button, .cafe-inline-upload { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 40px; padding: 9px 13px; color: #e8ddc5; background: #3d3025; border: 1px solid #e8ddc530; border-radius: 10px; font: 500 13px/1.3 "Inter", system-ui, sans-serif; cursor: pointer; }
+.cafe-inline-toolbar .cafe-inline-edit-toggle { background: #211a15eb; box-shadow: 0 3px 16px #0003; }
+.cafe-inline-toolbar button:hover, .cafe-inline-panel button:hover, .cafe-inline-cover-tools button:hover, .cafe-inline-upload:hover { background: #51402e; }
+.cafe-inline-toolbar button:disabled, .cafe-inline-panel button:disabled, .cafe-inline-upload:has(input:disabled) { opacity: .45; cursor: not-allowed; }
+.cafe-inline-toolbar button:focus-visible, .cafe-inline-panel button:focus-visible, .cafe-inline-upload:focus-within, .cafe-inline-cover-tools button:focus-visible { outline: 2px solid #e6bf86; outline-offset: 3px; }
+.cafe-inline-toolbar .cafe-inline-primary, .cafe-inline-panel .cafe-inline-primary { color: #211a15; background: #e5c390; border-color: #e5c390; }
+.cafe-inline-toolbar .cafe-inline-danger { color: #ffb4a8; border-color: #ffb4a844; }
+.cafe-inline-mode { display: flex; align-items: center; gap: 10px; }
+.cafe-inline-mode strong, .cafe-inline-mode small { display: block; }
+.cafe-inline-mode strong { font-size: 13px; }
+.cafe-inline-mode small { margin-top: 3px; color: #d3c4aa; font-size: 11px; }
+.cafe-inline-toolbar-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.cafe-inline-feedback { flex: 1 0 100%; display: flex; align-items: center; gap: 7px; margin: 0; padding: 9px 12px; color: #cce5ba; background: #272d22; border: 1px solid #cce5ba40; border-radius: 9px; font-size: 12px; overflow-wrap: anywhere; }
+.cafe-inline-feedback.is-error { color: #ffc4b9; background: #3b231f; border-color: #ffc4b940; }
+.cafe-page-is-editing > .cafe-back-button { display: none; }
+.cafe-page-is-editing .cafe-hero { padding-top: 28px; }
+.cafe-inline-field { display: flex; flex-direction: column; gap: 7px; min-width: 0; margin: 10px 0; color: #d6c4a7; font: 500 11px/1.5 "Inter", system-ui, sans-serif; letter-spacing: normal; text-transform: none; }
+.cafe-inline-field input, .cafe-inline-field textarea, .cafe-inline-category { width: 100%; min-width: 0; padding: 10px 11px; color: #f3e7d1; background: #1d1814c9; border: 1px dashed #c9a77b; border-radius: 8px; font: 400 14px/1.5 "Inter", system-ui, sans-serif; }
+.cafe-inline-field textarea { resize: vertical; }
+.cafe-inline-field input:focus, .cafe-inline-field textarea:focus, .cafe-inline-category:focus { outline: 2px solid #e5c390; outline-offset: 2px; border-style: solid; }
+.cafe-inline-field input::placeholder, .cafe-inline-field textarea::placeholder { color: #cbbda77a; }
+.cafe-inline-field input:disabled, .cafe-inline-field textarea:disabled { opacity: .6; }
+.cafe-inline-category { display: inline-block; width: auto; padding: 5px 8px; font-size: 12px; }
+.cafe-inline-name { margin: 0; }
+.cafe-inline-name input { font-size: clamp(26px, 3vw, 42px); line-height: 1.2; padding: 6px 9px; }
+.cafe-page-is-editing .cafe-cover-frame { align-self: start; }
+.cafe-page-is-editing .cafe-profile-heading { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px 16px; }
+.cafe-page-is-editing .cafe-profile-heading > div:first-child { display: contents; }
+.cafe-page-is-editing .cafe-profile-heading .cafe-eyebrow { grid-column: 1 / -1; }
+.cafe-page-is-editing .cafe-profile-heading h1 { grid-column: 1; grid-row: 2; }
+.cafe-page-is-editing .cafe-profile-heading .cafe-profile-meta { grid-column: 1 / -1; grid-row: 3; }
+.cafe-page-is-editing .cafe-profile-heading .cafe-public-rating { grid-column: 2; grid-row: 2; }
+.cafe-page-is-editing .cafe-profile-meta { flex-wrap: wrap; }
+.cafe-page-is-editing .cafe-profile-meta .cafe-inline-field { flex: 1 1 100%; }
+.cafe-inline-panel { min-width: 0; margin: 16px 0; padding: 18px; color: #e8ddc5; background: #28211b; border: 1px dashed #bb986d80; border-radius: 16px; }
+.cafe-inline-panel > header { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; margin-bottom: 10px; }
+.cafe-inline-panel h2 { flex: 1; margin: 0; font: 600 18px/1.3 "Inter", system-ui, sans-serif; }
+.cafe-inline-panel > header > span { color: #c9b89e; font-size: 11px; }
+.cafe-inline-help { margin: 12px 0 0; color: #c2b298; font: 400 11px/1.6 "Inter", system-ui, sans-serif; }
+.cafe-inline-cover-tools { position: absolute; bottom: 0; left: 0; right: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 9px; padding: 25px 16px 16px; background: linear-gradient(transparent, #191612f5 25%); color: #e8ddc5; }
+.cafe-inline-cover-tools small { flex: 1 0 100%; font-size: 10px; line-height: 1.5; }
+.cafe-inline-upload { position: relative; width: fit-content; overflow: hidden; }
+.cafe-inline-upload input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.cafe-inline-day { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px 0; border-bottom: 1px solid #e8ddc515; }
+.cafe-inline-day-toggle { display: inline-flex; align-items: center; gap: 9px; font-size: 12px; }
+.cafe-inline-day input[type="checkbox"], .cafe-inline-publish input[type="checkbox"] { width: 16px; height: 16px; accent-color: #caa570; }
+.cafe-inline-ranges { display: flex; flex-direction: column; align-items: flex-start; gap: 7px; width: 100%; }
+.cafe-inline-time-range { display: flex; align-items: center; gap: 6px; width: 100%; font-size: 12px; }
+.cafe-inline-time-range input { width: 0; min-width: 0; flex: 1; padding: 7px 5px; color: #e8ddc5; background: #1b1713; border: 1px solid #bb986d80; border-radius: 7px; font: 12px "Inter", system-ui, sans-serif; color-scheme: dark; }
+.cafe-inline-time-range button { flex: 0 0 auto; min-height: 34px; padding: 7px; }
+.cafe-inline-panel .cafe-inline-add-shift { min-height: 30px; padding: 5px 8px; font-size: 11px; }
+.cafe-inline-day > .cafe-inline-help { margin: 0; }
+.cafe-inline-image-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; margin: 14px 0; }
+.cafe-inline-image-item { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.cafe-inline-image-item img { width: 100%; height: 140px; object-fit: cover; border-radius: 10px; background: #171410; }
+.cafe-inline-image-item span { font-size: 11px; color: #c9b89e; }
+.cafe-inline-image-item > div { display: flex; gap: 5px; }
+.cafe-inline-image-item button { flex: 1; min-height: 36px; padding: 7px; font-size: 11px; }
+.cafe-inline-publish { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; margin-top: 14px; font-size: 12px; }
+.cafe-inline-publish > span { overflow-wrap: anywhere; max-width: 100%; }
+.cafe-inline-publish label { display: flex; align-items: center; gap: 9px; }
+.cafe-inline-video-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid #e8ddc51a; }
+.cafe-inline-video-row a { min-width: 0; overflow-wrap: anywhere; font-size: 13px; }
+.cafe-inline-video-row button { flex: 0 0 auto; }
+.cafe-inline-video-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: end; margin-top: 12px; }
+.cafe-inline-video-form .cafe-inline-field { margin: 0; }
+.cafe-inline-video-form > button { grid-column: 1 / -1; justify-self: start; }
+@media (max-width: 600px) {
+  .cafe-inline-toolbar { top: max(14px, env(safe-area-inset-top)); right: 13px; max-width: calc(100% - 70px); }
+  .cafe-inline-toolbar.is-editing { top: 0; gap: 10px; padding: max(10px, env(safe-area-inset-top)) 12px 10px; }
+  .cafe-inline-toolbar-actions { width: 100%; justify-content: flex-end; gap: 6px; }
+  .cafe-inline-toolbar-actions button { flex: 1; min-height: 40px; padding: 8px; font-size: 12px; }
+  .cafe-inline-mode { width: 100%; }
+  .cafe-inline-panel { padding: 14px; }
+  .cafe-inline-field input, .cafe-inline-field textarea, .cafe-inline-category, .cafe-inline-time-range input { font-size: 16px; }
+  .cafe-inline-name input { font-size: 28px; }
+  .cafe-inline-name > span { font-size: 10px; }
+  .cafe-page-is-editing .cafe-profile-heading { grid-template-columns: minmax(0, 1fr); }
+  .cafe-page-is-editing .cafe-profile-heading .cafe-public-rating { grid-column: 1; grid-row: 4; justify-content: flex-start; }
+  .cafe-inline-video-form { grid-template-columns: minmax(0, 1fr); }
+  .cafe-inline-feedback { font-size: 11px; }
+}

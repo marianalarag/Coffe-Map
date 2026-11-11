@@ -1,0 +1,77 @@
+/* Keep the header and submit action outside the keyboard-sized scroll area. */
+.missing-cafe-backdrop { display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.missing-cafe-modal { display: flex; flex-direction: column; max-height: 100%; overflow: hidden; animation: none; }
+.missing-cafe-modal > header { flex: 0 0 auto; }
+.missing-cafe-modal > header > div { min-width: 0; }
+.missing-cafe-modal > header > button { flex: 0 0 36px; width: 36px; height: 36px; }
+.missing-cafe-modal form { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scroll-padding-block: 16px; -webkit-overflow-scrolling: touch; }
+.missing-cafe-modal input { flex: 0 0 auto; scroll-margin-block: 16px; }
+.missing-cafe-modal > footer { display: flex; flex: 0 0 auto; padding: 12px 20px 16px; border-top: 1px solid #eee5d21a; background: #27201a; }
+.missing-cafe-modal > footer > button { width: 100%; }
+.missing-cafe-backdrop.has-keyboard { padding: 8px 12px; }
+.missing-cafe-backdrop.has-keyboard .missing-cafe-modal { border-radius: 18px; }
+.missing-cafe-backdrop.has-keyboard .missing-cafe-modal > header { padding: 12px 16px 8px; }
+.missing-cafe-backdrop.has-keyboard .missing-cafe-modal h2 { font-size: 21px; }
+.missing-cafe-backdrop.has-keyboard .missing-cafe-modal > footer { padding: 8px 16px; }
+
+.cms-selection-toggle { display: flex; justify-content: flex-end; margin: 0 0 14px; }
+.cms-selection-toggle > button, .cms-request-review { min-height: 40px; padding: 9px 14px; color: #eadcc4; background: #382a20; border: 1px solid #72533e; border-radius: 10px; font: 500 13px Inter, system-ui, sans-serif; cursor: pointer; }
+.cms-selection-toggle > button[aria-pressed="true"] { color: #ead8b7; border-color: #ead8b7; }
+.cms-selection-toggle > button:disabled, .cms-request-review:disabled { opacity: .5; cursor: default; }
+.cms-request-list { width: 100%; min-width: 0; overflow: hidden; border: 1px solid #594332; border-radius: 17px; background: #2b221b; }
+.cms-request-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 16px; padding: 20px; }
+.cms-request-row + .cms-request-row { border-top: 1px solid #594332; }
+.cms-request-row.is-selected { background: #49392b; }
+.cms-request-info { min-width: 0; }
+.cms-request-name { display: flex; align-items: center; gap: 12px; font-size: 15px; line-height: 1.4; overflow-wrap: anywhere; }
+.cms-request-name input, .cms-request-batch-bar input { flex: 0 0 auto; width: 18px; height: 18px; accent-color: #dfc59d; }
+.cms-request-info > p { margin: 7px 0 10px; color: #c5b49d; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+.cms-request-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; color: #baa58c; font-size: 11px; overflow-wrap: anywhere; }
+.cms-request-meta > span:first-child { max-width: 100%; }
+.cms-request-review { justify-self: end; }
+.cms-request-batch-bar { flex-wrap: wrap; gap: 12px; }
+.cms-drawer { display: flex; flex-direction: column; overflow: hidden; padding-bottom: env(safe-area-inset-bottom, 0px); }
+.cms-drawer > header { position: relative; flex: 0 0 auto; padding-top: max(24px, calc(env(safe-area-inset-top, 0px) + 16px)); }
+.cms-drawer > header h2 { min-width: 0; overflow-wrap: anywhere; }
+.cms-drawer-content { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.admin-page { scroll-padding-top: 180px; }
+.admin-content > section { min-width: 0; }
+.profile-visit-ranking-list { display: flex; flex-direction: column; max-height: none; overflow: visible; }
+.profile-visit-ranking-card { border-radius: 0; }
+.profile-visit-position { width: 20px; flex: 0 0 20px; color: #c5aa81; text-align: center; font-size: 14px; font-weight: 600; }
+.profile-ranking-caption { margin: -6px 0 12px; color: #bfae94; font-size: 11px; }
+
+/* A definite frame and flex basis keep carousel slides at the card width. */
+.activity-post-body { grid-template-columns: minmax(0, 1fr) minmax(0, .95fr); align-items: start; min-height: 0; gap: 14px; }
+.activity-post-body > .activity-image-carousel, .cafe-review-content > .activity-image-carousel { position: relative; width: 100%; min-width: 0; min-height: 0; aspect-ratio: 3 / 4; align-self: start; }
+.activity-post-body > .activity-image-carousel:only-child { grid-column: 1 / -1; max-width: 620px; aspect-ratio: 4 / 3; }
+.activity-image-carousel .activity-image-track { position: absolute; inset: 0; width: 100%; height: 100%; }
+.activity-image-carousel .activity-image-slide { flex: 0 0 100%; width: 100%; min-width: 100%; height: 100%; }
+.activity-image-carousel .activity-image-open { display: block; width: 100%; height: 100%; min-width: 0; margin: 0; padding: 0; }
+.activity-image-carousel .activity-image-slide img { display: block; width: 100%; height: 100%; max-width: none; object-fit: cover; }
+.activity-post-body > .activity-post-copy { font-size: clamp(12px, 1.1vw, 15px); line-height: 1.55; }
+.cafe-menu-gallery-grid { align-items: start; }
+.cafe-menu-gallery-grid button { height: 260px; background: transparent; border: 0; box-shadow: none; }
+.cafe-menu-gallery-grid img { height: 100%; width: 100%; object-fit: cover; object-position: top; }
+@media (max-width: 899px) {
+  .profile-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; width: 100%; max-width: 460px; margin: 24px auto 0; }
+  .profile-stats > button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; min-width: 0; min-height: 60px; padding: 8px 3px; color: #eee5d2; background: transparent; border: 0; cursor: pointer; }
+  .profile-stats > button + button { border-left: 1px solid #eee5d226; }
+  .profile-stats strong { font-size: 23px; font-weight: 600; }
+  .profile-stats span { color: #d1bfa4; font-size: 10px; line-height: 1.4; }
+  .cms-drawer > header { padding: max(40px, calc(env(safe-area-inset-top, 0px) + 16px)) 20px 20px; gap: 16px; }
+  .cms-drawer > header h2 { font-size: 20px; }
+}
+@media (max-width: 600px) {
+  .cms-request-row { padding: 16px 14px; gap: 10px; }
+  .cms-request-name { font-size: 14px; }
+  .cms-request-review { padding: 9px 11px; font-size: 12px; }
+  .cms-request-meta { gap: 8px 10px; }
+  .cms-request-batch-bar > button { flex: 1 1 140px; }
+  .cms-request-batch-bar > label { flex: 1 0 100%; }
+  .activity-post-body { grid-template-columns: minmax(0, 1fr) minmax(0, .95fr); gap: 12px; }
+  .activity-post-body > .activity-post-copy { font-size: 12px; line-height: 1.55; }
+  .activity-image-carousel .activity-carousel-button { width: 30px; height: 30px; }
+  .activity-image-carousel .activity-image-counter { top: 6px; right: 6px; min-width: 30px; padding: 4px 6px; font-size: 9px; }
+  .cafe-menu-gallery-grid button { height: 220px; }
+}
