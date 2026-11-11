@@ -3,12 +3,12 @@ import { useAuth } from '../context/AuthContext';
 import { useCoffeeData } from '../context/CoffeeDataContext';
 import { supabase } from '../supabase';
 import { geocodeCafeLocation } from '../utils/cafeLocation';
-import { softDeleteCafes } from '../utils/deleteCafes';
+import { permanentlyDeleteCafe } from '../utils/deleteCafes';
 import { buildCafeEditorPatch, createCafeDraft, hasCafeDraftChanges, normalizeCafeEditorUrl, saveCafeEditorPatch, validateCafeImage } from '../utils/cafeEditor';
 
 export default function useCafeInlineEditor({ cafe, active, onMediaChange, onDeleted }) {
   const { user, userProfile } = useAuth();
-  const { updateCafe } = useCoffeeData();
+  const { updateCafe, removeCafe } = useCoffeeData();
   const isAdmin = Boolean(user?.id && userProfile?.id === user.id && userProfile.role === 'administrador');
   const [session, setSession] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -167,9 +167,8 @@ export default function useCafeInlineEditor({ cafe, active, onMediaChange, onDel
     if (confirmation?.type === 'discard') { discard(); return; }
     return run(async () => {
       if (confirmation.type === 'cafe') {
-        const result = await softDeleteCafes(supabase, [cafe.id]);
-        if (result.error || !result.deletedIds.includes(cafe.id)) throw new Error(result.error || 'No se pudo confirmar la eliminación.');
-        updateCafe({ id: cafe.id, status: 'closed', deleted_at: result.deletedAt });
+        await permanentlyDeleteCafe(supabase, cafe.id);
+        removeCafe(cafe.id);
         clearFiles(); setSession(null); onDeleted();
       } else if (confirmation.type === 'photo') {
         const { data, error: deleteError } = await supabase.from('cafe_photos').update({ status: 'rejected' }).eq('id', confirmation.id).eq('cafe_id', cafe.id).select('id').single();

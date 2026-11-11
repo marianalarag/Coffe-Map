@@ -219,6 +219,17 @@ export function CoffeeDataProvider({ children }) {
     setCafesState((state) => ({ ...state, cafes: next, cafesError: '' }));
   }, []);
 
+  const removeCafe = useCallback((cafeId) => {
+    cafeVersionRef.current += 1;
+    cafeRequestRef.current = null;
+    setCafesLoading(false);
+    const next = cafesRef.current.filter((cafe) => cafe.id !== cafeId);
+    cafesRef.current = next;
+    writeCachedCafes(next);
+    setCafesState((state) => ({ ...state, cafes: next, cafesError: '' }));
+    setInteractions((items) => items.filter((item) => item.cafe_id !== cafeId));
+  }, []);
+
   const refreshUserInteractions = useCallback(async (targetUserId = userId) => {
     if (!targetUserId) {
       setInteractions([]);
@@ -426,6 +437,7 @@ export function CoffeeDataProvider({ children }) {
     refreshCafes: () => loadCafes({ force: true }),
     addCafes,
     updateCafe,
+    removeCafe,
     preloadInitialData,
     refreshUserInteractions,
     saveCafeInteraction,
@@ -433,6 +445,7 @@ export function CoffeeDataProvider({ children }) {
   }), [
     addCafes,
     updateCafe,
+    removeCafe,
     cafeById,
     cafesLoading,
     cafesState.cafes,
